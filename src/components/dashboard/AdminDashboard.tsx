@@ -1,0 +1,973 @@
+import React, { useState } from 'react';
+import { useLeave } from '../../context/LeaveContext';
+import { User, Role, LeaveType, LeavePolicy, Department } from '../../types';
+import { MaterialChip } from '../common/MaterialChip';
+import { 
+  UserCog, 
+  Settings, 
+  Sliders, 
+  Check, 
+  Edit3, 
+  Save, 
+  X, 
+  UserPlus, 
+  BarChart3, 
+  Building2,
+  Sparkles,
+  ShieldAlert,
+  Plus,
+  FolderPlus,
+  FileSpreadsheet,
+  CheckCircle2
+} from 'lucide-react';
+
+export const AdminDashboard: React.FC = () => {
+  const { 
+    allUsers, 
+    departments, 
+    leavePolicies, 
+    updateUserRoleAndPermissions, 
+    adjustUserLeaveBalance,
+    createNewUser,
+    createNewDepartment,
+    createNewLeaveType,
+    updateLeavePolicy,
+    updateUserStatus
+  } = useLeave();
+
+  const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending'>('users');
+  const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
+
+  // User editing state
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role>('FACULTY');
+  
+  // Balance editing state
+  const [balanceUserId, setBalanceUserId] = useState<string | null>(null);
+  const [selectedLeaveType, setSelectedLeaveType] = useState<LeaveType>('CASUAL');
+  const [editTotalQuota, setEditTotalQuota] = useState<number>(12);
+  const [editUsedDays, setEditUsedDays] = useState<number>(0);
+
+  // Policy editing state
+  const [editingPolicy, setEditingPolicy] = useState<LeavePolicy | null>(null);
+
+  // Modals state
+  const [showAddUserModal, setShowAddUserModal] = useState<boolean>(false);
+  const [showAddDeptModal, setShowAddDeptModal] = useState<boolean>(false);
+  const [showAddPolicyModal, setShowAddPolicyModal] = useState<boolean>(false);
+
+  // New User form state
+  const [newName, setNewName] = useState<string>('');
+  const [newEmail, setNewEmail] = useState<string>('');
+  const [newDesignation, setNewDesignation] = useState<string>('');
+  const [newRole, setNewRole] = useState<Role>('FACULTY');
+  const [newDeptId, setNewDeptId] = useState<string>('CSE');
+  const [newPhone, setNewPhone] = useState<string>('');
+  const [newEmpCode, setNewEmpCode] = useState<string>('');
+
+  // New Department form state
+  const [deptCode, setDeptCode] = useState<string>('');
+  const [deptName, setDeptName] = useState<string>('');
+  const [deptHodId, setDeptHodId] = useState<string>('');
+
+  // New Leave Type form state
+  const [policyCode, setPolicyCode] = useState<string>('');
+  const [policyLabel, setPolicyLabel] = useState<string>('');
+  const [policyQuota, setPolicyQuota] = useState<number>(12);
+  const [policyNotice, setPolicyNotice] = useState<number>(1);
+  const [policyReqDoc, setPolicyReqDoc] = useState<boolean>(false);
+  const [policyColor, setPolicyColor] = useState<string>('#3F51B5');
+  const [policyDesc, setPolicyDesc] = useState<string>('');
+
+  const handleSaveRole = (userId: string) => {
+    updateUserRoleAndPermissions(userId, selectedRole, []);
+    setEditingUserId(null);
+  };
+
+  const handleSaveBalance = (userId: string) => {
+    adjustUserLeaveBalance(userId, selectedLeaveType, editTotalQuota, editUsedDays);
+    setBalanceUserId(null);
+  };
+
+  const handleSavePolicy = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingPolicy) {
+      updateLeavePolicy(editingPolicy);
+      setEditingPolicy(null);
+    }
+  };
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newEmail) {
+      alert('Please fill required fields.');
+      return;
+    }
+
+    const dept = departments.find(d => d.id === newDeptId);
+
+    const result = createNewUser({
+      name: newName,
+      email: newEmail,
+      role: newRole,
+      designation: newDesignation || 'Assistant Professor',
+      departmentId: newDeptId,
+      departmentName: dept ? dept.name : 'General Department',
+      employeeCode: newEmpCode || `FAC-2026-${Math.floor(100 + Math.random() * 900)}`,
+      joiningDate: new Date().toISOString().split('T')[0],
+      phone: newPhone || '+91 98765 00000',
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newName)}&background=1e3a8a&color=fff`
+    });
+
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+
+    setShowAddUserModal(false);
+    setNewName('');
+    setNewEmail('');
+  };
+
+  const handleCreateDepartment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deptCode || !deptName) {
+      alert('Department Code and Name are required.');
+      return;
+    }
+
+    const hodUser = allUsers.find(u => u.id === deptHodId);
+
+    createNewDepartment({
+      id: deptCode.toUpperCase().replace(/\s+/g, '_'),
+      code: deptCode.toUpperCase(),
+      name: deptName,
+      hodId: deptHodId,
+      hodName: hodUser ? hodUser.name : 'Not Assigned'
+    });
+
+    setShowAddDeptModal(false);
+    setDeptCode('');
+    setDeptName('');
+    setDeptHodId('');
+  };
+
+  const handleCreateLeaveType = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!policyCode || !policyLabel) {
+      alert('Leave Type Code and Label are required.');
+      return;
+    }
+
+    createNewLeaveType({
+      type: policyCode.toUpperCase().replace(/\s+/g, '_'),
+      label: policyLabel,
+      annualQuota: Number(policyQuota) || 10,
+      minDaysNotice: Number(policyNotice) || 0,
+      requiresDocument: policyReqDoc,
+      color: policyColor,
+      description: policyDesc || `${policyLabel} leave policy.`
+    });
+
+    setShowAddPolicyModal(false);
+    setPolicyCode('');
+    setPolicyLabel('');
+    setPolicyQuota(12);
+    setPolicyNotice(1);
+    setPolicyReqDoc(false);
+    setPolicyDesc('');
+  };
+
+  return (
+    <div className="space-y-6 font-sans">
+      
+      {/* Header Banner */}
+      <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
+              Administrative Control Center
+            </span>
+          </div>
+          <h2 className="text-xl font-medium tracking-tight">
+            User Roles, Department & Leave Management Portal
+          </h2>
+          <p className="text-xs text-indigo-100/90 mt-1 max-w-xl leading-relaxed">
+            Create user profiles, establish departments, define custom leave types, and adjust quotas.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            onClick={() => setShowAddUserModal(true)}
+            className="px-4 py-2 bg-white text-[#3F51B5] hover:bg-slate-50 rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-[#3F51B5]" />
+            New User
+          </button>
+          
+          <button
+            onClick={() => setShowAddDeptModal(true)}
+            className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            New Department
+          </button>
+
+          <button
+            onClick={() => setShowAddPolicyModal(true)}
+            className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            New Leave Type
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation Tabs Bar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'users'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <UserCog className="w-4 h-4" />
+          Users & Roles ({allUsers.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('departments')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'departments'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Departments ({departments.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('policies')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'policies'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          Leave Types & Policies ({leavePolicies.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('balances')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'balances'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          Quota & Balance Adjuster
+        </button>
+
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer relative ${
+            activeTab === 'pending'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          Pending Validations
+          {pendingUsers.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+              {pendingUsers.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* TAB 1: USER PROFILES & ROLES */}
+      {activeTab === 'users' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              Registered Users Directory
+            </h3>
+            <button
+              onClick={() => setShowAddUserModal(true)}
+              className="px-3 py-1 bg-[#3F51B5] text-white text-xs font-medium rounded uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5" /> Add User
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">User Profile</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Employee Code</th>
+                  <th className="px-4 py-3">Assigned Role</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allUsers.map((usr) => (
+                  <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={usr.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(usr.name)}&background=1e3a8a&color=fff`} 
+                          alt={usr.name}
+                          className="w-8 h-8 rounded-full border border-slate-200"
+                        />
+                        <div>
+                          <p className="font-bold text-slate-900">{usr.name}</p>
+                          <p className="text-[11px] text-slate-500">{usr.email}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3 font-medium text-slate-800">
+                      {usr.departmentName} ({usr.departmentId})
+                    </td>
+
+                    <td className="px-4 py-3 font-mono text-slate-600">
+                      {usr.employeeCode}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {editingUserId === usr.id ? (
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value as Role)}
+                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold"
+                        >
+                          <option value="FACULTY">FACULTY</option>
+                          <option value="STAFF">STAFF</option>
+                          <option value="HOD">HOD</option>
+                          <option value="REGISTRAR">REGISTRAR</option>
+                          <option value="ADMIN">ADMIN</option>
+                          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                        </select>
+                      ) : (
+                        <MaterialChip label={usr.role} variant="role" role={usr.role} />
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      {editingUserId === usr.id ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleSaveRole(usr.id)}
+                            className="p-1.5 text-white bg-emerald-600 rounded hover:bg-emerald-700 cursor-pointer"
+                            title="Save Role"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditingUserId(null)}
+                            className="p-1.5 text-slate-600 bg-slate-200 rounded hover:bg-slate-300 cursor-pointer"
+                            title="Cancel"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingUserId(usr.id);
+                            setSelectedRole(usr.role);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-semibold text-[#3F51B5] bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
+                        >
+                          Modify Role
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: DEPARTMENTS MANAGEMENT */}
+      {activeTab === 'departments' && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Institutional Department Directory
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage academic and administrative departments and assigned Head of Departments (HODs).
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddDeptModal(true)}
+              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+            >
+              <Building2 className="w-4 h-4" /> Create Department
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {departments.map((dept) => (
+              <div key={dept.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <span className="px-2 py-0.5 bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded font-mono text-[10px] font-bold">
+                      {dept.code}
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-900 mt-1">{dept.name}</h4>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Head of Department (HOD):</span>
+                    <span className="font-semibold text-slate-800">{dept.hodName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Total Department Faculty:</span>
+                    <span className="font-bold text-indigo-900">{dept.totalFaculty || allUsers.filter(u => u.departmentId === dept.id).length} Users</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: LEAVE TYPES & POLICIES */}
+      {activeTab === 'policies' && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Institutional Leave Policies & Custom Leave Types
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Define annual quotas, notice requirements, and mandatory document rules for leave categories.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddPolicyModal(true)}
+              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Create Leave Type
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {leavePolicies.map((pol) => (
+              <div 
+                key={pol.type} 
+                className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 relative overflow-hidden"
+              >
+                <div className="w-1.5 absolute top-0 bottom-0 left-0" style={{ backgroundColor: pol.color }} />
+                
+                <div className="pl-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400">
+                      TYPE: {pol.type}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: pol.color }}>
+                      {pol.annualQuota} Days / Year
+                    </span>
+                  </div>
+                  
+                  <h4 className="text-sm font-bold text-slate-900 mt-1">{pol.label}</h4>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{pol.description}</p>
+                </div>
+
+                <div className="pl-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
+                  <span>Notice required: <strong>{pol.minDaysNotice} day(s)</strong></span>
+                  <span>Document: <strong>{pol.requiresDocument ? 'Mandatory' : 'Optional'}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: QUOTA & BALANCE ADJUSTER */}
+      {activeTab === 'balances' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50 border-b border-slate-200">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              Manual Leave Quota Adjuster
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Adjust specific employee leave balances for casual, sick, duty, or custom leave types.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Leave Type</th>
+                  <th className="px-4 py-3">Total Quota</th>
+                  <th className="px-4 py-3">Used Days</th>
+                  <th className="px-4 py-3">Remaining Balance</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allUsers.map((usr) => {
+                  const bal = usr.leaveBalances[selectedLeaveType] || { total: 0, used: 0, pending: 0 };
+                  const remaining = Math.max(0, bal.total - bal.used);
+                  const isEditingThis = balanceUserId === usr.id;
+
+                  return (
+                    <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-slate-900">
+                        {usr.name} <span className="text-slate-400 font-normal">({usr.departmentId})</span>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <select
+                          value={selectedLeaveType}
+                          onChange={(e) => setSelectedLeaveType(e.target.value)}
+                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium"
+                        >
+                          {leavePolicies.map(p => (
+                            <option key={p.type} value={p.type}>{p.label}</option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td className="px-4 py-3 font-bold">
+                        {isEditingThis ? (
+                          <input
+                            type="number"
+                            value={editTotalQuota}
+                            onChange={(e) => setEditTotalQuota(Number(e.target.value))}
+                            className="w-16 px-2 py-1 bg-white border rounded text-xs"
+                          />
+                        ) : (
+                          `${bal.total} Days`
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 font-medium text-slate-600">
+                        {isEditingThis ? (
+                          <input
+                            type="number"
+                            value={editUsedDays}
+                            onChange={(e) => setEditUsedDays(Number(e.target.value))}
+                            className="w-16 px-2 py-1 bg-white border rounded text-xs"
+                          />
+                        ) : (
+                          `${bal.used} Days`
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 font-bold text-emerald-700">
+                        {remaining} Days
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        {isEditingThis ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleSaveBalance(usr.id)}
+                              className="p-1.5 text-white bg-emerald-600 rounded hover:bg-emerald-700 cursor-pointer"
+                              title="Save"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setBalanceUserId(null)}
+                              className="p-1.5 text-slate-600 bg-slate-200 rounded hover:bg-slate-300 cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setBalanceUserId(usr.id);
+                              setEditTotalQuota(bal.total);
+                              setEditUsedDays(bal.used);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#3F51B5] bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
+                          >
+                            Adjust Balance
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: PENDING REGISTRATIONS */}
+      {activeTab === 'pending' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+          <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Staff & Faculty Self-Registration Queue ({pendingUsers.length})
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review and validate self-registered staff members before granting them access to institutional workflows.
+              </p>
+            </div>
+            {pendingUsers.length === 0 && (
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                All Validated
+              </span>
+            )}
+          </div>
+
+          {pendingUsers.length === 0 ? (
+            <div className="py-12 text-center text-slate-500 space-y-2">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">No Pending Registration Requests</p>
+              <p className="text-xs text-slate-400">All staff and faculty self-registrations have been reviewed and validated.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingUsers.map((u) => (
+                <div key={u.id} className="p-5 rounded-2xl border border-amber-300 bg-amber-50/30 shadow-2xs flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <MaterialChip label={u.role} variant="role" role={u.role} />
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Pending Validation
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{u.name}</h4>
+                      <p className="text-xs text-slate-600">{u.designation} • {u.departmentName}</p>
+                      <p className="text-xs font-mono text-slate-500 mt-1">{u.email}</p>
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 flex justify-between">
+                      <span>Emp ID: <strong className="text-slate-700">{u.employeeCode}</strong></span>
+                      <span>Registered: <strong className="text-slate-700">{u.registeredAt ? new Date(u.registeredAt).toLocaleDateString() : 'Today'}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => updateUserStatus(u.id, 'ACTIVE')}
+                      className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Validate & Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Reject self-registration for ${u.name}?`)) {
+                          updateUserStatus(u.id, 'REJECTED');
+                        }
+                      }}
+                      className="py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <X className="w-4 h-4" />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL 1: ADD USER MODAL */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-[#3F51B5]" />
+                Add New User Profile
+              </h3>
+              <button onClick={() => setShowAddUserModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Dr. Smita Bannerjee"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="smita.b@institution.edu"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Department</label>
+                  <select
+                    value={newDeptId}
+                    onChange={(e) => setNewDeptId(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl font-medium"
+                  >
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Role</label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as Role)}
+                    className="w-full px-3 py-2 border rounded-xl font-medium"
+                  >
+                    <option value="FACULTY">FACULTY</option>
+                    <option value="STAFF">STAFF</option>
+                    <option value="HOD">HOD</option>
+                    <option value="REGISTRAR">REGISTRAR</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="px-4 py-2 font-medium text-slate-600 bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                >
+                  Create User
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: ADD DEPARTMENT MODAL */}
+      {showAddDeptModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#3F51B5]" />
+                Create New Department
+              </h3>
+              <button onClick={() => setShowAddDeptModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDepartment} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Department Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. CIVIL or AI_DS"
+                  value={deptCode}
+                  onChange={(e) => setDeptCode(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Department Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Civil & Environmental Engineering"
+                  value={deptName}
+                  onChange={(e) => setDeptName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Assign Head of Department (HOD)</label>
+                <select
+                  value={deptHodId}
+                  onChange={(e) => setDeptHodId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl font-medium"
+                >
+                  <option value="">-- Assign Later / No HOD --</option>
+                  {allUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddDeptModal(false)}
+                  className="px-4 py-2 font-medium text-slate-600 bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                >
+                  Create Department
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ADD LEAVE TYPE MODAL */}
+      {showAddPolicyModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-[#3F51B5]" />
+                Define Custom Leave Type
+              </h3>
+              <button onClick={() => setShowAddPolicyModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateLeaveType} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Leave Code / Key *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. RESEARCH_LEAVE or SABBATICAL"
+                  value={policyCode}
+                  onChange={(e) => setPolicyCode(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl uppercase font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Leave Type Title / Label *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Academic Research & Sabbatical Leave"
+                  value={policyLabel}
+                  onChange={(e) => setPolicyLabel(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Annual Quota (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={policyQuota}
+                    onChange={(e) => setPolicyQuota(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Notice Required (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={policyNotice}
+                    onChange={(e) => setPolicyNotice(Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="reqDoc"
+                  checked={policyReqDoc}
+                  onChange={(e) => setPolicyReqDoc(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#3F51B5]"
+                />
+                <label htmlFor="reqDoc" className="text-xs font-semibold text-slate-700">
+                  Mandatory Document / Certificate Upload Required
+                </label>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Description / Guidelines</label>
+                <textarea
+                  rows={2}
+                  placeholder="Details regarding eligibility and guidelines for this leave category..."
+                  value={policyDesc}
+                  onChange={(e) => setPolicyDesc(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl"
+                />
+              </div>
+
+              <div className="pt-3 border-t flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPolicyModal(false)}
+                  className="px-4 py-2 font-medium text-slate-600 bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                >
+                  Save Leave Type
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};

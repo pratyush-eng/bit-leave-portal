@@ -1,0 +1,6 @@
+{
+  "name": "Academia Leave Portal",
+  "description": "Leave management system for educational organizations with multi-tier approval (Faculty/Staff -> HOD -> Registrar), role management, leave balance tracking, automated notifications, and analytical reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
