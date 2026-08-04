@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore } from '../lib/firestoreSync';
+import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore } from '../lib/firestoreSync';
 import { 
   User, 
   LeaveRequest, 
@@ -9,7 +9,8 @@ import {
   Department, 
   Role, 
   LeaveType,
-  GranularPermission
+  GranularPermission,
+  ToastNotification
 } from '../types';
 import { 
   MOCK_USERS, 
@@ -32,6 +33,11 @@ interface LeaveContextType {
   granularPermissions: GranularPermission[];
   unreadNotificationCount: number;
   isAuthenticated: boolean;
+  toasts: ToastNotification[];
+
+  addToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
+  removeToast: (id: string) => void;
+  clearToasts: () => void;
 
   login: (email: string, password?: string) => { success: boolean; message?: string };
   logout: () => void;
@@ -126,6 +132,64 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : INITIAL_LEAVE_POLICIES;
   });
 
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const addToast = (toastData: Omit<ToastNotification, 'id' | 'timestamp'>) => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newToast: ToastNotification = {
+      ...toastData,
+      id,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setToasts(prev => [newToast, ...prev].slice(0, 5));
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  const clearToasts = () => {
+    setToasts([]);
+  };
+
+  const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
+
+  // Track status transitions for active user leave applications
+  const prevStatusesRef = React.useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    leaveRequests.forEach(req => {
+      const prevStatus = prevStatusesRef.current[req.id];
+      if (prevStatus && prevStatus !== req.status && req.applicantId === currentUser.id) {
+        let title = 'Leave Status Updated';
+        let type: ToastNotification['type'] = 'INFO';
+
+        if (req.status === 'APPROVED') {
+          title = 'Leave Application Sanctioned! 🎓';
+          type = 'SUCCESS';
+        } else if (req.status === 'REJECTED') {
+          title = 'Leave Application Rejected';
+          type = 'ERROR';
+        } else if (req.status === 'PENDING_REGISTRAR') {
+          title = 'Leave Endorsed by HOD';
+          type = 'SUCCESS';
+        } else if (req.status === 'CANCELLED') {
+          title = 'Leave Application Withdrawn';
+          type = 'WARNING';
+        }
+
+        addToast({
+          title,
+          message: `Your leave application #${req.id} status changed to ${req.status.replace('_', ' ')}.`,
+          type,
+          leaveId: req.id,
+          status: req.status
+        });
+      }
+      prevStatusesRef.current[req.id] = req.status;
+    });
+  }, [leaveRequests, currentUser.id]);
+
   // Sync state to local storage and Firestore
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
@@ -181,8 +245,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       mounted = false;
     };
   }, []);
-
-  const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const matched = allUsers.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
@@ -481,6 +543,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
 
+    addToast({
+      title: 'Leave Application Submitted',
+      message: `Application #${newId} for ${data.leaveType} leave (${data.totalDays} day(s)) submitted. Status: Pending HOD Endorsement.`,
+      type: 'INFO',
+      leaveId: newId,
+      status: 'PENDING_HOD'
+    });
+
     return newRequest;
   };
 
@@ -498,6 +568,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           isRec ? 'HOD_ENDORSED' : 'REJECTED',
           req.id
         );
+
+        // Immediate toast feedback for acting user
+        addToast({
+          title: isRec ? 'Leave Endorsed by HOD 🎉' : 'Leave Application Rejected',
+          message: isRec 
+            ? `Leave request #${req.id} for ${req.applicantName} recommended & forwarded to Registrar.` 
+            : `Leave request #${req.id} for ${req.applicantName} rejected.`,
+          type: isRec ? 'SUCCESS' : 'ERROR',
+          leaveId: req.id,
+          status: updatedStatus
+        });
 
         // If recommended, notify Registrar(s)
         if (isRec) {
@@ -599,6 +680,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         addAuditLog(currentUser, isApproved ? 'REGISTRAR_APPROVED' : 'REGISTRAR_REJECTED', `${isApproved ? 'Sanctioned' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
 
+        addToast({
+          title: isApproved ? 'Leave Sanctioned & Approved! 🎓' : 'Leave Application Rejected',
+          message: isApproved 
+            ? `Leave request #${req.id} for ${req.applicantName} was officially sanctioned.` 
+            : `Leave request #${req.id} for ${req.applicantName} was rejected by Registrar.`,
+          type: isApproved ? 'SUCCESS' : 'ERROR',
+          leaveId: req.id,
+          status: isApproved ? 'APPROVED' : 'REJECTED'
+        });
+
         return {
           ...req,
           status: isApproved ? 'APPROVED' : 'REJECTED',
@@ -637,6 +728,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }));
 
         addAuditLog(currentUser, 'LEAVE_CANCELLED', `Cancelled leave application ${req.id}.`);
+
+        addToast({
+          title: 'Leave Application Withdrawn',
+          message: `Leave application #${req.id} has been cancelled and pending days released.`,
+          type: 'WARNING',
+          leaveId: req.id,
+          status: 'CANCELLED'
+        });
 
         return { ...req, status: 'CANCELLED' };
       }
@@ -794,6 +893,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         granularPermissions: GRANULAR_PERMISSIONS,
         unreadNotificationCount,
         isAuthenticated,
+        toasts,
+
+        addToast,
+        removeToast,
+        clearToasts,
 
         login,
         logout,

@@ -137,3 +137,14 @@ export interface GranularPermission {
   description: string;
   category: 'LEAVE_MANAGEMENT' | 'USER_MANAGEMENT' | 'REPORTS' | 'SYSTEM';
 }
+
+export interface ToastNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING';
+  leaveId?: string;
+  status?: LeaveStatus;
+  timestamp: string;
+  read?: boolean;
+}

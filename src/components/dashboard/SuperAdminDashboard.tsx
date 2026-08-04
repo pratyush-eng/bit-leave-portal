@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role } from '../../types';
 import { MaterialChip } from '../common/MaterialChip';
+import { EditUserModal } from './EditUserModal';
 import { 
   ShieldCheck, 
   Key, 
@@ -23,7 +24,8 @@ import {
   Check,
   Users,
   Building2,
-  AlertTriangle
+  AlertTriangle,
+  Edit3
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -45,6 +47,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'pending' | 'database' | 'audit_logs'>('permissions');
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[3]?.id || allUsers[0]?.id);
   const [logFilter, setLogFilter] = useState<string>('');
+  const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
 
   // Super Admin New User Form state
   const [newRole, setNewRole] = useState<Role>('FACULTY');
@@ -283,16 +286,27 @@ export const SuperAdminDashboard: React.FC = () => {
 
           {/* Permission Matrix Grid Column */}
           <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-            <div className="border-b pb-3 flex items-center justify-between">
+            <div className="border-b pb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Assigned Permissions for {targetUser.name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Role: {targetUser.role} • Department: {targetUser.departmentName}
+                  Role: {targetUser.role} • Department: {targetUser.departmentName} ({targetUser.email})
                 </p>
               </div>
-              <MaterialChip label={targetUser.role} variant="role" role={targetUser.role} />
+
+              <div className="flex items-center gap-2">
+                <MaterialChip label={targetUser.role} variant="role" role={targetUser.role} />
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserToEdit(targetUser)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                  Modify / Delete Account
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -730,6 +744,14 @@ export const SuperAdminDashboard: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Edit User Modal */}
+      {selectedUserToEdit && (
+        <EditUserModal
+          user={selectedUserToEdit}
+          onClose={() => setSelectedUserToEdit(null)}
+        />
       )}
 
     </div>

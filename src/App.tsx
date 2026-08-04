@@ -13,6 +13,7 @@ import { ApplyLeaveModal } from './components/leaves/ApplyLeaveModal';
 import { LeaveDetailModal } from './components/leaves/LeaveDetailModal';
 import { LeaveCalendar } from './components/leaves/LeaveCalendar';
 import { AnalyticsReports } from './components/reports/AnalyticsReports';
+import { ToastContainer } from './components/common/ToastContainer';
 
 import { FacultyDashboard } from './components/dashboard/FacultyDashboard';
 import { HodDashboard } from './components/dashboard/HodDashboard';
@@ -247,6 +248,7 @@ const AppContent: React.FC = () => {
         initialPrintMode={printLeaveMode}
       />
 
+      <ToastContainer onSelectLeaveRequest={handleSelectLeaveRequest} />
     </div>
   );
 };
