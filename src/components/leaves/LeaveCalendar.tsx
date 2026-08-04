@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { DepartmentId } from '../../types';
 import { MaterialChip } from '../common/MaterialChip';
@@ -9,18 +9,32 @@ import {
   Filter, 
   UserCheck, 
   Building2,
-  Users
+  Users,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 
 export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, printMode?: boolean) => void }> = ({ onSelectLeaveRequest }) => {
-  const { leaveRequests, departments } = useLeave();
+  const { leaveRequests, departments, currentUser } = useLeave();
   
+  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const isDeptRestricted = isDeptAdmin || (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'REGISTRAR');
+  const userDeptId = currentUser?.departmentId;
+
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
+  useEffect(() => {
+    if (isDeptRestricted && userDeptId) {
+      setSelectedDept(userDeptId);
+    }
+  }, [isDeptRestricted, userDeptId]);
+
+  const effectiveDept = (isDeptRestricted && userDeptId) ? userDeptId : selectedDept;
+
   const approvedRequests = leaveRequests.filter(r => {
     if (r.status !== 'APPROVED') return false;
-    if (selectedDept !== 'ALL' && r.departmentId !== selectedDept) return false;
+    if (effectiveDept !== 'ALL' && r.departmentId !== effectiveDept) return false;
     return true;
   });
 
@@ -51,15 +65,39 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
     });
   };
 
+  const currentDeptObj = departments.find(d => d.id === effectiveDept);
+
   return (
     <div className="space-y-6">
       
+      {/* Department Restriction Notice for Admin */}
+      {isDeptAdmin && (
+        <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 flex items-center justify-between gap-4 text-indigo-950">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-indigo-950 flex items-center gap-2">
+                Department Restricted View Active
+              </p>
+              <p className="text-xs text-indigo-800 mt-0.5">
+                As a Department Admin for <strong>{currentUser?.departmentName || userDeptId}</strong> ({userDeptId}), calendar visibility is restricted strictly to your own department's sanctioned leaves.
+              </p>
+            </div>
+          </div>
+          <span className="hidden sm:inline-block px-3 py-1 bg-indigo-200 text-indigo-900 font-extrabold text-[10px] rounded-full uppercase tracking-wider whitespace-nowrap">
+            {userDeptId} Dept Only
+          </span>
+        </div>
+      )}
+
       {/* Header & Department Filter */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-indigo-600" />
-            Institutional Department Absence Calendar
+            {isDeptAdmin ? `${currentUser?.departmentName || userDeptId} Absence Calendar` : 'Institutional Department Absence Calendar'}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Real-time visual matrix of sanctioned faculty and staff leave coverage
@@ -70,15 +108,25 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
           <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200 text-xs">
             <Filter className="w-4 h-4 text-slate-400 ml-1" />
             <select
-              value={selectedDept}
+              value={effectiveDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              className="bg-transparent font-semibold text-slate-800 focus:outline-none"
+              disabled={isDeptRestricted}
+              className={`bg-transparent font-semibold text-slate-800 focus:outline-none ${
+                isDeptRestricted ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
-              <option value="ALL">All Departments</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-              ))}
+              {!isDeptRestricted && <option value="ALL">All Departments</option>}
+              {departments
+                .filter(d => !isDeptRestricted || d.id === userDeptId)
+                .map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                ))}
             </select>
+            {isDeptRestricted && (
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200 ml-1">
+                Locked to {userDeptId}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">

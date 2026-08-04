@@ -148,3 +148,8 @@ export interface ToastNotification {
   timestamp: string;
   read?: boolean;
 }
+
+export interface SystemSettings {
+  enableDemoAccounts: boolean;
+  enableRoleSwitcher: boolean;
+}

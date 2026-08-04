@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login, registerUser, departments } = useLeave();
+  const { login, registerUser, departments, systemSettings } = useLeave();
   
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   
@@ -156,7 +156,7 @@ export const LoginPage: React.FC = () => {
         </div>
         
         <h1 className="text-3xl font-light text-slate-900 tracking-tight sm:text-4xl">
-          EduLeave <span className="font-semibold text-[#3F51B5]">Sanction & Workflow Portal</span>
+          Leave Portal <span className="font-semibold text-[#3F51B5]">Sanction & Workflow Portal</span>
         </h1>
         <p className="mt-2 text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
           Comprehensive multi-tier leave authorization system with database persistence for faculty, department heads, registrars, and institutional administrators.
@@ -263,59 +263,67 @@ export const LoginPage: React.FC = () => {
               </form>
 
               {/* Collapsible Demo Accounts Guide */}
-              <div className="border-t border-slate-200 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-                  className="w-full flex items-center justify-between text-xs font-bold text-slate-600 hover:text-slate-900 uppercase tracking-wider cursor-pointer"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    Demo Accounts & Role Switcher Guide
-                  </span>
-                  {showDemoAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+              {systemSettings.enableDemoAccounts ? (
+                <div className="border-t border-slate-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+                    className="w-full flex items-center justify-between text-xs font-bold text-slate-600 hover:text-slate-900 uppercase tracking-wider cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      Demo Accounts & Role Switcher Guide
+                    </span>
+                    {showDemoAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
 
-                {showDemoAccounts && (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      Click any role card below to autofill email and password (<code className="font-mono text-slate-700">password123</code>):
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {quickRoles.map((qr) => (
-                        <button
-                          key={qr.email}
-                          type="button"
-                          onClick={() => {
-                            setEmail(qr.email);
-                            setPassword('password123');
-                            setErrorMsg(null);
-                          }}
-                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                            email === qr.email 
-                              ? 'border-[#3F51B5] ring-2 ring-[#3F51B5]/20 bg-indigo-50/40 shadow-xs' 
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${qr.badgeBg}`}>
-                              {qr.role}
-                            </span>
-                            {email === qr.email && (
-                              <CheckCircle2 className="w-4 h-4 text-[#3F51B5]" />
-                            )}
-                          </div>
-                          <div className="mt-1.5">
-                            <p className="text-xs font-bold text-slate-900">{qr.name}</p>
-                            <p className="text-[10px] text-slate-500">{qr.dept}</p>
-                            <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{qr.email}</p>
-                          </div>
-                        </button>
-                      ))}
+                  {showDemoAccounts && (
+                    <div className="mt-3 space-y-3">
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        Click any role card below to autofill email and password (<code className="font-mono text-slate-700">password123</code>):
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {quickRoles.map((qr) => (
+                          <button
+                            key={qr.email}
+                            type="button"
+                            onClick={() => {
+                              setEmail(qr.email);
+                              setPassword('password123');
+                              setErrorMsg(null);
+                            }}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                              email === qr.email 
+                                ? 'border-[#3F51B5] ring-2 ring-[#3F51B5]/20 bg-indigo-50/40 shadow-xs' 
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${qr.badgeBg}`}>
+                                {qr.role}
+                              </span>
+                              {email === qr.email && (
+                                <CheckCircle2 className="w-4 h-4 text-[#3F51B5]" />
+                              )}
+                            </div>
+                            <div className="mt-1.5">
+                              <p className="text-xs font-bold text-slate-900">{qr.name}</p>
+                              <p className="text-[10px] text-slate-500">{qr.dept}</p>
+                              <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{qr.email}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border-t border-slate-200 pt-3 text-center">
+                  <p className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1">
+                    🔒 Demo account quick login cards disabled by Super Admin policy.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Role, DepartmentId } from '../../types';
 import { useLeave } from '../../context/LeaveContext';
-import { X, Save, Trash2, ShieldAlert, Mail, User as UserIcon, Building2, Briefcase, Phone, Hash } from 'lucide-react';
+import { X, Save, Trash2, ShieldAlert, Mail, User as UserIcon, Building2, Briefcase, Phone, Hash, KeyRound } from 'lucide-react';
 
 interface EditUserModalProps {
   user: User;
@@ -18,6 +18,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
+  const [password, setPassword] = useState(user.password || '');
   const [role, setRole] = useState<Role>(user.role);
   const [designation, setDesignation] = useState(user.designation);
   const [departmentId, setDepartmentId] = useState<DepartmentId>(user.departmentId);
@@ -36,7 +37,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
     const selectedDept = departments.find(d => d.id === departmentId);
     const departmentName = selectedDept ? selectedDept.name : user.departmentName;
 
-    const result = updateUser(user.id, {
+    const updatedData: Partial<User> = {
       name: name.trim(),
       email: email.trim(),
       role,
@@ -46,7 +47,13 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
       employeeCode: employeeCode.trim(),
       phone: phone.trim(),
       accountStatus
-    });
+    };
+
+    if (password.trim()) {
+      updatedData.password = password.trim();
+    }
+
+    const result = updateUser(user.id, updatedData);
 
     if (!result.success) {
       setErrorMsg(result.message);
@@ -135,14 +142,19 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Department *
+                Department * {currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN' && <span className="text-[10px] text-amber-700 font-normal lowercase">(locked)</span>}
               </label>
               <div className="relative">
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <select
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value as DepartmentId)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-medium"
+                  disabled={currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN'}
+                  className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-medium ${
+                    currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN'
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-300'
+                      : 'bg-white border-slate-300'
+                  }`}
                 >
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -238,6 +250,25 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                 <option value="REJECTED">REJECTED / SUSPENDED</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Account Login Password
+            </label>
+            <div className="relative">
+              <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Reset or set user login password"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-mono"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Admins can reset or update password for this user account.
+            </p>
           </div>
 
           {/* Delete Confirmation or Normal Buttons */}

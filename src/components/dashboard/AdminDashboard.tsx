@@ -68,13 +68,21 @@ export const AdminDashboard: React.FC = () => {
   const [showAddPolicyModal, setShowAddPolicyModal] = useState<boolean>(false);
 
   // New User form state
+  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
   const [newName, setNewName] = useState<string>('');
   const [newEmail, setNewEmail] = useState<string>('');
   const [newDesignation, setNewDesignation] = useState<string>('');
   const [newRole, setNewRole] = useState<Role>('FACULTY');
-  const [newDeptId, setNewDeptId] = useState<string>('CSE');
+  const [newDeptId, setNewDeptId] = useState<string>(currentUser?.departmentId || 'CSE');
   const [newPhone, setNewPhone] = useState<string>('');
   const [newEmpCode, setNewEmpCode] = useState<string>('');
+
+  const openAddUserModal = () => {
+    if (isDeptAdmin && currentUser?.departmentId) {
+      setNewDeptId(currentUser.departmentId);
+    }
+    setShowAddUserModal(true);
+  };
 
   // New Department form state
   const [deptCode, setDeptCode] = useState<string>('');
@@ -115,15 +123,16 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
-    const dept = departments.find(d => d.id === newDeptId);
+    const targetDeptId = isDeptAdmin && currentUser?.departmentId ? currentUser.departmentId : newDeptId;
+    const dept = departments.find(d => d.id === targetDeptId);
 
     const result = createNewUser({
       name: newName,
       email: newEmail,
       role: newRole,
       designation: newDesignation || 'Assistant Professor',
-      departmentId: newDeptId,
-      departmentName: dept ? dept.name : 'General Department',
+      departmentId: targetDeptId,
+      departmentName: dept ? dept.name : (currentUser?.departmentName || 'General Department'),
       employeeCode: newEmpCode || `FAC-2026-${Math.floor(100 + Math.random() * 900)}`,
       joiningDate: new Date().toISOString().split('T')[0],
       phone: newPhone || '+91 98765 00000',
@@ -210,7 +219,7 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="flex flex-wrap gap-2 shrink-0">
           <button
-            onClick={() => setShowAddUserModal(true)}
+            onClick={openAddUserModal}
             className="px-4 py-2 bg-white text-[#3F51B5] hover:bg-slate-50 rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
             <UserPlus className="w-3.5 h-3.5 text-[#3F51B5]" />
@@ -336,7 +345,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setShowAddUserModal(true)}
+                onClick={openAddUserModal}
                 className="px-3 py-1.5 bg-[#3F51B5] hover:bg-indigo-700 text-white text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Add User
@@ -750,6 +759,18 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
+              {isDeptAdmin && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5">
+                  <ShieldAlert className="w-4 h-4 text-[#3F51B5] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Department Scope Active</p>
+                    <p className="text-[11px] text-indigo-800 leading-tight">
+                      As a Department Admin for <strong>{currentUser?.departmentName || currentUser?.departmentId}</strong>, you can only create users within your own department. You cannot add users for other departments.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Full Name *</label>
                 <input
@@ -776,15 +797,21 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Department</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Department {isDeptAdmin && <span className="text-[10px] text-amber-700 font-normal">(Locked to yours)</span>}
+                  </label>
                   <select
-                    value={newDeptId}
+                    value={isDeptAdmin ? (currentUser?.departmentId || newDeptId) : newDeptId}
                     onChange={(e) => setNewDeptId(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl font-medium"
+                    disabled={isDeptAdmin}
+                    className={`w-full px-3 py-2 border rounded-xl font-medium ${
+                      isDeptAdmin ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-300' : 'bg-white'
+                    }`}
                   >
                     {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
+                      <option key={d.id} value={d.id}>{d.name} ({d.id})</option>
                     ))}
+                    <option value="ADMIN">General Administration (ADMIN)</option>
                   </select>
                 </div>
 

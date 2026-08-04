@@ -14,6 +14,7 @@ import { LeaveDetailModal } from './components/leaves/LeaveDetailModal';
 import { LeaveCalendar } from './components/leaves/LeaveCalendar';
 import { AnalyticsReports } from './components/reports/AnalyticsReports';
 import { ToastContainer } from './components/common/ToastContainer';
+import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 
 import { FacultyDashboard } from './components/dashboard/FacultyDashboard';
 import { HodDashboard } from './components/dashboard/HodDashboard';
@@ -35,6 +36,7 @@ const AppContent: React.FC = () => {
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState<boolean>(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
   const [printLeaveMode, setPrintLeaveMode] = useState<boolean>(false);
 
@@ -201,6 +203,7 @@ const AppContent: React.FC = () => {
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         onOpenRoleSwitcher={() => setIsRoleSwitcherOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         activeView={activeView}
       />
 
@@ -213,6 +216,7 @@ const AppContent: React.FC = () => {
           setActiveView={setActiveView}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         />
 
         {/* Workspace Canvas */}
@@ -247,6 +251,10 @@ const AppContent: React.FC = () => {
         }}
         initialPrintMode={printLeaveMode}
       />
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
+      )}
 
       <ToastContainer onSelectLeaveRequest={handleSelectLeaveRequest} />
     </div>

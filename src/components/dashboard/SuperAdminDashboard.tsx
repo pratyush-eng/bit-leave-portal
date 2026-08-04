@@ -25,7 +25,8 @@ import {
   Users,
   Building2,
   AlertTriangle,
-  Edit3
+  Edit3,
+  Sliders
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -41,10 +42,12 @@ export const SuperAdminDashboard: React.FC = () => {
     updateUserStatus,
     exportDbJson,
     importDbJson,
-    resetData 
+    resetData,
+    systemSettings,
+    updateSystemSettings
   } = useLeave();
 
-  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'pending' | 'database' | 'audit_logs'>('permissions');
+  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'pending' | 'settings' | 'database' | 'audit_logs'>('permissions');
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[3]?.id || allUsers[0]?.id);
   const [logFilter, setLogFilter] = useState<string>('');
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
@@ -221,6 +224,18 @@ export const SuperAdminDashboard: React.FC = () => {
               {pendingUsers.length}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'settings'
+              ? 'bg-[#3F51B5] text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          System Privileges & Toggles
         </button>
 
         <button
@@ -742,6 +757,121 @@ export const SuperAdminDashboard: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: System Privileges & Feature Toggles */}
+      {activeTab === 'settings' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-6">
+          <div className="border-b border-slate-200 pb-4">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-[#3F51B5]" />
+              Institutional System Controls & Feature Privileges
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Super Admin privilege controls to enable or disable public demo accounts, role switcher guides, and workflow simulation elements across the portal.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Control 1: Demo Accounts Quick Login */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 hover:border-indigo-200 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Demo Accounts & Quick Login Cards</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Sign-in Screen Autofill Cards</p>
+                  </div>
+                </div>
+
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                  systemSettings.enableDemoAccounts 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                }`}>
+                  {systemSettings.enableDemoAccounts ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                When enabled, the sign-in screen renders interactive demo account cards (Faculty, HOD, Registrar, Admin, Super Admin) allowing one-click credential autofill for testing. Disabling this enforces standard email/password authentication.
+              </p>
+
+              <div className="pt-3 flex items-center justify-between border-t border-slate-200">
+                <span className="text-xs font-semibold text-slate-700">Privilege Status:</span>
+                <button
+                  onClick={() => updateSystemSettings({ enableDemoAccounts: !systemSettings.enableDemoAccounts })}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
+                    systemSettings.enableDemoAccounts
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {systemSettings.enableDemoAccounts ? (
+                    <>
+                      <XCircle className="w-4 h-4" /> Disable Demo Accounts
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Enable Demo Accounts
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Control 2: Interactive Role Switcher Guide */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 hover:border-indigo-200 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Role Switcher & Workflow Guide</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Top Header & Sidebar Persona Switcher</p>
+                  </div>
+                </div>
+
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                  systemSettings.enableRoleSwitcher 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                }`}>
+                  {systemSettings.enableRoleSwitcher ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                When enabled, a quick Role Switcher badge appears in the main header bar and drawer navigation, enabling seamless user persona toggles. Disabling this removes the role switcher shortcut for non-super admin users.
+              </p>
+
+              <div className="pt-3 flex items-center justify-between border-t border-slate-200">
+                <span className="text-xs font-semibold text-slate-700">Privilege Status:</span>
+                <button
+                  onClick={() => updateSystemSettings({ enableRoleSwitcher: !systemSettings.enableRoleSwitcher })}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
+                    systemSettings.enableRoleSwitcher
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {systemSettings.enableRoleSwitcher ? (
+                    <>
+                      <XCircle className="w-4 h-4" /> Disable Role Switcher
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Enable Role Switcher
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

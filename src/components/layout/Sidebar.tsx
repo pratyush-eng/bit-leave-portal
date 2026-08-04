@@ -14,7 +14,8 @@ import {
   Sparkles,
   Building2,
   FileCheck2,
-  LogOut
+  LogOut,
+  KeyRound
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,13 +23,15 @@ interface SidebarProps {
   setActiveView: (view: string) => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeView,
   setActiveView,
   isMobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  onOpenChangePassword
 }) => {
   const { currentUser, leaveRequests, logout } = useLeave();
 
@@ -93,10 +96,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-white shadow-xs text-sm">
-              EL
+              LP
             </div>
             <div>
-              <h1 className="text-xl font-medium tracking-tight text-white leading-none">EduLeave</h1>
+              <h1 className="text-xl font-medium tracking-tight text-white leading-none">Leave Portal</h1>
               <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-1">
                 University Portal
               </p>
@@ -175,16 +178,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                logout();
-                onCloseMobile();
-              }}
-              className="p-2 text-indigo-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {onOpenChangePassword && (
+                <button
+                  onClick={() => {
+                    onOpenChangePassword();
+                    onCloseMobile();
+                  }}
+                  className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                  title="Change Password"
+                >
+                  <KeyRound className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  logout();
+                  onCloseMobile();
+                }}
+                className="p-1.5 text-rose-200 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4 text-rose-300" />
+              </button>
+            </div>
           </div>
         </div>
 

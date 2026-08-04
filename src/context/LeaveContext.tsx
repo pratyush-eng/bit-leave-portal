@@ -10,7 +10,8 @@ import {
   Role, 
   LeaveType,
   GranularPermission,
-  ToastNotification
+  ToastNotification,
+  SystemSettings
 } from '../types';
 import { 
   MOCK_USERS, 
@@ -34,7 +35,9 @@ interface LeaveContextType {
   unreadNotificationCount: number;
   isAuthenticated: boolean;
   toasts: ToastNotification[];
+  systemSettings: SystemSettings;
 
+  updateSystemSettings: (newSettings: Partial<SystemSettings>) => void;
   addToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
@@ -45,6 +48,8 @@ interface LeaveContextType {
   registerUser: (userData: Omit<User, 'id' | 'leaveBalances'>) => { success: boolean; message: string };
   updateUserStatus: (userId: string, status: 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED') => void;
   updateUser: (userId: string, updatedData: Partial<User>) => { success: boolean; message: string };
+  changePassword: (oldPassword: string, newPassword: string) => { success: boolean; message: string };
+  adminResetPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
   deleteUser: (userId: string) => { success: boolean; message: string };
   exportDbJson: () => string;
   importDbJson: (jsonString: string) => boolean;
@@ -89,10 +94,16 @@ const STORAGE_KEYS = {
   POLICIES: 'academia_leave_policies_v1',
   DEPARTMENTS: 'academia_leave_departments_v1',
   CURRENT_USER_ID: 'academia_current_user_id_v1',
-  AUTH: 'academia_leave_auth_v1'
+  AUTH: 'academia_leave_auth_v1',
+  SETTINGS: 'academia_system_settings_v1'
 };
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    return saved ? JSON.parse(saved) : { enableDemoAccounts: true, enableRoleSwitcher: true };
+  });
+
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS);
     return saved ? JSON.parse(saved) : MOCK_USERS;
@@ -229,6 +240,28 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(isAuthenticated));
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(systemSettings));
+    saveDocToFirestore('settings', 'global', systemSettings);
+  }, [systemSettings]);
+
+  const updateSystemSettings = (newSettings: Partial<SystemSettings>) => {
+    setSystemSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      addAuditLog(
+        currentUser, 
+        'SETTINGS_UPDATED', 
+        `Updated system configuration: Demo Accounts=${updated.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${updated.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}.`
+      );
+      addToast({
+        title: 'System Settings Saved ⚙️',
+        message: 'Institutional system privileges and configuration updated.',
+        type: 'SUCCESS'
+      });
+      return updated;
+    });
+  };
+
   // Load or seed initial data from Firebase Firestore on boot
   useEffect(() => {
     let mounted = true;
@@ -356,7 +389,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         id: `notif_act_${Date.now()}`,
         userId: target.id,
         title: 'Registration Approved',
-        message: 'Your self-registration has been validated and activated by Admin. You can now log into EduLeave.',
+        message: 'Your self-registration has been validated and activated by Admin. You can now log into Leave Portal.',
         timestamp: 'Just now',
         read: false,
         type: 'SYSTEM_ALERT'
@@ -368,6 +401,19 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateUser = (userId: string, updatedData: Partial<User>): { success: boolean; message: string } => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return { success: false, message: 'User not found.' };
+
+    // Department Admin Restriction: Department Admins cannot manage/reassign users outside their assigned department
+    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      const adminDeptId = currentUser.departmentId;
+      if (adminDeptId) {
+        if (target.departmentId !== adminDeptId || (updatedData.departmentId && updatedData.departmentId !== adminDeptId)) {
+          return {
+            success: false,
+            message: `Department Admin Restriction: As an administrator of department "${currentUser.departmentName || adminDeptId}", you can only manage user accounts within your assigned department.`
+          };
+        }
+      }
+    }
 
     const cleanEmail = updatedData.email ? updatedData.email.trim().toLowerCase() : target.email;
     if (updatedData.email) {
@@ -391,6 +437,67 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addAuditLog(currentUser, 'USER_UPDATED', `Updated user details for ${updatedUser.name} (${updatedUser.email}).`);
 
     return { success: true, message: `Successfully updated ${updatedUser.name}.` };
+  };
+
+  const changePassword = (oldPassword: string, newPassword: string): { success: boolean; message: string } => {
+    const activeUser = allUsers.find(u => u.id === currentUserId);
+    if (!activeUser) return { success: false, message: 'User session invalid.' };
+
+    const currentActualPassword = activeUser.password || 'password123';
+    if (oldPassword !== currentActualPassword) {
+      return { success: false, message: 'Current password entered is incorrect.' };
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'New password must be at least 6 characters long.' };
+    }
+
+    if (newPassword === currentActualPassword) {
+      return { success: false, message: 'New password must be different from current password.' };
+    }
+
+    const updatedUser: User = {
+      ...activeUser,
+      password: newPassword
+    };
+
+    setAllUsers(prev => prev.map(u => u.id === activeUser.id ? updatedUser : u));
+    saveDocToFirestore('users', activeUser.id, updatedUser);
+    addAuditLog(activeUser, 'PASSWORD_CHANGED', `Changed security login password for ${activeUser.name} (${activeUser.email}).`);
+
+    addToast({
+      title: 'Password Updated Successfully 🔒',
+      message: 'Your account password has been updated. Please use your new password for future sign-ins.',
+      type: 'SUCCESS'
+    });
+
+    return { success: true, message: 'Password updated successfully.' };
+  };
+
+  const adminResetPassword = (userId: string, newPassword: string): { success: boolean; message: string } => {
+    const target = allUsers.find(u => u.id === userId);
+    if (!target) return { success: false, message: 'Target user account not found.' };
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'Password must be at least 6 characters long.' };
+    }
+
+    const updatedUser: User = {
+      ...target,
+      password: newPassword
+    };
+
+    setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    saveDocToFirestore('users', userId, updatedUser);
+    addAuditLog(currentUser, 'ADMIN_RESET_PASSWORD', `Admin reset password for user ${target.name} (${target.email}, ${target.role}).`);
+
+    addToast({
+      title: 'Password Reset by Admin 🔑',
+      message: `Password for ${target.name} (${target.role}) has been updated successfully.`,
+      type: 'SUCCESS'
+    });
+
+    return { success: true, message: `Successfully reset password for ${target.name}.` };
   };
 
   const deleteUser = (userId: string): { success: boolean; message: string } => {
@@ -775,6 +882,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const createNewUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
+    // Department Admin Restriction: An admin of an individual department can only add users of their same department
+    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      const adminDeptId = currentUser.departmentId;
+      if (adminDeptId && userData.departmentId !== adminDeptId) {
+        return {
+          success: false,
+          message: `Department Admin Restriction: As an administrator of department "${currentUser.departmentName || adminDeptId}" (${adminDeptId}), you are only permitted to add users within your own department. You cannot add users for department "${userData.departmentName || userData.departmentId}".`
+        };
+      }
+    }
+
     const cleanEmail = userData.email.trim().toLowerCase();
     const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
     if (emailExists) {
@@ -894,7 +1012,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unreadNotificationCount,
         isAuthenticated,
         toasts,
+        systemSettings,
 
+        updateSystemSettings,
         addToast,
         removeToast,
         clearToasts,
@@ -905,6 +1025,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         registerUser,
         updateUserStatus,
         updateUser,
+        changePassword,
+        adminResetPassword,
         deleteUser,
         exportDbJson,
         importDbJson,

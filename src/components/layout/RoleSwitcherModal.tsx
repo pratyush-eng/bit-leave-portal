@@ -9,7 +9,7 @@ interface RoleSwitcherModalProps {
 }
 
 export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, onClose }) => {
-  const { allUsers, currentUser, switchUser, resetData } = useLeave();
+  const { allUsers, currentUser, switchUser, resetData, systemSettings } = useLeave();
 
   if (!isOpen) return null;
 
@@ -39,6 +39,13 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-4">
+          {!systemSettings.enableRoleSwitcher && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 font-medium flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Role Switcher guide is currently disabled for general users by Super Admin settings. As Super Admin, you can toggle this privilege.</span>
+            </div>
+          )}
+
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-900 flex items-start gap-2.5">
             <Award className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
             <div>

@@ -11,13 +11,15 @@ import {
   ArrowLeftRight,
   ShieldAlert,
   ChevronDown,
-  LogOut
+  LogOut,
+  KeyRound
 } from 'lucide-react';
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
   onOpenRoleSwitcher: () => void;
   onOpenNotifications: () => void;
+  onOpenChangePassword?: () => void;
   activeView: string;
 }
 
@@ -25,9 +27,10 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileSidebar, 
   onOpenRoleSwitcher, 
   onOpenNotifications,
+  onOpenChangePassword,
   activeView
 }) => {
-  const { currentUser, unreadNotificationCount, logout } = useLeave();
+  const { currentUser, unreadNotificationCount, logout, systemSettings } = useLeave();
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
@@ -49,28 +52,42 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-semibold text-slate-800 leading-tight">
-                University Administrative Portal
+                BIT Mesra Leave Portal
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
-                EduLeave • Multi-Tier Approval
+                Leave Portal • Multi-Tier Approval
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Quick Role Switcher, Notifications, User Profile & Sign Out */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        {/* Right Side: Quick Role Switcher, Change Password, Notifications, User Profile & Sign Out */}
+        <div className="flex items-center gap-2 sm:gap-3">
           
           {/* Persona / Role Switcher Launcher Button */}
-          <button
-            onClick={onOpenRoleSwitcher}
-            className="bg-[#3F51B5] hover:bg-[#303F9F] text-white px-3 sm:px-4 py-2 rounded-lg shadow-xs text-xs font-medium uppercase tracking-wide flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-            title="Click to switch persona or role"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5 shrink-0 opacity-90" />
-            <span className="hidden md:inline">Role:</span>
-            <span>{currentUser.role}</span>
-          </button>
+          {(systemSettings?.enableRoleSwitcher || currentUser.role === 'SUPER_ADMIN') && (
+            <button
+              onClick={onOpenRoleSwitcher}
+              className="bg-[#3F51B5] hover:bg-[#303F9F] text-white px-3 sm:px-4 py-2 rounded-lg shadow-xs text-xs font-medium uppercase tracking-wide flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              title="Click to switch persona or role"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5 shrink-0 opacity-90" />
+              <span className="hidden md:inline">Role:</span>
+              <span>{currentUser.role}</span>
+            </button>
+          )}
+
+          {/* Change Password Button */}
+          {onOpenChangePassword && (
+            <button
+              onClick={onOpenChangePassword}
+              className="flex items-center gap-1.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer"
+              title="Change Account Password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Password</span>
+            </button>
+          )}
 
           {/* Notifications Button */}
           <button
@@ -88,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* User Avatar */}
-          <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-slate-200">
+          <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-slate-200">
             <img
               src={currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e3a8a&color=fff`}
               alt={currentUser.name}
