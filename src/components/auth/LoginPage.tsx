@@ -148,23 +148,25 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased">
       
-      {/* Top Banner Header */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl text-center mb-8 px-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-[#3F51B5] text-xs font-semibold uppercase tracking-wider mb-3">
-          <GraduationCap className="w-4 h-4 text-[#3F51B5]" />
-          Institutional Academic Portal
-        </div>
-        
-        <h1 className="text-3xl font-light text-slate-900 tracking-tight sm:text-4xl">
-          Leave Portal <span className="font-semibold text-[#3F51B5]">Sanction & Workflow Portal</span>
-        </h1>
-        <p className="mt-2 text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-          Comprehensive multi-tier leave authorization system with database persistence for faculty, department heads, registrars, and institutional administrators.
-        </p>
-      </div>
+      <div className="sm:mx-auto sm:w-full sm:max-w-xl px-4">
+        <div className="bg-white shadow-lg rounded-2xl border border-slate-200 overflow-hidden">
+          
+          {/* Blue Header inside Login Box Card */}
+          <div className="bg-[#3F51B5] text-white px-6 py-5 sm:px-8 flex items-center gap-3.5 border-b border-indigo-700">
+            <div className="w-11 h-11 rounded-xl bg-white/15 text-white flex items-center justify-center font-bold shrink-0 border border-white/20 shadow-xs">
+              <GraduationCap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">
+                BIT Leave Portal
+              </h1>
+              <p className="text-xs text-blue-100 font-medium opacity-90 mt-0.5">
+                Fully manage leave portal
+              </p>
+            </div>
+          </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl px-4">
-        <div className="bg-white py-8 px-6 sm:px-10 shadow-md rounded-2xl border border-slate-200 space-y-6">
+          <div className="p-6 sm:p-8 space-y-6">
           
           {/* Tab Selector: Sign In vs Staff Self-Registration */}
           <div className="flex border-b border-slate-200">
@@ -487,6 +489,7 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
+          </div>
         </div>
       </div>
 

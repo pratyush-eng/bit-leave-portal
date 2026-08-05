@@ -246,19 +246,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [systemSettings]);
 
   const updateSystemSettings = (newSettings: Partial<SystemSettings>) => {
+    let updatedObj: SystemSettings = systemSettings;
     setSystemSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      addAuditLog(
-        currentUser, 
-        'SETTINGS_UPDATED', 
-        `Updated system configuration: Demo Accounts=${updated.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${updated.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}.`
-      );
-      addToast({
-        title: 'System Settings Saved ⚙️',
-        message: 'Institutional system privileges and configuration updated.',
-        type: 'SUCCESS'
-      });
-      return updated;
+      updatedObj = { ...prev, ...newSettings };
+      return updatedObj;
+    });
+    addAuditLog(
+      currentUser, 
+      'SETTINGS_UPDATED', 
+      `Updated system configuration: Demo Accounts=${newSettings.enableDemoAccounts ?? systemSettings.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${newSettings.enableRoleSwitcher ?? systemSettings.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}.`
+    );
+    addToast({
+      title: 'System Settings Saved ⚙️',
+      message: 'Institutional system privileges and configuration updated.',
+      type: 'SUCCESS'
     });
   };
 

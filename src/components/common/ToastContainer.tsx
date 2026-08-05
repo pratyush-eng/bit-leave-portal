@@ -50,7 +50,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onSelectLeaveRequ
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(100);
 
-  // Auto-dismiss after 6 seconds, paused on hover
+  // Auto-dismiss countdown bar, paused on hover
   useEffect(() => {
     if (isHovered) return;
 
@@ -58,7 +58,6 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onSelectLeaveRequ
       setProgress((prev) => {
         if (prev <= 2) {
           clearInterval(interval);
-          onClose();
           return 0;
         }
         return prev - 2; // 100 / 50 steps = 5 seconds
@@ -66,7 +65,14 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onSelectLeaveRequ
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isHovered, onClose]);
+  }, [isHovered]);
+
+  // Auto-dismiss when progress reaches zero (safely in effect, avoiding setState in render)
+  useEffect(() => {
+    if (progress === 0) {
+      onClose();
+    }
+  }, [progress, onClose]);
 
   // Icon and badge style mapping
   const getStatusConfig = (type: ToastNotification['type'], status?: LeaveStatus) => {
