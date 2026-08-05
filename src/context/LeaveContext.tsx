@@ -188,6 +188,40 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
 
+    // Asynchronously dispatch email via backend Express SMTP server
+    if (systemSettings.emailSettings?.enabled !== false) {
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpConfig: systemSettings.emailSettings || DEFAULT_EMAIL_SETTINGS,
+          to: newLog.recipientEmail,
+          toName: newLog.recipientName,
+          subject: newLog.subject,
+          html: newLog.bodyHtml,
+          text: newLog.bodyText
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log(`[Email Gateway] Delivered to ${newLog.recipientEmail}`);
+          setEmailLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, status: 'SENT' } : l));
+        } else {
+          console.warn(`[Email Gateway Error] ${data.error || 'Delivery failed'}`);
+          setEmailLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, status: 'SIMULATED' } : l));
+          addToast({
+            title: `Email Delivery Issue ⚠️`,
+            message: `SMTP Notice for ${newLog.recipientName}: ${data.error || 'Check SMTP configuration'}`,
+            type: 'WARNING'
+          });
+        }
+      })
+      .catch(err => {
+        console.error('[Email Network Error]', err);
+      });
+    }
+
     setEmailLogs(prev => {
       const updated = [newLog, ...prev];
       localStorage.setItem(STORAGE_KEYS.EMAIL_LOGS, JSON.stringify(updated));
@@ -197,8 +231,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     addToast({
       title: `Email Notification Sent 📧`,
-      message: `Dispatched to ${newLog.recipientName} (${newLog.recipientEmail}) [${newLog.status}]`,
-      type: newLog.status === 'SENT' || newLog.status === 'SIMULATED' ? 'SUCCESS' : 'ERROR'
+      message: `Dispatched to ${newLog.recipientName} (${newLog.recipientEmail})`,
+      type: 'INFO'
     });
 
     return newLog;
@@ -250,35 +284,29 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [leaveRequests, currentUser.id]);
 
-  // Sync state to local storage and Firestore
+  // Sync state to local storage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
-    allUsers.forEach(u => saveDocToFirestore('users', u.id, u));
   }, [allUsers]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(leaveRequests));
-    leaveRequests.forEach(r => saveDocToFirestore('leaveRequests', r.id, r));
   }, [leaveRequests]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-    notifications.forEach(n => saveDocToFirestore('notifications', n.id, n));
   }, [notifications]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
-    auditLogs.forEach(l => saveDocToFirestore('auditLogs', l.id, l));
   }, [auditLogs]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(leavePolicies));
-    leavePolicies.forEach(p => saveDocToFirestore('leavePolicies', p.type, p));
   }, [leavePolicies]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
-    departments.forEach(d => saveDocToFirestore('departments', d.id, d));
   }, [departments]);
 
   useEffect(() => {
@@ -727,6 +755,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
+    saveDocToFirestore('leaveRequests', newId, newRequest);
 
     addToast({
       title: 'Leave Application Submitted 📨',
@@ -841,7 +870,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         addAuditLog(currentUser, isRec ? 'HOD_RECOMMENDED' : 'HOD_REJECTED', `${isRec ? 'Recommended' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
 
-        return {
+        const updatedReq = {
           ...req,
           status: updatedStatus,
           hodApproval: {
@@ -852,6 +881,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             comments
           }
         };
+        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        return updatedReq;
       }
       return req;
     }));
@@ -934,9 +965,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: isApproved ? 'APPROVED' : 'REJECTED'
         });
 
-        return {
+        const updatedReq = {
           ...req,
-          status: isApproved ? 'APPROVED' : 'REJECTED',
+          status: isApproved ? 'APPROVED' : 'REJECTED' as const,
           registrarApproval: {
             actionBy: currentUser.id,
             actionByName: `${currentUser.name} (Registrar)`,
@@ -945,6 +976,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             comments
           }
         };
+        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        return updatedReq;
       }
       return req;
     }));
@@ -958,21 +991,62 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       settings,
       systemSettings.institutionName || 'BIT Leave Portal'
     );
-    const log = dispatchEmailLog({
-      recipientEmail,
-      recipientName,
-      recipientRole: 'ADMIN_TEST',
-      subject: mailData.subject,
-      bodyHtml: mailData.bodyHtml,
-      bodyText: mailData.bodyText,
-      status: settings.enabled ? 'SENT' : 'SIMULATED',
-      triggerEvent: 'TEST_EMAIL'
-    });
 
-    return {
-      success: true,
-      message: `Test email dispatched to ${recipientEmail} via SMTP Gateway (${settings.smtpHost}:${settings.smtpPort}). Log ID: ${log.id}`
-    };
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpConfig: settings,
+          to: recipientEmail,
+          toName: recipientName,
+          subject: mailData.subject,
+          html: mailData.bodyHtml,
+          text: mailData.bodyText
+        })
+      });
+
+      const data = await res.json();
+
+      const log = dispatchEmailLog({
+        recipientEmail,
+        recipientName,
+        recipientRole: 'ADMIN_TEST',
+        subject: mailData.subject,
+        bodyHtml: mailData.bodyHtml,
+        bodyText: mailData.bodyText,
+        status: data.success ? 'SENT' : 'SIMULATED',
+        triggerEvent: 'TEST_EMAIL'
+      });
+
+      if (data.success) {
+        return {
+          success: true,
+          message: `Test email delivered successfully to ${recipientEmail} via SMTP Gateway (${settings.smtpHost}:${settings.smtpPort}). Message ID: ${data.messageId || log.id}`
+        };
+      } else {
+        return {
+          success: false,
+          message: `SMTP Mail Dispatch Error: ${data.error || 'Server error delivering test email.'} (Log ID: ${log.id})`
+        };
+      }
+    } catch (err: any) {
+      const log = dispatchEmailLog({
+        recipientEmail,
+        recipientName,
+        recipientRole: 'ADMIN_TEST',
+        subject: mailData.subject,
+        bodyHtml: mailData.bodyHtml,
+        bodyText: mailData.bodyText,
+        status: 'SIMULATED',
+        triggerEvent: 'TEST_EMAIL'
+      });
+
+      return {
+        success: false,
+        message: `Failed to connect to backend email gateway service: ${err.message || String(err)}`
+      };
+    }
   };
 
   const cancelLeave = (leaveId: string) => {
@@ -1006,7 +1080,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: 'CANCELLED'
         });
 
-        return { ...req, status: 'CANCELLED' };
+        const updatedReq = { ...req, status: 'CANCELLED' as const };
+        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        return updatedReq;
       }
       return req;
     }));
@@ -1082,6 +1158,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     setAllUsers(prev => [...prev, newUser]);
+    saveDocToFirestore('users', newUser.id, newUser);
     addAuditLog(currentUser, 'USER_CREATED', `Created new user ${newUser.name} (${newUser.role}) in ${newUser.departmentName}. Status: ${newUser.accountStatus}`);
     return {
       success: true,
@@ -1095,6 +1172,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalFaculty: 0
     };
     setDepartments(prev => [...prev, newDept]);
+    saveDocToFirestore('departments', newDept.id, newDept);
     addAuditLog(currentUser, 'DEPARTMENT_CREATED', `Created new department ${newDept.name} (${newDept.code}).`);
   };
 
@@ -1106,6 +1184,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return [...prev, policyData];
     });
+    saveDocToFirestore('leavePolicies', policyData.type, policyData);
 
     // Automatically initialize this leave balance for all existing users if new
     setAllUsers(uList => uList.map(u => {
@@ -1126,6 +1205,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateLeavePolicy = (updatedPolicy: LeavePolicy) => {
     setLeavePolicies(prev => prev.map(p => p.type === updatedPolicy.type ? updatedPolicy : p));
+    saveDocToFirestore('leavePolicies', updatedPolicy.type, updatedPolicy);
     addAuditLog(currentUser, 'POLICY_UPDATED', `Updated policy for ${updatedPolicy.label}. Annual Quota set to ${updatedPolicy.annualQuota}.`);
   };
 

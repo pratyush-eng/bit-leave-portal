@@ -113,7 +113,10 @@ export function subscribeToSystemSettings(callback: (settings: SystemSettings) =
   }
 }
 
+let isQuotaExceeded = false;
+
 async function seedCollection(colName: string, items: any[], idField: string) {
+  if (isQuotaExceeded) return;
   try {
     const batch = writeBatch(db);
     items.forEach((item) => {
@@ -121,23 +124,40 @@ async function seedCollection(colName: string, items: any[], idField: string) {
       batch.set(docRef, item);
     });
     await batch.commit();
-  } catch (err) {
-    console.error(`Failed seeding ${colName}:`, err);
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
+      isQuotaExceeded = true;
+      console.warn(`Firestore quota limit reached during seedCollection (${colName}). Falling back to local storage.`);
+    } else {
+      console.error(`Failed seeding ${colName}:`, err);
+    }
   }
 }
 
 export async function saveDocToFirestore(colName: string, id: string, data: any) {
+  if (isQuotaExceeded) return;
   try {
     await setDoc(doc(db, colName, String(id)), data, { merge: true });
-  } catch (err) {
-    console.error(`Error saving doc to ${colName}/${id}:`, err);
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
+      isQuotaExceeded = true;
+      console.warn(`Firestore quota limit reached saving ${colName}/${id}. Using local state.`);
+    } else {
+      console.error(`Error saving doc to ${colName}/${id}:`, err);
+    }
   }
 }
 
 export async function deleteDocFromFirestore(colName: string, id: string) {
+  if (isQuotaExceeded) return;
   try {
     await deleteDoc(doc(db, colName, String(id)));
-  } catch (err) {
-    console.error(`Error deleting doc from ${colName}/${id}:`, err);
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
+      isQuotaExceeded = true;
+      console.warn(`Firestore quota limit reached deleting ${colName}/${id}. Using local state.`);
+    } else {
+      console.error(`Error deleting doc from ${colName}/${id}:`, err);
+    }
   }
 }
