@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenChangePassword
 }) => {
-  const { currentUser, leaveRequests, logout } = useLeave();
+  const { currentUser, leaveRequests, logout, systemSettings } = useLeave();
 
   // Calculate pending approval counts
   const pendingHodCount = leaveRequests.filter(
@@ -95,12 +95,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Sidebar Header */}
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center font-bold text-white shadow-xs text-sm">
-              LP
+            <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center font-bold text-white shadow-xs text-sm overflow-hidden shrink-0">
+              {systemSettings?.institutionLogoUrl ? (
+                <img 
+                  src={systemSettings.institutionLogoUrl} 
+                  alt="Logo" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                'LP'
+              )}
             </div>
             <div>
-              <h1 className="text-xl font-medium tracking-tight text-white leading-none">Leave Portal</h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-1">
+              <h1 className="text-lg font-bold tracking-tight text-white leading-tight">
+                {systemSettings?.institutionName || 'BIT Leave Portal'}
+              </h1>
+              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-0.5">
                 University Portal
               </p>
             </div>

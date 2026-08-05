@@ -153,12 +153,23 @@ export const LoginPage: React.FC = () => {
           
           {/* Blue Header inside Login Box Card */}
           <div className="bg-[#3F51B5] text-white px-6 py-5 sm:px-8 flex items-center gap-3.5 border-b border-indigo-700">
-            <div className="w-11 h-11 rounded-xl bg-white/15 text-white flex items-center justify-center font-bold shrink-0 border border-white/20 shadow-xs">
-              <GraduationCap className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-xl bg-white/15 text-white flex items-center justify-center font-bold shrink-0 border border-white/20 shadow-xs overflow-hidden">
+              {systemSettings?.institutionLogoUrl ? (
+                <img 
+                  src={systemSettings.institutionLogoUrl} 
+                  alt="Logo" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <GraduationCap className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">
-                BIT Leave Portal
+                {systemSettings?.institutionName || 'BIT Leave Portal'}
               </h1>
               <p className="text-xs text-blue-100 font-medium opacity-90 mt-0.5">
                 Fully manage leave portal

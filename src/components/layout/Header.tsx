@@ -47,12 +47,24 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-[#3F51B5] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-              <GraduationCap className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-[#3F51B5] text-white flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden shrink-0">
+              {systemSettings?.institutionLogoUrl ? (
+                <img 
+                  src={systemSettings.institutionLogoUrl} 
+                  alt="Logo" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    // Fallback to icon if image fails to load
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <GraduationCap className="w-4 h-4 text-white" />
+              )}
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-semibold text-slate-800 leading-tight">
-                BIT Mesra Leave Portal
+                {systemSettings?.institutionName || 'BIT Mesra Leave Portal'}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
                 Leave Portal • Multi-Tier Approval

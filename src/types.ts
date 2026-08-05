@@ -152,4 +152,6 @@ export interface ToastNotification {
 export interface SystemSettings {
   enableDemoAccounts: boolean;
   enableRoleSwitcher: boolean;
+  institutionName?: string;
+  institutionLogoUrl?: string;
 }
