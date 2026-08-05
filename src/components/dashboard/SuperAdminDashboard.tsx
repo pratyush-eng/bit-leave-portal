@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
-import { User, Role } from '../../types';
+import { User, Role, EmailLog } from '../../types';
+import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
 import { 
@@ -28,7 +29,14 @@ import {
   Edit3,
   Sliders,
   Image,
-  Palette
+  Palette,
+  Mail,
+  Send,
+  Server,
+  Eye,
+  FileText,
+  SendHorizontal,
+  Sparkles
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -38,6 +46,7 @@ export const SuperAdminDashboard: React.FC = () => {
     departments,
     leavePolicies,
     auditLogs, 
+    emailLogs,
     granularPermissions, 
     updateUserRoleAndPermissions,
     createNewUser,
@@ -46,10 +55,11 @@ export const SuperAdminDashboard: React.FC = () => {
     importDbJson,
     resetData,
     systemSettings,
-    updateSystemSettings
+    updateSystemSettings,
+    sendTestEmail
   } = useLeave();
 
-  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'pending' | 'settings' | 'database' | 'audit_logs'>('permissions');
+  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'pending' | 'settings' | 'email' | 'database' | 'audit_logs'>('permissions');
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[3]?.id || allUsers[0]?.id);
   const [logFilter, setLogFilter] = useState<string>('');
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
@@ -75,6 +85,30 @@ export const SuperAdminDashboard: React.FC = () => {
   const [institutionNameInput, setInstitutionNameInput] = useState<string>(systemSettings.institutionName || 'BIT Leave Portal');
   const [brandingSaveMsg, setBrandingSaveMsg] = useState<string | null>(null);
 
+  // Email Configuration state
+  const initialEmailConfig = systemSettings.emailSettings || DEFAULT_EMAIL_SETTINGS;
+  const [emailEnabled, setEmailEnabled] = useState<boolean>(initialEmailConfig.enabled);
+  const [smtpHost, setSmtpHost] = useState<string>(initialEmailConfig.smtpHost || 'mail.bitmesra.ac.in');
+  const [smtpPort, setSmtpPort] = useState<number>(initialEmailConfig.smtpPort || 587);
+  const [smtpUsername, setSmtpUsername] = useState<string>(initialEmailConfig.smtpUsername || 'leave-portal@bitmesra.ac.in');
+  const [smtpPassword, setSmtpPassword] = useState<string>(initialEmailConfig.smtpPassword || '••••••••••••');
+  const [senderEmail, setSenderEmail] = useState<string>(initialEmailConfig.senderEmail || 'leave-portal@bitmesra.ac.in');
+  const [senderName, setSenderName] = useState<string>(initialEmailConfig.senderName || 'BIT Leave Portal System');
+  const [encryption, setEncryption] = useState<'TLS' | 'SSL' | 'NONE'>(initialEmailConfig.encryption || 'TLS');
+  const [sendCopyAdmin, setSendCopyAdmin] = useState<boolean>(initialEmailConfig.sendCopyAdmin ?? true);
+  const [adminCcEmail, setAdminCcEmail] = useState<string>(initialEmailConfig.adminCcEmail || 'admin.leave@bitmesra.ac.in');
+  const [emailSettingsSavedMsg, setEmailSettingsSavedMsg] = useState<string | null>(null);
+
+  // Test Email state
+  const [testEmailAddr, setTestEmailAddr] = useState<string>(currentUser.email || 'pratyush@bitmesra.ac.in');
+  const [testEmailName, setTestEmailName] = useState<string>(currentUser.name || 'Super Admin');
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState<boolean>(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Email Log Modal state
+  const [selectedEmailLog, setSelectedEmailLog] = useState<EmailLog | null>(null);
+  const [emailLogSearch, setEmailLogSearch] = useState<string>('');
+
   useEffect(() => {
     if (systemSettings.institutionLogoUrl) {
       setLogoUrlInput(systemSettings.institutionLogoUrl);
@@ -82,7 +116,55 @@ export const SuperAdminDashboard: React.FC = () => {
     if (systemSettings.institutionName) {
       setInstitutionNameInput(systemSettings.institutionName);
     }
-  }, [systemSettings.institutionLogoUrl, systemSettings.institutionName]);
+    if (systemSettings.emailSettings) {
+      setEmailEnabled(systemSettings.emailSettings.enabled);
+      setSmtpHost(systemSettings.emailSettings.smtpHost);
+      setSmtpPort(systemSettings.emailSettings.smtpPort);
+      setSmtpUsername(systemSettings.emailSettings.smtpUsername);
+      if (systemSettings.emailSettings.smtpPassword) setSmtpPassword(systemSettings.emailSettings.smtpPassword);
+      setSenderEmail(systemSettings.emailSettings.senderEmail);
+      setSenderName(systemSettings.emailSettings.senderName);
+      setEncryption(systemSettings.emailSettings.encryption);
+      setSendCopyAdmin(systemSettings.emailSettings.sendCopyAdmin);
+      if (systemSettings.emailSettings.adminCcEmail) setAdminCcEmail(systemSettings.emailSettings.adminCcEmail);
+    }
+  }, [systemSettings]);
+
+  const handleSaveEmailSettings = () => {
+    updateSystemSettings({
+      emailSettings: {
+        enabled: emailEnabled,
+        smtpHost,
+        smtpPort: Number(smtpPort),
+        smtpUsername,
+        smtpPassword,
+        senderEmail,
+        senderName,
+        encryption,
+        sendCopyAdmin,
+        adminCcEmail
+      }
+    });
+    setEmailSettingsSavedMsg('SMTP gateway & automated email dispatch settings saved successfully!');
+    setTimeout(() => setEmailSettingsSavedMsg(null), 4000);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddr.trim()) return;
+    setIsSendingTestEmail(true);
+    setTestEmailResult(null);
+    try {
+      const res = await sendTestEmail(testEmailAddr.trim(), testEmailName.trim() || 'User');
+      setTestEmailResult(res);
+    } catch (err: any) {
+      setTestEmailResult({
+        success: false,
+        message: err.message || 'Failed to dispatch test email.'
+      });
+    } finally {
+      setIsSendingTestEmail(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -323,6 +405,23 @@ export const SuperAdminDashboard: React.FC = () => {
         >
           <Sliders className="w-4 h-4" />
           System Privileges & Toggles
+        </button>
+
+        <button
+          onClick={() => setActiveTab('email')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer relative ${
+            activeTab === 'email'
+              ? 'bg-[#3F51B5] text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          Email Gateway & Logs
+          {emailLogs.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
+              {emailLogs.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -1073,6 +1172,461 @@ export const SuperAdminDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Email Gateway & Automated Workflow Settings */}
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          
+          {/* Workflow Explanation Banner */}
+          <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center font-bold border border-white/20">
+                  <Mail className="w-6 h-6 text-indigo-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Automated Email Notification Routing Workflow</h3>
+                  <p className="text-xs text-indigo-200">
+                    Configured for BIT Leave Portal multi-tier approval dispatching
+                  </p>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                emailEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' : 'bg-amber-500/20 text-amber-300 border border-amber-400/30'
+              }`}>
+                {emailEnabled ? 'Gateway Active (SMTP Live)' : 'Simulated Sandbox Mode'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-4 border border-white/15 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/40 flex items-center justify-center text-[10px] text-white">1</span>
+                  Staff → HoD Email
+                </div>
+                <p className="text-xs text-indigo-100/90 leading-relaxed">
+                  When any staff member submits a leave application, an immediate notification email is dispatched directly to the individual Department HoD (<code className="text-amber-200 font-mono text-[11px]">hodUser.email</code>).
+                </p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-4 border border-white/15 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/40 flex items-center justify-center text-[10px] text-white">2</span>
+                  HoD → Registrar / Staff
+                </div>
+                <p className="text-xs text-indigo-100/90 leading-relaxed">
+                  When HoD endorses: Email is forwarded to the Registrar for final approval. If rejected by HoD: An email is sent back to the applicant notifying rejection reasons.
+                </p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-4 border border-white/15 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/40 flex items-center justify-center text-[10px] text-white">3</span>
+                  Registrar → Staff Final
+                </div>
+                <p className="text-xs text-indigo-100/90 leading-relaxed">
+                  Upon Registrar sanction or rejection: An official Sanction Order email is automatically sent back to the applicant staff member confirming leave status.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Configuration Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* SMTP Server Configuration Form */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-6">
+              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Server className="w-5 h-5 text-[#3F51B5]" />
+                    Institutional SMTP Email Gateway Settings
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure institutional mail server credentials (e.g. mail.bitmesra.ac.in / Gmail / SendGrid)
+                  </p>
+                </div>
+              </div>
+
+              {emailSettingsSavedMsg && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  {emailSettingsSavedMsg}
+                </div>
+              )}
+
+              {/* Master Switch */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">Enable Automated Email Notifications</h4>
+                  <p className="text-[11px] text-slate-500">Master switch for background email dispatching</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEmailEnabled(!emailEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                    emailEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      emailEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    SMTP Host Server
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="mail.bitmesra.ac.in"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    SMTP Port
+                  </label>
+                  <input
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(Number(e.target.value))}
+                    placeholder="587"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Encryption Protocol
+                  </label>
+                  <select
+                    value={encryption}
+                    onChange={(e) => setEncryption(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="TLS">TLS (Recommended - Port 587)</option>
+                    <option value="SSL">SSL (Port 465)</option>
+                    <option value="NONE">None (Plaintext - Port 25)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Sender System Email
+                  </label>
+                  <input
+                    type="email"
+                    value={senderEmail}
+                    onChange={(e) => setSenderEmail(e.target.value)}
+                    placeholder="leave-portal@bitmesra.ac.in"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Sender Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value)}
+                    placeholder="BIT Leave Portal System"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    SMTP Username / Account
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpUsername}
+                    onChange={(e) => setSmtpUsername(e.target.value)}
+                    placeholder="leave-portal@bitmesra.ac.in"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    SMTP Password
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpPassword}
+                    onChange={(e) => setSmtpPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Admin CC Audit Email
+                  </label>
+                  <input
+                    type="email"
+                    value={adminCcEmail}
+                    onChange={(e) => setAdminCcEmail(e.target.value)}
+                    placeholder="admin.leave@bitmesra.ac.in"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveEmailSettings}
+                  className="px-5 py-2.5 bg-[#3F51B5] hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Save Email Settings
+                </button>
+              </div>
+            </div>
+
+            {/* Send Test Email Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-5 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="border-b border-slate-200 pb-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Send className="w-4 h-4 text-emerald-600" />
+                    Send Test Email Verification
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Test instant SMTP connection & template rendering
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Recipient Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={testEmailAddr}
+                    onChange={(e) => setTestEmailAddr(e.target.value)}
+                    placeholder="recipient@bitmesra.ac.in"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Recipient Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={testEmailName}
+                    onChange={(e) => setTestEmailName(e.target.value)}
+                    placeholder="Dr. Pratyush Kumar"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={isSendingTestEmail}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSendingTestEmail ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" /> Dispatching Test Email...
+                    </>
+                  ) : (
+                    <>
+                      <SendHorizontal className="w-4 h-4" /> Dispatch Test Email
+                    </>
+                  )}
+                </button>
+
+                {testEmailResult && (
+                  <div className={`p-3.5 rounded-xl border text-xs font-medium space-y-1 ${
+                    testEmailResult.success 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                      : 'bg-rose-50 border-rose-200 text-rose-800'
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      {testEmailResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      )}
+                      {testEmailResult.success ? 'Email Dispatched Successfully' : 'Dispatch Failure'}
+                    </div>
+                    <p className="text-[11px] leading-relaxed">{testEmailResult.message}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-[11px] text-slate-500 space-y-1">
+                <p className="font-bold text-slate-700 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Active System Status:
+                </p>
+                <p>SMTP Gateway: <span className="font-mono text-slate-800">{smtpHost}:{smtpPort}</span></p>
+                <p>Mode: <span className="font-bold text-indigo-700">{emailEnabled ? 'LIVE TRANSMISSION' : 'SANDBOX LOGGING'}</span></p>
+              </div>
+            </div>
+          </div>
+
+          {/* Email Logs Section */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-3 p-5">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#3F51B5]" />
+                  System Email Delivery Audit Trail ({emailLogs.length})
+                </h3>
+                <p className="text-xs text-slate-500">Live record of all email notifications generated by staff leave requests</p>
+              </div>
+
+              <div className="relative min-w-[260px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Filter emails by recipient or event..."
+                  value={emailLogSearch}
+                  onChange={(e) => setEmailLogSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">Timestamp</th>
+                    <th className="px-4 py-3">Trigger Event</th>
+                    <th className="px-4 py-3">Recipient</th>
+                    <th className="px-4 py-3">Role</th>
+                    <th className="px-4 py-3">Subject</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {emailLogs
+                    .filter(log => {
+                      if (!emailLogSearch) return true;
+                      const q = emailLogSearch.toLowerCase();
+                      return log.recipientEmail.toLowerCase().includes(q) ||
+                             log.recipientName.toLowerCase().includes(q) ||
+                             log.subject.toLowerCase().includes(q) ||
+                             log.triggerEvent.toLowerCase().includes(q);
+                    })
+                    .map((log) => {
+                      const getEventBadge = (evt: string) => {
+                        switch (evt) {
+                          case 'LEAVE_SUBMITTED':
+                            return <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-200">SUBMITTED (To HoD)</span>;
+                          case 'HOD_RECOMMENDED':
+                            return <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-bold border border-purple-200">ENDORSED (To Reg)</span>;
+                          case 'HOD_REJECTED':
+                            return <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-200">HOD REJECTED</span>;
+                          case 'REGISTRAR_SANCTIONED':
+                            return <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">SANCTIONED ORDER</span>;
+                          case 'REGISTRAR_REJECTED':
+                            return <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-200">REGISTRAR REJECTED</span>;
+                          default:
+                            return <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold border border-slate-200">TEST VERIFICATION</span>;
+                        }
+                      };
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{log.timestamp}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{getEventBadge(log.triggerEvent)}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-bold text-slate-900">{log.recipientName}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{log.recipientEmail}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <MaterialChip label={log.recipientRole} variant="role" role={log.recipientRole} />
+                          </td>
+                          <td className="px-4 py-3 font-medium text-slate-800 max-w-xs truncate">{log.subject}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              log.status === 'SENT' 
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                                : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            }`}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEmailLog(log)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ml-auto"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Inspect HTML
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Render Email Log HTML Preview Modal */}
+      {selectedEmailLog && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-indigo-200" />
+                <h3 className="font-bold text-sm">Dispatched Email HTML Inspector • {selectedEmailLog.id}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEmailLog(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs space-y-1">
+              <div><span className="font-bold text-slate-700">Subject:</span> <span className="font-semibold text-slate-900">{selectedEmailLog.subject}</span></div>
+              <div><span className="font-bold text-slate-700">To:</span> {selectedEmailLog.recipientName} &lt;<span className="font-mono text-indigo-700">{selectedEmailLog.recipientEmail}</span>&gt;</div>
+              <div><span className="font-bold text-slate-700">Sent At:</span> {selectedEmailLog.timestamp} | <span className="font-bold text-slate-700">Status:</span> {selectedEmailLog.status}</div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-100 flex justify-center">
+              <div 
+                className="bg-white rounded-xl shadow-md p-6 max-w-2xl w-full text-slate-900 font-sans border border-slate-200"
+                dangerouslySetInnerHTML={{ __html: selectedEmailLog.bodyHtml }}
+              />
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedEmailLog(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>

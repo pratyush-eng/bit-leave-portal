@@ -149,9 +149,37 @@ export interface ToastNotification {
   read?: boolean;
 }
 
+export interface EmailSettings {
+  enabled: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUsername: string;
+  smtpPassword?: string;
+  senderEmail: string;
+  senderName: string;
+  encryption: 'TLS' | 'SSL' | 'NONE';
+  sendCopyAdmin: boolean;
+  adminCcEmail?: string;
+}
+
+export interface EmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName: string;
+  recipientRole: string;
+  subject: string;
+  bodyHtml: string;
+  bodyText: string;
+  status: 'SENT' | 'SIMULATED' | 'FAILED';
+  timestamp: string;
+  leaveRequestId?: string;
+  triggerEvent: 'LEAVE_SUBMITTED' | 'HOD_RECOMMENDED' | 'HOD_REJECTED' | 'REGISTRAR_SANCTIONED' | 'REGISTRAR_REJECTED' | 'TEST_EMAIL';
+}
+
 export interface SystemSettings {
   enableDemoAccounts: boolean;
   enableRoleSwitcher: boolean;
   institutionName?: string;
   institutionLogoUrl?: string;
+  emailSettings?: EmailSettings;
 }

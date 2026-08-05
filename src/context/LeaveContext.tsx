@@ -11,8 +11,19 @@ import {
   LeaveType,
   GranularPermission,
   ToastNotification,
-  SystemSettings
+  SystemSettings,
+  EmailLog,
+  EmailSettings
 } from '../types';
+import { 
+  DEFAULT_EMAIL_SETTINGS,
+  buildLeaveSubmittedEmail,
+  buildHodRecommendedEmail,
+  buildHodRejectedEmail,
+  buildRegistrarSanctionedEmail,
+  buildRegistrarRejectedEmail,
+  buildTestEmail
+} from '../lib/emailTemplates';
 import { 
   MOCK_USERS, 
   INITIAL_LEAVE_REQUESTS, 
@@ -31,6 +42,7 @@ interface LeaveContextType {
   leaveRequests: LeaveRequest[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  emailLogs: EmailLog[];
   granularPermissions: GranularPermission[];
   unreadNotificationCount: number;
   isAuthenticated: boolean;
@@ -38,6 +50,7 @@ interface LeaveContextType {
   systemSettings: SystemSettings;
 
   updateSystemSettings: (newSettings: Partial<SystemSettings>) => void;
+  sendTestEmail: (recipientEmail: string, recipientName: string) => Promise<{ success: boolean; message: string }>;
   addToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
@@ -95,13 +108,21 @@ const STORAGE_KEYS = {
   DEPARTMENTS: 'academia_leave_departments_v1',
   CURRENT_USER_ID: 'academia_current_user_id_v1',
   AUTH: 'academia_leave_auth_v1',
-  SETTINGS: 'academia_system_settings_v1'
+  SETTINGS: 'academia_system_settings_v1',
+  EMAIL_LOGS: 'academia_email_logs_v1'
 };
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return saved ? JSON.parse(saved) : { enableDemoAccounts: true, enableRoleSwitcher: true };
+    const parsed = saved ? JSON.parse(saved) : {};
+    return {
+      enableDemoAccounts: parsed.enableDemoAccounts ?? true,
+      enableRoleSwitcher: parsed.enableRoleSwitcher ?? true,
+      institutionName: parsed.institutionName || 'BIT Leave Portal',
+      institutionLogoUrl: parsed.institutionLogoUrl || '',
+      emailSettings: parsed.emailSettings || DEFAULT_EMAIL_SETTINGS
+    };
   });
 
   const [allUsers, setAllUsers] = useState<User[]>(() => {
@@ -138,6 +159,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
 
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.EMAIL_LOGS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.POLICIES);
     return saved ? JSON.parse(saved) : INITIAL_LEAVE_POLICIES;
@@ -153,6 +179,29 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setToasts(prev => [newToast, ...prev].slice(0, 5));
+  };
+
+  const dispatchEmailLog = (logData: Omit<EmailLog, 'id' | 'timestamp'>) => {
+    const newLog: EmailLog = {
+      ...logData,
+      id: `ML-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    };
+
+    setEmailLogs(prev => {
+      const updated = [newLog, ...prev];
+      localStorage.setItem(STORAGE_KEYS.EMAIL_LOGS, JSON.stringify(updated));
+      return updated;
+    });
+    saveDocToFirestore('emailLogs', newLog.id, newLog);
+
+    addToast({
+      title: `Email Notification Sent 📧`,
+      message: `Dispatched to ${newLog.recipientName} (${newLog.recipientEmail}) [${newLog.status}]`,
+      type: newLog.status === 'SENT' || newLog.status === 'SIMULATED' ? 'SUCCESS' : 'ERROR'
+    });
+
+    return newLog;
   };
 
   const removeToast = (id: string) => {
@@ -645,7 +694,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
 
     // Find Department HOD
-    const deptInfo = INITIAL_DEPARTMENTS.find(d => d.id === currentUser.departmentId);
+    const deptInfo = departments.find(d => d.id === currentUser.departmentId) || INITIAL_DEPARTMENTS.find(d => d.id === currentUser.departmentId);
     const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === currentUser.departmentId && u.role === 'HOD'));
 
     if (hodUser) {
@@ -656,13 +705,32 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         'LEAVE_SUBMITTED',
         newId
       );
+
+      if (hodUser.email) {
+        const mailData = buildLeaveSubmittedEmail(
+          newRequest,
+          hodUser.name,
+          systemSettings.institutionName || 'BIT Leave Portal'
+        );
+        dispatchEmailLog({
+          recipientEmail: hodUser.email,
+          recipientName: hodUser.name,
+          recipientRole: 'HOD',
+          subject: mailData.subject,
+          bodyHtml: mailData.bodyHtml,
+          bodyText: mailData.bodyText,
+          status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
+          leaveRequestId: newId,
+          triggerEvent: 'LEAVE_SUBMITTED'
+        });
+      }
     }
 
     addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
 
     addToast({
-      title: 'Leave Application Submitted',
-      message: `Application #${newId} for ${data.leaveType} leave (${data.totalDays} day(s)) submitted. Status: Pending HOD Endorsement.`,
+      title: 'Leave Application Submitted 📨',
+      message: `Application #${newId} submitted. Notification email sent to ${hodUser?.name || 'Department HoD'} (${hodUser?.email || 'HoD Email'}).`,
       type: 'INFO',
       leaveId: newId,
       status: 'PENDING_HOD'
@@ -697,9 +765,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: updatedStatus
         });
 
-        // If recommended, notify Registrar(s)
+        // If recommended, notify Registrar(s) via notification + Email
         if (isRec) {
-          const registrars = allUsers.filter(u => u.role === 'REGISTRAR');
+          const registrars = allUsers.filter(u => u.role === 'REGISTRAR' || u.role === 'SUPER_ADMIN');
           registrars.forEach(reg => {
             addNotification(
               reg.id,
@@ -708,7 +776,47 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               'HOD_ENDORSED',
               req.id
             );
+
+            if (reg.email) {
+              const mailData = buildHodRecommendedEmail(
+                req,
+                reg.name,
+                comments,
+                systemSettings.institutionName || 'BIT Leave Portal'
+              );
+              dispatchEmailLog({
+                recipientEmail: reg.email,
+                recipientName: reg.name,
+                recipientRole: reg.role,
+                subject: mailData.subject,
+                bodyHtml: mailData.bodyHtml,
+                bodyText: mailData.bodyText,
+                status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
+                leaveRequestId: req.id,
+                triggerEvent: 'HOD_RECOMMENDED'
+              });
+            }
           });
+        } else {
+          // If rejected by HOD, email back to staff member
+          if (req.applicantEmail) {
+            const mailData = buildHodRejectedEmail(
+              req,
+              comments,
+              systemSettings.institutionName || 'BIT Leave Portal'
+            );
+            dispatchEmailLog({
+              recipientEmail: req.applicantEmail,
+              recipientName: req.applicantName,
+              recipientRole: req.applicantRole,
+              subject: mailData.subject,
+              bodyHtml: mailData.bodyHtml,
+              bodyText: mailData.bodyText,
+              status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
+              leaveRequestId: req.id,
+              triggerEvent: 'HOD_REJECTED'
+            });
+          }
         }
 
         // If rejected by HOD, release pending leave balance count
@@ -764,7 +872,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
 
         // Notify Department HOD
-        const deptInfo = INITIAL_DEPARTMENTS.find(d => d.id === req.departmentId);
+        const deptInfo = departments.find(d => d.id === req.departmentId) || INITIAL_DEPARTMENTS.find(d => d.id === req.departmentId);
         const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === req.departmentId && u.role === 'HOD'));
         if (hodUser) {
           addNotification(
@@ -774,6 +882,25 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             isApproved ? 'REGISTRAR_APPROVED' : 'REJECTED',
             req.id
           );
+        }
+
+        // Send email back to Staff Member (Applicant)
+        if (req.applicantEmail) {
+          const mailData = isApproved
+            ? buildRegistrarSanctionedEmail(req, comments, systemSettings.institutionName || 'BIT Leave Portal')
+            : buildRegistrarRejectedEmail(req, comments, systemSettings.institutionName || 'BIT Leave Portal');
+
+          dispatchEmailLog({
+            recipientEmail: req.applicantEmail,
+            recipientName: req.applicantName,
+            recipientRole: req.applicantRole,
+            subject: mailData.subject,
+            bodyHtml: mailData.bodyHtml,
+            bodyText: mailData.bodyText,
+            status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
+            leaveRequestId: req.id,
+            triggerEvent: isApproved ? 'REGISTRAR_SANCTIONED' : 'REGISTRAR_REJECTED'
+          });
         }
 
         // Deduct/update leave balance for applicant
@@ -800,8 +927,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addToast({
           title: isApproved ? 'Leave Sanctioned & Approved! 🎓' : 'Leave Application Rejected',
           message: isApproved 
-            ? `Leave request #${req.id} for ${req.applicantName} was officially sanctioned.` 
-            : `Leave request #${req.id} for ${req.applicantName} was rejected by Registrar.`,
+            ? `Leave request #${req.id} for ${req.applicantName} was officially sanctioned. Confirmation email sent.` 
+            : `Leave request #${req.id} for ${req.applicantName} was rejected by Registrar. Status email sent.`,
           type: isApproved ? 'SUCCESS' : 'ERROR',
           leaveId: req.id,
           status: isApproved ? 'APPROVED' : 'REJECTED'
@@ -821,6 +948,31 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return req;
     }));
+  };
+
+  const sendTestEmail = async (recipientEmail: string, recipientName: string) => {
+    const settings = systemSettings.emailSettings || DEFAULT_EMAIL_SETTINGS;
+    const mailData = buildTestEmail(
+      recipientEmail,
+      recipientName,
+      settings,
+      systemSettings.institutionName || 'BIT Leave Portal'
+    );
+    const log = dispatchEmailLog({
+      recipientEmail,
+      recipientName,
+      recipientRole: 'ADMIN_TEST',
+      subject: mailData.subject,
+      bodyHtml: mailData.bodyHtml,
+      bodyText: mailData.bodyText,
+      status: settings.enabled ? 'SENT' : 'SIMULATED',
+      triggerEvent: 'TEST_EMAIL'
+    });
+
+    return {
+      success: true,
+      message: `Test email dispatched to ${recipientEmail} via SMTP Gateway (${settings.smtpHost}:${settings.smtpPort}). Log ID: ${log.id}`
+    };
   };
 
   const cancelLeave = (leaveId: string) => {
@@ -1018,6 +1170,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         leaveRequests,
         notifications: userNotifications,
         auditLogs,
+        emailLogs,
         granularPermissions: GRANULAR_PERMISSIONS,
         unreadNotificationCount,
         isAuthenticated,
@@ -1025,6 +1178,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         systemSettings,
 
         updateSystemSettings,
+        sendTestEmail,
         addToast,
         removeToast,
         clearToasts,

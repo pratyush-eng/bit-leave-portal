@@ -8,7 +8,7 @@ import {
   INITIAL_LEAVE_POLICIES, 
   INITIAL_DEPARTMENTS 
 } from '../data/mockData';
-import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings } from '../types';
+import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings, EmailLog } from '../types';
 
 export async function loadOrSeedFirestoreData(): Promise<{
   users: User[];
@@ -17,12 +17,13 @@ export async function loadOrSeedFirestoreData(): Promise<{
   leavePolicies: LeavePolicy[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  emailLogs?: EmailLog[];
   systemSettings?: SystemSettings;
 }> {
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
     
-    // Fetch global system settings (logo, institution name, feature toggles)
+    // Fetch global system settings (logo, institution name, feature toggles, email settings)
     let systemSettings: SystemSettings | undefined = undefined;
     try {
       const settingsSnap = await getDoc(doc(db, 'settings', 'global'));
@@ -49,6 +50,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         leavePolicies: INITIAL_LEAVE_POLICIES,
         notifications: INITIAL_NOTIFICATIONS,
         auditLogs: INITIAL_AUDIT_LOGS,
+        emailLogs: [],
         systemSettings,
       };
     } else {
@@ -63,6 +65,14 @@ export async function loadOrSeedFirestoreData(): Promise<{
       const notifications: Notification[] = notSnap.docs.map(d => d.data() as Notification);
       const logSnap = await getDocs(collection(db, 'auditLogs'));
       const auditLogs: AuditLog[] = logSnap.docs.map(d => d.data() as AuditLog);
+      
+      let emailLogs: EmailLog[] = [];
+      try {
+        const mailSnap = await getDocs(collection(db, 'emailLogs'));
+        emailLogs = mailSnap.docs.map(d => d.data() as EmailLog);
+      } catch (mErr) {
+        console.warn('Could not load emailLogs from Firestore:', mErr);
+      }
 
       return {
         users: users.length ? users : MOCK_USERS,
@@ -71,6 +81,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         leavePolicies: leavePolicies.length ? leavePolicies : INITIAL_LEAVE_POLICIES,
         notifications: notifications.length ? notifications : INITIAL_NOTIFICATIONS,
         auditLogs: auditLogs.length ? auditLogs : INITIAL_AUDIT_LOGS,
+        emailLogs: emailLogs,
         systemSettings,
       };
     }
