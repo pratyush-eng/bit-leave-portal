@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role } from '../../types';
 import { MaterialChip } from '../common/MaterialChip';
@@ -74,6 +74,15 @@ export const SuperAdminDashboard: React.FC = () => {
   const [logoUrlInput, setLogoUrlInput] = useState<string>(systemSettings.institutionLogoUrl || '');
   const [institutionNameInput, setInstitutionNameInput] = useState<string>(systemSettings.institutionName || 'BIT Leave Portal');
   const [brandingSaveMsg, setBrandingSaveMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (systemSettings.institutionLogoUrl) {
+      setLogoUrlInput(systemSettings.institutionLogoUrl);
+    }
+    if (systemSettings.institutionName) {
+      setInstitutionNameInput(systemSettings.institutionName);
+    }
+  }, [systemSettings.institutionLogoUrl, systemSettings.institutionName]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

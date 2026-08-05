@@ -242,14 +242,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(systemSettings));
-    saveDocToFirestore('settings', 'global', systemSettings);
   }, [systemSettings]);
 
   const updateSystemSettings = (newSettings: Partial<SystemSettings>) => {
-    let updatedObj: SystemSettings = systemSettings;
     setSystemSettings(prev => {
-      updatedObj = { ...prev, ...newSettings };
-      return updatedObj;
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+      saveDocToFirestore('settings', 'global', updated);
+      return updated;
     });
     addAuditLog(
       currentUser, 
