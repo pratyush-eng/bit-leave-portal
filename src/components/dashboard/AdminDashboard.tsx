@@ -20,7 +20,8 @@ import {
   FolderPlus,
   FileSpreadsheet,
   CheckCircle2,
-  Filter
+  Filter,
+  Lock
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -40,15 +41,31 @@ export const AdminDashboard: React.FC = () => {
   } = useLeave();
 
   const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending'>('users');
-  const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
+  
+  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const userDeptId = currentUser?.departmentId;
+  const userDeptObj = departments.find(d => d.id === userDeptId);
 
   // Department Filter & User Editing
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('ALL');
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
 
-  const displayedUsers = selectedDepartmentFilter === 'ALL'
+  React.useEffect(() => {
+    if (isDeptAdmin && userDeptId) {
+      setSelectedDepartmentFilter(userDeptId);
+    }
+  }, [isDeptAdmin, userDeptId]);
+
+  const effectiveDeptFilter = (isDeptAdmin && userDeptId) ? userDeptId : selectedDepartmentFilter;
+
+  const displayedUsers = effectiveDeptFilter === 'ALL'
     ? allUsers
-    : allUsers.filter(u => u.departmentId === selectedDepartmentFilter);
+    : allUsers.filter(u => u.departmentId === effectiveDeptFilter);
+
+  const pendingUsers = allUsers.filter(u => 
+    u.accountStatus === 'PENDING_APPROVAL' && 
+    (effectiveDeptFilter === 'ALL' || u.departmentId === effectiveDeptFilter)
+  );
 
   // User editing state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -72,7 +89,6 @@ export const AdminDashboard: React.FC = () => {
   const [showAddPolicyModal, setShowAddPolicyModal] = useState<boolean>(false);
 
   // New User form state
-  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
   const [newName, setNewName] = useState<string>('');
   const [newEmail, setNewEmail] = useState<string>('');
   const [newDesignation, setNewDesignation] = useState<string>('');
@@ -348,23 +364,33 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 border border-slate-300 rounded-lg shadow-2xs">
-                <Filter className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Dept:</span>
-                <select
-                  value={selectedDepartmentFilter}
-                  onChange={(e) => setSelectedDepartmentFilter(e.target.value)}
-                  className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
-                >
-                  <option value="ALL">All Departments ({allUsers.length})</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({allUsers.filter(u => u.departmentId === d.id).length})
-                    </option>
-                  ))}
-                  <option value="ADMIN">General Administration (ADMIN)</option>
-                </select>
-              </div>
+              {isDeptAdmin ? (
+                <div className="flex items-center gap-1.5 bg-indigo-50 px-2.5 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-indigo-900">
+                  <Lock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Department Scope:</span>
+                  <span className="text-xs font-bold text-indigo-950">
+                    {userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 border border-slate-300 rounded-lg shadow-2xs">
+                  <Filter className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Dept:</span>
+                  <select
+                    value={effectiveDeptFilter}
+                    onChange={(e) => setSelectedDepartmentFilter(e.target.value)}
+                    className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="ALL">All Departments ({allUsers.length})</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({allUsers.filter(u => u.departmentId === d.id).length})
+                      </option>
+                    ))}
+                    <option value="ADMIN">General Administration (ADMIN)</option>
+                  </select>
+                </div>
+              )}
 
               <button
                 onClick={openAddUserModal}
@@ -618,13 +644,22 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 4: QUOTA & BALANCE ADJUSTER */}
       {activeTab === 'balances' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 bg-slate-50 border-b border-slate-200">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Manual Leave Quota Adjuster
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Adjust specific employee leave balances for casual, sick, duty, or custom leave types.
-            </p>
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Manual Leave Quota Adjuster ({displayedUsers.length} Users)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Adjust specific employee leave balances for casual, sick, duty, or custom leave types.
+              </p>
+            </div>
+
+            {isDeptAdmin && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 font-bold text-xs">
+                <Lock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>Managing Department: <strong>{userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}</strong></span>
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -640,10 +675,17 @@ export const AdminDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allUsers.map((usr) => {
-                  const bal = usr.leaveBalances[selectedLeaveType] || { total: 0, used: 0, pending: 0 };
-                  const remaining = Math.max(0, bal.total - bal.used);
-                  const isEditingThis = balanceUserId === usr.id;
+                {displayedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-semibold text-xs">
+                      No users found for this department scope.
+                    </td>
+                  </tr>
+                ) : (
+                  displayedUsers.map((usr) => {
+                    const bal = usr.leaveBalances[selectedLeaveType] || { total: 0, used: 0, pending: 0 };
+                    const remaining = Math.max(0, bal.total - bal.used);
+                    const isEditingThis = balanceUserId === usr.id;
 
                   return (
                     <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
@@ -726,7 +768,7 @@ export const AdminDashboard: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
