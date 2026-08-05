@@ -1,4 +1,4 @@
-import { collection, getDocs, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, setDoc, deleteDoc, doc, getDoc, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
   MOCK_USERS, 
@@ -8,7 +8,7 @@ import {
   INITIAL_LEAVE_POLICIES, 
   INITIAL_DEPARTMENTS 
 } from '../data/mockData';
-import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department } from '../types';
+import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings } from '../types';
 
 export async function loadOrSeedFirestoreData(): Promise<{
   users: User[];
@@ -17,9 +17,22 @@ export async function loadOrSeedFirestoreData(): Promise<{
   leavePolicies: LeavePolicy[];
   notifications: Notification[];
   auditLogs: AuditLog[];
+  systemSettings?: SystemSettings;
 }> {
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
+    
+    // Fetch global system settings (logo, institution name, feature toggles)
+    let systemSettings: SystemSettings | undefined = undefined;
+    try {
+      const settingsSnap = await getDoc(doc(db, 'settings', 'global'));
+      if (settingsSnap.exists()) {
+        systemSettings = settingsSnap.data() as SystemSettings;
+      }
+    } catch (sErr) {
+      console.warn('Could not load global settings from Firestore:', sErr);
+    }
+
     if (usersSnap.empty) {
       console.log('Seeding initial data into Firebase Firestore...');
       await seedCollection('users', MOCK_USERS, 'id');
@@ -36,6 +49,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         leavePolicies: INITIAL_LEAVE_POLICIES,
         notifications: INITIAL_NOTIFICATIONS,
         auditLogs: INITIAL_AUDIT_LOGS,
+        systemSettings,
       };
     } else {
       const users: User[] = usersSnap.docs.map(d => d.data() as User);
@@ -57,6 +71,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         leavePolicies: leavePolicies.length ? leavePolicies : INITIAL_LEAVE_POLICIES,
         notifications: notifications.length ? notifications : INITIAL_NOTIFICATIONS,
         auditLogs: auditLogs.length ? auditLogs : INITIAL_AUDIT_LOGS,
+        systemSettings,
       };
     }
   } catch (error) {
@@ -69,6 +84,21 @@ export async function loadOrSeedFirestoreData(): Promise<{
       notifications: INITIAL_NOTIFICATIONS,
       auditLogs: INITIAL_AUDIT_LOGS,
     };
+  }
+}
+
+export function subscribeToSystemSettings(callback: (settings: SystemSettings) => void) {
+  try {
+    return onSnapshot(doc(db, 'settings', 'global'), (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data() as SystemSettings);
+      }
+    }, (err) => {
+      console.warn('Settings subscription error:', err);
+    });
+  } catch (err) {
+    console.warn('Failed setting up settings subscription:', err);
+    return () => {};
   }
 }
 

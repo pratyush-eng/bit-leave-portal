@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore } from '../lib/firestoreSync';
+import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings } from '../lib/firestoreSync';
 import { 
   User, 
   LeaveRequest, 
@@ -274,9 +274,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (data.leavePolicies.length) setLeavePolicies(data.leavePolicies);
       if (data.notifications.length) setNotifications(data.notifications);
       if (data.auditLogs.length) setAuditLogs(data.auditLogs);
+      if (data.systemSettings) setSystemSettings(data.systemSettings);
     });
+
+    const unsubscribeSettings = subscribeToSystemSettings((updatedSettings) => {
+      if (mounted && updatedSettings) {
+        setSystemSettings(updatedSettings);
+      }
+    });
+
     return () => {
       mounted = false;
+      if (unsubscribeSettings) unsubscribeSettings();
     };
   }, []);
 
