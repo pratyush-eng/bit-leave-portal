@@ -89,6 +89,7 @@ interface LeaveContextType {
   adjustUserLeaveBalance: (userId: string, leaveType: LeaveType, total: number, used: number) => void;
   createNewUser: (userData: Omit<User, 'id' | 'leaveBalances'>) => { success: boolean; message: string };
   createNewDepartment: (deptData: Omit<Department, 'totalFaculty'>) => void;
+  updateDepartment: (dept: Department) => void;
   createNewLeaveType: (policyData: LeavePolicy) => void;
   updateLeavePolicy: (policy: LeavePolicy) => void;
   
@@ -1166,7 +1167,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  const checkSuperAdminPermission = (): boolean => {
+    if (currentUser?.role !== 'SUPER_ADMIN') {
+      addToast({
+        title: 'Permission Denied 🚫',
+        message: 'Departments and Leave Types & Policies can be added or modified by Super Admin only.',
+        type: 'ERROR'
+      });
+      return false;
+    }
+    return true;
+  };
+
   const createNewDepartment = (deptData: Omit<Department, 'totalFaculty'>) => {
+    if (!checkSuperAdminPermission()) return;
     const newDept: Department = {
       ...deptData,
       totalFaculty: 0
@@ -1174,9 +1188,27 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDepartments(prev => [...prev, newDept]);
     saveDocToFirestore('departments', newDept.id, newDept);
     addAuditLog(currentUser, 'DEPARTMENT_CREATED', `Created new department ${newDept.name} (${newDept.code}).`);
+    addToast({
+      title: 'Department Created 🏛️',
+      message: `Department ${newDept.name} (${newDept.code}) created successfully.`,
+      type: 'SUCCESS'
+    });
+  };
+
+  const updateDepartment = (updatedDept: Department) => {
+    if (!checkSuperAdminPermission()) return;
+    setDepartments(prev => prev.map(d => d.id === updatedDept.id ? updatedDept : d));
+    saveDocToFirestore('departments', updatedDept.id, updatedDept);
+    addAuditLog(currentUser, 'DEPARTMENT_UPDATED', `Updated department ${updatedDept.name} (${updatedDept.code}).`);
+    addToast({
+      title: 'Department Updated ✏️',
+      message: `Department ${updatedDept.name} updated successfully.`,
+      type: 'SUCCESS'
+    });
   };
 
   const createNewLeaveType = (policyData: LeavePolicy) => {
+    if (!checkSuperAdminPermission()) return;
     setLeavePolicies(prev => {
       const exists = prev.some(p => p.type === policyData.type);
       if (exists) {
@@ -1201,12 +1233,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
 
     addAuditLog(currentUser, 'LEAVE_TYPE_CREATED', `Created new leave type ${policyData.label} (${policyData.type}) with annual quota ${policyData.annualQuota}.`);
+    addToast({
+      title: 'Leave Type Created 📋',
+      message: `Created leave policy for ${policyData.label} with ${policyData.annualQuota} days annual quota.`,
+      type: 'SUCCESS'
+    });
   };
 
   const updateLeavePolicy = (updatedPolicy: LeavePolicy) => {
+    if (!checkSuperAdminPermission()) return;
     setLeavePolicies(prev => prev.map(p => p.type === updatedPolicy.type ? updatedPolicy : p));
     saveDocToFirestore('leavePolicies', updatedPolicy.type, updatedPolicy);
     addAuditLog(currentUser, 'POLICY_UPDATED', `Updated policy for ${updatedPolicy.label}. Annual Quota set to ${updatedPolicy.annualQuota}.`);
+    addToast({
+      title: 'Leave Policy Updated ⚙️',
+      message: `Updated ${updatedPolicy.label} policy settings.`,
+      type: 'SUCCESS'
+    });
   };
 
   const markNotificationRead = (id: string) => {
@@ -1282,6 +1325,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adjustUserLeaveBalance,
         createNewUser,
         createNewDepartment,
+        updateDepartment,
         createNewLeaveType,
         updateLeavePolicy,
         markNotificationRead,

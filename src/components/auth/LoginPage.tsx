@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { Role } from '../../types';
 import { 
@@ -25,12 +25,37 @@ export const LoginPage: React.FC = () => {
   const { login, registerUser, departments, systemSettings } = useLeave();
   
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const emailInputRef = useRef<HTMLInputElement>(null);
   
   // Login State
-  const [email, setEmail] = useState<string>('rajesh.kumar@institution.edu');
-  const [password, setPassword] = useState<string>('password123');
+  const [email, setEmail] = useState<string>(() => 
+    systemSettings.enableDemoAccounts ? 'rajesh.kumar@institution.edu' : ''
+  );
+  const [password, setPassword] = useState<string>(() => 
+    systemSettings.enableDemoAccounts ? 'password123' : ''
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showDemoAccounts, setShowDemoAccounts] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!systemSettings.enableDemoAccounts) {
+      setEmail('');
+      setPassword('');
+      if (activeTab === 'login') {
+        setTimeout(() => {
+          emailInputRef.current?.focus();
+        }, 50);
+      }
+    }
+  }, [systemSettings.enableDemoAccounts]);
+
+  useEffect(() => {
+    if (activeTab === 'login') {
+      setTimeout(() => {
+        emailInputRef.current?.focus();
+      }, 50);
+    }
+  }, [activeTab]);
 
   // Registration State
   const [regName, setRegName] = useState<string>('');
@@ -234,11 +259,13 @@ export const LoginPage: React.FC = () => {
                       <Mail className="h-4 w-4 text-slate-400" />
                     </div>
                     <input
+                      ref={emailInputRef}
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. rajesh.kumar@institution.edu"
                       required
+                      autoFocus
                       className="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5] focus:border-[#3F51B5]"
                     />
                   </div>

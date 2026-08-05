@@ -226,21 +226,25 @@ export const AdminDashboard: React.FC = () => {
             New User
           </button>
           
-          <button
-            onClick={() => setShowAddDeptModal(true)}
-            className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            New Department
-          </button>
+          {currentUser?.role === 'SUPER_ADMIN' && (
+            <>
+              <button
+                onClick={() => setShowAddDeptModal(true)}
+                className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                New Department
+              </button>
 
-          <button
-            onClick={() => setShowAddPolicyModal(true)}
-            className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            New Leave Type
-          </button>
+              <button
+                onClick={() => setShowAddPolicyModal(true)}
+                className="px-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-white border border-white/30 rounded font-medium text-xs uppercase tracking-wide transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                New Leave Type
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -449,22 +453,31 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 2: DEPARTMENTS MANAGEMENT */}
       {activeTab === 'departments' && (
         <div className="space-y-4">
+          {currentUser?.role !== 'SUPER_ADMIN' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-xs text-amber-900 font-medium shadow-2xs">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Institutional Restriction: Departments can be added or modified by Super Admin only. (View Only Mode)</span>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                 Institutional Department Directory
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Manage academic and administrative departments and assigned Head of Departments (HODs).
+                Directory of academic and administrative departments and assigned Head of Departments (HODs).
               </p>
             </div>
 
-            <button
-              onClick={() => setShowAddDeptModal(true)}
-              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
-            >
-              <Building2 className="w-4 h-4" /> Create Department
-            </button>
+            {currentUser?.role === 'SUPER_ADMIN' && (
+              <button
+                onClick={() => setShowAddDeptModal(true)}
+                className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" /> Create Department
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -498,22 +511,31 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 3: LEAVE TYPES & POLICIES */}
       {activeTab === 'policies' && (
         <div className="space-y-4">
+          {currentUser?.role !== 'SUPER_ADMIN' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-xs text-amber-900 font-medium shadow-2xs">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Institutional Restriction: Leave Types & Policies can be added or modified by Super Admin only. (View Only Mode)</span>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                 Institutional Leave Policies & Custom Leave Types
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Define annual quotas, notice requirements, and mandatory document rules for leave categories.
+                Annual quotas, notice requirements, and mandatory document rules for leave categories.
               </p>
             </div>
 
-            <button
-              onClick={() => setShowAddPolicyModal(true)}
-              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Create Leave Type
-            </button>
+            {currentUser?.role === 'SUPER_ADMIN' && (
+              <button
+                onClick={() => setShowAddPolicyModal(true)}
+                className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Create Leave Type
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
