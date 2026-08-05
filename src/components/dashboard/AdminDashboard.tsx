@@ -32,6 +32,7 @@ export const AdminDashboard: React.FC = () => {
     adjustUserLeaveBalance,
     createNewUser,
     createNewDepartment,
+    updateDepartment,
     createNewLeaveType,
     updateLeavePolicy,
     updateUserStatus,
@@ -61,6 +62,9 @@ export const AdminDashboard: React.FC = () => {
 
   // Policy editing state
   const [editingPolicy, setEditingPolicy] = useState<LeavePolicy | null>(null);
+
+  // Department editing state
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
 
   // Modals state
   const [showAddUserModal, setShowAddUserModal] = useState<boolean>(false);
@@ -114,6 +118,20 @@ export const AdminDashboard: React.FC = () => {
       updateLeavePolicy(editingPolicy);
       setEditingPolicy(null);
     }
+  };
+
+  const handleUpdateDepartment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDept) return;
+    const hodUser = allUsers.find(u => u.id === deptHodId);
+    updateDepartment({
+      ...editingDept,
+      name: deptName,
+      code: deptCode.toUpperCase(),
+      hodId: deptHodId,
+      hodName: hodUser ? hodUser.name : 'Not Assigned'
+    });
+    setEditingDept(null);
   };
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -502,6 +520,22 @@ export const AdminDashboard: React.FC = () => {
                     <span className="font-bold text-indigo-900">{dept.totalFaculty || allUsers.filter(u => u.departmentId === dept.id).length} Users</span>
                   </div>
                 </div>
+
+                {currentUser?.role === 'SUPER_ADMIN' && (
+                  <div className="pt-2 flex justify-end border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setEditingDept(dept);
+                        setDeptCode(dept.code);
+                        setDeptName(dept.name);
+                        setDeptHodId(dept.hodId || '');
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" /> Edit Department
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -564,6 +598,17 @@ export const AdminDashboard: React.FC = () => {
                   <span>Notice required: <strong>{pol.minDaysNotice} day(s)</strong></span>
                   <span>Document: <strong>{pol.requiresDocument ? 'Mandatory' : 'Optional'}</strong></span>
                 </div>
+
+                {currentUser?.role === 'SUPER_ADMIN' && (
+                  <div className="pl-2 pt-2 flex justify-end">
+                    <button
+                      onClick={() => setEditingPolicy(pol)}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" /> Edit Policy
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1060,6 +1105,194 @@ export const AdminDashboard: React.FC = () => {
           user={selectedUserToEdit}
           onClose={() => setSelectedUserToEdit(null)}
         />
+      )}
+
+      {/* Edit Leave Policy Modal */}
+      {editingPolicy && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
+            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-indigo-200" />
+                <h3 className="font-bold text-sm">Modify Policy Rules • {editingPolicy.label}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPolicy(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePolicy} className="p-6 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Leave Display Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingPolicy.label}
+                    onChange={(e) => setEditingPolicy({ ...editingPolicy, label: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Annual Quota (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editingPolicy.annualQuota}
+                    onChange={(e) => setEditingPolicy({ ...editingPolicy, annualQuota: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Min Notice Required (Days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={editingPolicy.minDaysNotice}
+                    onChange={(e) => setEditingPolicy({ ...editingPolicy, minDaysNotice: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Badge Color</label>
+                  <input
+                    type="color"
+                    value={editingPolicy.color}
+                    onChange={(e) => setEditingPolicy({ ...editingPolicy, color: e.target.value })}
+                    className="w-full h-9 p-1 border border-slate-300 rounded-xl cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Policy Description</label>
+                <textarea
+                  rows={2}
+                  value={editingPolicy.description}
+                  onChange={(e) => setEditingPolicy({ ...editingPolicy, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="editAdminPolicyReqDoc"
+                  checked={editingPolicy.requiresDocument}
+                  onChange={(e) => setEditingPolicy({ ...editingPolicy, requiresDocument: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="editAdminPolicyReqDoc" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  Require Mandatory Supporting Document Upload
+                </label>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingPolicy(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Save Policy Modifications
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Department Modal */}
+      {editingDept && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
+            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-indigo-200" />
+                <h3 className="font-bold text-sm">Edit Department • {editingDept.code}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDept(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateDepartment} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department Code</label>
+                <input
+                  type="text"
+                  required
+                  value={deptCode}
+                  onChange={(e) => setDeptCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={deptName}
+                  onChange={(e) => setDeptName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Head of Department (HOD)</label>
+                <select
+                  value={deptHodId}
+                  onChange={(e) => setDeptHodId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+                >
+                  <option value="">-- Assign HOD (Optional) --</option>
+                  {allUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.role} - {u.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingDept(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Save Department Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
