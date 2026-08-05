@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
 import { 
@@ -11,38 +11,54 @@ import {
   ResponsiveContainer, 
   PieChart, 
   Pie, 
-  Cell, 
-  AreaChart, 
-  Area 
+  Cell
 } from 'recharts';
 import { 
   BarChart3, 
-  Download, 
   FileSpreadsheet, 
   Printer, 
-  Filter, 
-  Calendar, 
-  TrendingUp, 
   PieChart as PieIcon, 
   Building2,
-  Users
+  Lock
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { leaveRequests, departments, leavePolicies } = useLeave();
+  const { currentUser, leaveRequests, departments, leavePolicies } = useLeave();
+
+  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const isDeptRestricted = isDeptAdmin || (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'REGISTRAR');
+  const userDeptId = currentUser?.departmentId;
+  const userDeptObj = departments.find(d => d.id === userDeptId);
 
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>('ALL');
 
-  // Filtered requests
-  const filteredRequests = leaveRequests.filter(r => {
-    if (departmentFilter !== 'ALL' && r.departmentId !== departmentFilter) return false;
+  useEffect(() => {
+    if (isDeptRestricted && userDeptId) {
+      setDepartmentFilter(userDeptId);
+    }
+  }, [isDeptRestricted, userDeptId]);
+
+  const effectiveDeptFilter = (isDeptRestricted && userDeptId) ? userDeptId : departmentFilter;
+
+  // Requests scoped by department selection / restriction
+  const scopedRequests = leaveRequests.filter(r => {
+    if (effectiveDeptFilter !== 'ALL' && r.departmentId !== effectiveDeptFilter) return false;
+    return true;
+  });
+
+  // Filtered requests (department + leave type)
+  const filteredRequests = scopedRequests.filter(r => {
     if (leaveTypeFilter !== 'ALL' && r.leaveType !== leaveTypeFilter) return false;
     return true;
   });
 
   // Department-wise breakdown data for bar chart
-  const deptData = departments.map(d => {
+  const displayedDepts = effectiveDeptFilter === 'ALL'
+    ? departments
+    : departments.filter(d => d.id === effectiveDeptFilter);
+
+  const deptData = displayedDepts.map(d => {
     const dReqs = leaveRequests.filter(r => r.departmentId === d.id);
     const approved = dReqs.filter(r => r.status === 'APPROVED').length;
     const pending = dReqs.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR').length;
@@ -60,7 +76,7 @@ export const AnalyticsReports: React.FC = () => {
   // Leave Type Breakdown data for Donut Chart
   const COLORS = ['#2563eb', '#e11d48', '#059669', '#7c3aed', '#d97706', '#db2777', '#0891b2'];
   const leaveTypeData = leavePolicies.map((pol, idx) => {
-    const count = leaveRequests.filter(r => r.leaveType === pol.type && r.status === 'APPROVED').length;
+    const count = scopedRequests.filter(r => r.leaveType === pol.type && r.status === 'APPROVED').length;
     return {
       name: pol.label,
       value: count,
@@ -100,7 +116,7 @@ export const AnalyticsReports: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `leave_summary_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `leave_summary_report_${effectiveDeptFilter}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -117,14 +133,22 @@ export const AnalyticsReports: React.FC = () => {
             Analytical Leave Summary & Historical Reports
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Institutional metrics, department absence trends, and exportable data logs
+            {isDeptRestricted 
+              ? `Department analytics & reports restricted to ${userDeptObj ? userDeptObj.name : userDeptId}` 
+              : 'Institutional metrics, department absence trends, and exportable data logs'}
           </p>
+          {isDeptRestricted && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-full text-xs font-semibold mt-2">
+              <Lock className="w-3.5 h-3.5 text-indigo-600" />
+              Department Restricted View: <strong className="text-indigo-950">{userDeptObj ? userDeptObj.name : userDeptId} ({userDeptObj?.code || userDeptId})</strong>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2"
+            className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" />
             Export CSV Report
@@ -132,7 +156,7 @@ export const AnalyticsReports: React.FC = () => {
           
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition-colors flex items-center gap-2 border border-slate-300"
+            className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition-colors flex items-center gap-2 border border-slate-300 cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             Print Summary
@@ -144,14 +168,16 @@ export const AnalyticsReports: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Applications</p>
-          <p className="text-2xl font-black text-slate-900 mt-1">{leaveRequests.length}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Logged across institution</p>
+          <p className="text-2xl font-black text-slate-900 mt-1">{scopedRequests.length}</p>
+          <p className="text-[11px] text-slate-500 mt-1">
+            {isDeptRestricted ? `Logged in ${userDeptObj?.code || userDeptId} department` : 'Logged across institution'}
+          </p>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Sanctioned Leaves</p>
           <p className="text-2xl font-black text-emerald-700 mt-1">
-            {leaveRequests.filter(r => r.status === 'APPROVED').length}
+            {scopedRequests.filter(r => r.status === 'APPROVED').length}
           </p>
           <p className="text-[11px] text-emerald-600 mt-1">Officially approved</p>
         </div>
@@ -159,7 +185,7 @@ export const AnalyticsReports: React.FC = () => {
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Pending Sanction</p>
           <p className="text-2xl font-black text-amber-700 mt-1">
-            {leaveRequests.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR').length}
+            {scopedRequests.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR').length}
           </p>
           <p className="text-[11px] text-amber-600 mt-1">In approval pipeline</p>
         </div>
@@ -167,7 +193,7 @@ export const AnalyticsReports: React.FC = () => {
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Total Absence Days</p>
           <p className="text-2xl font-black text-indigo-950 mt-1">
-            {leaveRequests.filter(r => r.status === 'APPROVED').reduce((acc, r) => acc + r.totalDays, 0)}
+            {scopedRequests.filter(r => r.status === 'APPROVED').reduce((acc, r) => acc + r.totalDays, 0)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">Days sanctioned overall</p>
         </div>
@@ -181,9 +207,11 @@ export const AnalyticsReports: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-indigo-600" />
-              Department Leave Sanctions & Pipeline
+              {isDeptRestricted ? `${userDeptObj?.name || userDeptId} Sanctions & Pipeline` : 'Department Leave Sanctions & Pipeline'}
             </h3>
-            <span className="text-xs text-slate-400">By Department</span>
+            <span className="text-xs text-slate-400">
+              {isDeptRestricted ? `Department: ${userDeptObj?.code || userDeptId}` : 'By Department'}
+            </span>
           </div>
 
           <div className="h-64 w-full">
@@ -262,16 +290,23 @@ export const AnalyticsReports: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
               <span className="text-slate-400">Dept:</span>
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="font-semibold text-slate-800 bg-transparent focus:outline-none"
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.code}</option>
-                ))}
-              </select>
+              {isDeptRestricted ? (
+                <span className="font-bold text-indigo-900 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-indigo-600" />
+                  {userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}
+                </span>
+              ) : (
+                <select
+                  value={effectiveDeptFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="font-semibold text-slate-800 bg-transparent focus:outline-none"
+                >
+                  <option value="ALL">All Departments</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
@@ -306,22 +341,30 @@ export const AnalyticsReports: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredRequests.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-bold text-indigo-900">{r.id}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-900">{r.applicantName}</td>
-                  <td className="px-4 py-3">{r.departmentName}</td>
-                  <td className="px-4 py-3">
-                    <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />
+              {filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
+                    No leave record logs found for this department or filter criteria.
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{r.startDate} to {r.endDate}</td>
-                  <td className="px-4 py-3 font-bold text-slate-900">{r.totalDays}</td>
-                  <td className="px-4 py-3">
-                    <MaterialChip label={r.status} variant="status" status={r.status} />
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{r.appliedOn}</td>
                 </tr>
-              ))}
+              ) : (
+                filteredRequests.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-bold text-indigo-900">{r.id}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{r.applicantName}</td>
+                    <td className="px-4 py-3">{r.departmentName}</td>
+                    <td className="px-4 py-3">
+                      <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{r.startDate} to {r.endDate}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900">{r.totalDays}</td>
+                    <td className="px-4 py-3">
+                      <MaterialChip label={r.status} variant="status" status={r.status} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{r.appliedOn}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -330,3 +373,4 @@ export const AnalyticsReports: React.FC = () => {
     </div>
   );
 };
+
