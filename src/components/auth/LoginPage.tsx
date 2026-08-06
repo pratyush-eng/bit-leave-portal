@@ -288,9 +288,7 @@ export const LoginPage: React.FC = () => {
                       className="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5] focus:border-[#3F51B5]"
                     />
                   </div>
-                  <p className="mt-1.5 text-[11px] text-slate-400">
-                    Default demo password for all institutional accounts is <code className="text-slate-600 font-semibold">password123</code>.
-                  </p>
+                 
                 </div>
 
                 <button
