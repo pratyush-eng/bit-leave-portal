@@ -690,23 +690,6 @@ export const LoginPage: React.FC = () => {
                         className="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
                       />
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] text-slate-400 font-medium">Quick select demo email:</span>
-                      {[
-                        'rajesh.kumar@institution.edu',
-                        'registrar@institution.edu',
-                        'dean.academic@institution.edu'
-                      ].map((demoEmail) => (
-                        <button
-                          key={demoEmail}
-                          type="button"
-                          onClick={() => setForgotEmail(demoEmail)}
-                          className="text-[10px] bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-600 px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          {demoEmail.split('@')[0]}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   <div>
