@@ -207,7 +207,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           text: newLog.bodyText
         })
       })
-      .then(res => res.json())
+      .then(async res => {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          return res.json();
+        }
+        const text = await res.text();
+        return { success: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
+      })
       .then(data => {
         if (data.success) {
           console.log(`[Email Gateway] Delivered to ${newLog.recipientEmail}`);
@@ -1225,7 +1232,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })
       });
 
-      const data = await res.json();
+      let data: any = {};
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        data = { success: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
+      }
 
       const log = dispatchEmailLog({
         recipientEmail,
