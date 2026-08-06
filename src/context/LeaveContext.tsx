@@ -704,7 +704,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         addToast({
           title: 'Security Code Dispatched! 📧',
-          message: `A 6-digit verification code (${generatedCode}) was sent to ${matchedUser.email}.`,
+          message: `A 6-digit verification code was sent to ${matchedUser.email}. Please check your email inbox.`,
           type: 'INFO'
         });
       } catch (tErr) {

@@ -55,7 +55,6 @@ export const LoginPage: React.FC = () => {
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
   const [forgotErrorMsg, setForgotErrorMsg] = useState<string | null>(null);
   const [isSendingCode, setIsSendingCode] = useState<boolean>(false);
-  const [codeCopied, setCodeCopied] = useState<boolean>(false);
 
   useEffect(() => {
     if (systemSettings.enableSelfRegistration === false && activeTab === 'register') {
@@ -753,25 +752,8 @@ export const LoginPage: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      A 6-digit security code has been dispatched to <strong>{dispatchedEmail}</strong> ({dispatchedUserName}). Check your inbox.
+                      A 6-digit security code has been dispatched to <strong>{dispatchedEmail}</strong> ({dispatchedUserName}). Please check your email inbox to retrieve your code.
                     </p>
-                    <div className="pt-1 flex items-center justify-between border-t border-blue-200/80">
-                      <span className="text-[11px] font-medium text-slate-700 flex items-center gap-1.5">
-                        Code generated: <strong className="font-mono text-xs text-[#3F51B5] tracking-wider">{generatedSecurityCode}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForgotCode(generatedSecurityCode);
-                          setCodeCopied(true);
-                          setTimeout(() => setCodeCopied(false), 2000);
-                        }}
-                        className="text-[10px] font-bold text-[#3F51B5] hover:text-[#303F9F] bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs hover:bg-indigo-50 transition-all flex items-center gap-1 cursor-pointer"
-                      >
-                        {codeCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        {codeCopied ? 'Auto-Filled!' : 'Auto-Fill Code'}
-                      </button>
-                    </div>
                   </div>
 
                   <div>
