@@ -1223,7 +1223,7 @@ export const SuperAdminDashboard: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Control 1: Demo Accounts Quick Login */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 hover:border-indigo-200 transition-colors">
               <div className="flex items-start justify-between gap-3">
@@ -1316,6 +1316,55 @@ export const SuperAdminDashboard: React.FC = () => {
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" /> Enable Role Switcher
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Control 3: Faculty & Staff Self-Registration */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 hover:border-indigo-200 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Faculty & Staff Self-Registration</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Sign-in Portal Registration Tab</p>
+                  </div>
+                </div>
+
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                  systemSettings.enableSelfRegistration !== false 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                    : 'bg-rose-100 text-rose-800 border border-rose-200'
+                }`}>
+                  {systemSettings.enableSelfRegistration !== false ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                When enabled, new faculty and staff applicants can self-register from the sign-in screen for admin validation. Disabling this closes public self-registration and restricts account creation to administrators.
+              </p>
+
+              <div className="pt-3 flex items-center justify-between border-t border-slate-200">
+                <span className="text-xs font-semibold text-slate-700">Privilege Status:</span>
+                <button
+                  onClick={() => updateSystemSettings({ enableSelfRegistration: systemSettings.enableSelfRegistration === false ? true : false })}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
+                    systemSettings.enableSelfRegistration !== false
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {systemSettings.enableSelfRegistration !== false ? (
+                    <>
+                      <XCircle className="w-4 h-4" /> Disable Registration
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Enable Registration
                     </>
                   )}
                 </button>

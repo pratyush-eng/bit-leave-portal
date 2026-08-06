@@ -120,6 +120,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {
       enableDemoAccounts: parsed.enableDemoAccounts ?? true,
       enableRoleSwitcher: parsed.enableRoleSwitcher ?? true,
+      enableSelfRegistration: parsed.enableSelfRegistration ?? true,
       institutionName: parsed.institutionName || 'BIT Leave Portal',
       institutionLogoUrl: parsed.institutionLogoUrl || '',
       emailSettings: parsed.emailSettings || DEFAULT_EMAIL_SETTINGS
@@ -412,6 +413,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const registerUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
+    if (systemSettings.enableSelfRegistration === false) {
+      return { success: false, message: 'Self-registration for faculty and staff is currently disabled by administrative policy. Please contact your Department Administrator or Super Admin.' };
+    }
     const cleanEmail = userData.email.trim().toLowerCase();
     const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
     if (emailExists) {

@@ -179,6 +179,7 @@ export interface EmailLog {
 export interface SystemSettings {
   enableDemoAccounts: boolean;
   enableRoleSwitcher: boolean;
+  enableSelfRegistration?: boolean;
   institutionName?: string;
   institutionLogoUrl?: string;
   emailSettings?: EmailSettings;

@@ -38,6 +38,12 @@ export const LoginPage: React.FC = () => {
   const [showDemoAccounts, setShowDemoAccounts] = useState<boolean>(false);
 
   useEffect(() => {
+    if (systemSettings.enableSelfRegistration === false && activeTab === 'register') {
+      setActiveTab('login');
+    }
+  }, [systemSettings.enableSelfRegistration, activeTab]);
+
+  useEffect(() => {
     if (!systemSettings.enableDemoAccounts) {
       setEmail('');
       setPassword('');
@@ -205,39 +211,41 @@ export const LoginPage: React.FC = () => {
           <div className="p-6 sm:p-8 space-y-6">
           
           {/* Tab Selector: Sign In vs Staff Self-Registration */}
-          <div className="flex border-b border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('login');
-                setErrorMsg(null);
-              }}
-              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                activeTab === 'login'
-                  ? 'border-[#3F51B5] text-[#3F51B5] bg-indigo-50/50'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LogIn className="w-4 h-4" />
-              Institutional Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('register');
-                setRegErrorMsg(null);
-                setRegSuccessMsg(null);
-              }}
-              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                activeTab === 'register'
-                  ? 'border-[#3F51B5] text-[#3F51B5] bg-indigo-50/50'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <UserPlus className="w-4 h-4" />
-              Staff / Faculty Self-Registration
-            </button>
-          </div>
+          {systemSettings.enableSelfRegistration !== false && (
+            <div className="flex border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('login');
+                  setErrorMsg(null);
+                }}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  activeTab === 'login'
+                    ? 'border-[#3F51B5] text-[#3F51B5] bg-indigo-50/50'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <LogIn className="w-4 h-4" />
+                Institutional Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('register');
+                  setRegErrorMsg(null);
+                  setRegSuccessMsg(null);
+                }}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  activeTab === 'register'
+                    ? 'border-[#3F51B5] text-[#3F51B5] bg-indigo-50/50'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                Staff / Faculty Self-Registration
+              </button>
+            </div>
+          )}
 
           {/* TAB 1: LOGIN WITH CREDENTIALS */}
           {activeTab === 'login' && (
@@ -365,7 +373,7 @@ export const LoginPage: React.FC = () => {
           )}
 
           {/* TAB 2: SELF-REGISTRATION FOR STAFF / FACULTY */}
-          {activeTab === 'register' && (
+          {activeTab === 'register' && systemSettings.enableSelfRegistration !== false && (
             <form className="space-y-4" onSubmit={handleRegisterSubmit}>
               <div className="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl text-xs text-indigo-900 leading-relaxed">
                 <span className="font-bold">Staff & Faculty Self-Registration:</span> New applicants can register below. All registrations are recorded in the database and require administrative validation by Admin or Super Admin before activation.
