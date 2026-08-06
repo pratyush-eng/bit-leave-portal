@@ -208,6 +208,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         })
       })
       .then(async res => {
+        if (res.status === 404) {
+          return { success: false, is404: true, error: 'Server endpoint /api/send-email not available (Static Mode)' };
+        }
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           return res.json();
@@ -220,17 +223,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           console.log(`[Email Gateway] Delivered to ${newLog.recipientEmail}`);
           setEmailLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, status: 'SENT' } : l));
         } else {
-          console.warn(`[Email Gateway Error] ${data.error || 'Delivery failed'}`);
+          console.warn(`[Email Gateway Notice] ${data.error || 'Delivery failed'}`);
           setEmailLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, status: 'SIMULATED' } : l));
-          addToast({
-            title: `Email Delivery Issue ⚠️`,
-            message: `SMTP Notice for ${newLog.recipientName}: ${data.error || 'Check SMTP configuration'}`,
-            type: 'WARNING'
-          });
+          if (!data.is404) {
+            addToast({
+              title: `Email Delivery Issue ⚠️`,
+              message: `SMTP Notice for ${newLog.recipientName}: ${data.error || 'Check SMTP configuration'}`,
+              type: 'WARNING'
+            });
+          }
         }
       })
       .catch(err => {
-        console.error('[Email Network Error]', err);
+        console.warn('[Email Gateway Network Error]', err);
+        setEmailLogs(prev => prev.map(l => l.id === newLog.id ? { ...l, status: 'SIMULATED' } : l));
       });
     }
 
@@ -1233,12 +1239,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       let data: any = {};
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await res.json();
+      if (res.status === 404) {
+        data = { success: false, is404: true, error: 'Backend SMTP endpoint (/api/send-email) is not active in current hosting environment.' };
       } else {
-        const text = await res.text();
-        data = { success: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          data = { success: false, error: `HTTP ${res.status}: ${text.slice(0, 100)}` };
+        }
       }
 
       const log = dispatchEmailLog({
@@ -1256,6 +1266,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return {
           success: true,
           message: `Test email delivered successfully to ${recipientEmail} via SMTP Gateway (${settings.smtpHost}:${settings.smtpPort}). Message ID: ${data.messageId || log.id}`
+        };
+      } else if (data.is404) {
+        return {
+          success: false,
+          message: `Backend SMTP service (/api/send-email) is not available on this host environment. Test email was recorded in simulated mode (Log ID: ${log.id}).`
         };
       } else {
         return {
