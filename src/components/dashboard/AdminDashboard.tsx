@@ -38,7 +38,8 @@ export const AdminDashboard: React.FC = () => {
     createNewLeaveType,
     updateLeavePolicy,
     updateUserStatus,
-    currentUser
+    currentUser,
+    addToast
   } = useLeave();
 
   const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending'>('users');
@@ -135,11 +136,25 @@ export const AdminDashboard: React.FC = () => {
   const handleSaveRole = (userId: string) => {
     updateUserRoleAndPermissions(userId, selectedRole, []);
     setEditingUserId(null);
+    if (addToast) {
+      addToast({
+        title: 'User Role & Permissions Updated 🛡️',
+        message: `Updated role to ${selectedRole} successfully.`,
+        type: 'SUCCESS'
+      });
+    }
   };
 
   const handleSaveBalance = (userId: string) => {
     adjustUserLeaveBalance(userId, selectedLeaveType, editTotalQuota, editUsedDays);
     setBalanceUserId(null);
+    if (addToast) {
+      addToast({
+        title: 'Quota & Balance Adjusted 🎯',
+        message: `Updated ${selectedLeaveType} leave quota (Total: ${editTotalQuota}, Used: ${editUsedDays}) successfully.`,
+        type: 'SUCCESS'
+      });
+    }
   };
 
   const handleSavePolicy = (e: React.FormEvent) => {
@@ -715,6 +730,31 @@ export const AdminDashboard: React.FC = () => {
                 )}
               </div>
 
+              {/* Leave Type Selector Combo */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 border border-slate-300 rounded-lg shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Leave Type:</span>
+                <select
+                  value={selectedLeaveType}
+                  onChange={(e) => {
+                    const newType = e.target.value as LeaveType;
+                    setSelectedLeaveType(newType);
+                    if (balanceUserId) {
+                      const editingUser = allUsers.find(u => u.id === balanceUserId);
+                      if (editingUser) {
+                        const newBal = editingUser.leaveBalances[newType] || { total: 0, used: 0, pending: 0 };
+                        setEditTotalQuota(newBal.total);
+                        setEditUsedDays(newBal.used);
+                      }
+                    }
+                  }}
+                  className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
+                >
+                  {leavePolicies.map(p => (
+                    <option key={p.type} value={p.type}>{p.label} ({p.type})</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Department Segregator Combo */}
               {isDeptAdmin ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 font-bold text-xs">
@@ -777,8 +817,16 @@ export const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-3">
                         <select
                           value={selectedLeaveType}
-                          onChange={(e) => setSelectedLeaveType(e.target.value)}
-                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium"
+                          onChange={(e) => {
+                            const newType = e.target.value as LeaveType;
+                            setSelectedLeaveType(newType);
+                            if (balanceUserId === usr.id) {
+                              const newBal = usr.leaveBalances[newType] || { total: 0, used: 0, pending: 0 };
+                              setEditTotalQuota(newBal.total);
+                              setEditUsedDays(newBal.used);
+                            }
+                          }}
+                          className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium focus:ring-2 focus:ring-indigo-500"
                         >
                           {leavePolicies.map(p => (
                             <option key={p.type} value={p.type}>{p.label}</option>

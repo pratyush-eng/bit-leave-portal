@@ -470,7 +470,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateUserStatus = (userId: string, status: 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED') => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return;
-    setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, accountStatus: status } : u));
+    const updatedUser: User = { ...target, accountStatus: status };
+    setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    saveDocToFirestore('users', userId, updatedUser);
     addAuditLog(currentUser, 'USER_STATUS_UPDATE', `Updated registration status of ${target.name} (${target.email}) to ${status}.`);
     if (status === 'ACTIVE') {
       const notif: Notification = {
@@ -704,11 +706,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => [newRequest, ...prev]);
 
     // Update pending count in user's leave balances
+    let updatedAppUser: User | null = null;
     setAllUsers(prev => prev.map(u => {
       if (u.id === currentUser.id) {
         const typeKey = data.leaveType;
-        const currentBal = u.leaveBalances[typeKey];
-        return {
+        const currentBal = u.leaveBalances[typeKey] || { total: 0, used: 0, pending: 0 };
+        updatedAppUser = {
           ...u,
           leaveBalances: {
             ...u.leaveBalances,
@@ -718,9 +721,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           }
         };
+        return updatedAppUser;
       }
       return u;
     }));
+    if (updatedAppUser) {
+      saveDocToFirestore('users', currentUser.id, updatedAppUser);
+    }
 
     // Find Department HOD
     const deptInfo = departments.find(d => d.id === currentUser.departmentId) || INITIAL_DEPARTMENTS.find(d => d.id === currentUser.departmentId);
@@ -851,10 +858,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // If rejected by HOD, release pending leave balance count
         if (!isRec) {
+          let updatedTargetUser: User | null = null;
           setAllUsers(uList => uList.map(u => {
             if (u.id === req.applicantId) {
-              const currentBal = u.leaveBalances[req.leaveType];
-              return {
+              const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
+              updatedTargetUser = {
                 ...u,
                 leaveBalances: {
                   ...u.leaveBalances,
@@ -864,9 +872,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   }
                 }
               };
+              return updatedTargetUser;
             }
             return u;
           }));
+          if (updatedTargetUser) {
+            saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+          }
         }
 
         addAuditLog(currentUser, isRec ? 'HOD_RECOMMENDED' : 'HOD_REJECTED', `${isRec ? 'Recommended' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
@@ -936,10 +948,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         // Deduct/update leave balance for applicant
+        let updatedTargetUser: User | null = null;
         setAllUsers(uList => uList.map(u => {
           if (u.id === req.applicantId) {
-            const currentBal = u.leaveBalances[req.leaveType];
-            return {
+            const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
+            updatedTargetUser = {
               ...u,
               leaveBalances: {
                 ...u.leaveBalances,
@@ -950,9 +963,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
               }
             };
+            return updatedTargetUser;
           }
           return u;
         }));
+        if (updatedTargetUser) {
+          saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+        }
 
         addAuditLog(currentUser, isApproved ? 'REGISTRAR_APPROVED' : 'REGISTRAR_REJECTED', `${isApproved ? 'Sanctioned' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
 
@@ -1054,10 +1071,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId && (req.status === 'PENDING_HOD' || req.status === 'PENDING_REGISTRAR')) {
         // Release pending balance
+        let updatedTargetUser: User | null = null;
         setAllUsers(uList => uList.map(u => {
           if (u.id === req.applicantId) {
-            const currentBal = u.leaveBalances[req.leaveType];
-            return {
+            const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
+            updatedTargetUser = {
               ...u,
               leaveBalances: {
                 ...u.leaveBalances,
@@ -1067,9 +1085,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
               }
             };
+            return updatedTargetUser;
           }
           return u;
         }));
+        if (updatedTargetUser) {
+          saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+        }
 
         addAuditLog(currentUser, 'LEAVE_CANCELLED', `Cancelled leave application ${req.id}.`);
 
@@ -1090,20 +1112,26 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateUserRoleAndPermissions = (userId: string, role: Role, permissions: string[]) => {
+    let updatedUser: User | null = null;
     setAllUsers(prev => prev.map(u => {
       if (u.id === userId) {
-        return { ...u, role, assignedPermissions: permissions };
+        updatedUser = { ...u, role, assignedPermissions: permissions };
+        return updatedUser;
       }
       return u;
     }));
+    if (updatedUser) {
+      saveDocToFirestore('users', userId, updatedUser);
+    }
     addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permissions for user ${userId}.`);
   };
 
   const adjustUserLeaveBalance = (userId: string, leaveType: LeaveType, total: number, used: number) => {
+    let updatedUser: User | null = null;
     setAllUsers(prev => prev.map(u => {
       if (u.id === userId) {
-        const cur = u.leaveBalances[leaveType];
-        return {
+        const cur = u.leaveBalances[leaveType] || { total: 0, used: 0, pending: 0 };
+        updatedUser = {
           ...u,
           leaveBalances: {
             ...u.leaveBalances,
@@ -1114,9 +1142,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           }
         };
+        return updatedUser;
       }
       return u;
     }));
+    if (updatedUser) {
+      saveDocToFirestore('users', userId, updatedUser);
+    }
     addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${userId} (Total: ${total}, Used: ${used}).`);
   };
 
