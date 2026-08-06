@@ -113,28 +113,37 @@ export const LoginPage: React.FC = () => {
     setForgotErrorMsg(null);
     setForgotSuccessMsg(null);
 
-    if (!forgotEmail) {
+    const targetEmail = (forgotEmail || '').trim();
+    if (!targetEmail) {
       setForgotErrorMsg('Please enter your registered institutional email address.');
       return;
     }
 
     setIsSendingCode(true);
-    setTimeout(() => {
-      const result = requestPasswordResetCode(forgotEmail, forgotEmpCode);
-      setIsSendingCode(false);
 
-      if (result.success && result.securityCode) {
-        setGeneratedSecurityCode(result.securityCode);
-        setDispatchedEmail(result.userEmail || forgotEmail);
-        setDispatchedUserName(result.userName || 'Portal User');
-        setForgotStep('verify');
-        setForgotCode('');
-        setForgotNewPassword('');
-        setForgotConfirmPassword('');
-      } else {
-        setForgotErrorMsg(result.message);
+    setTimeout(() => {
+      try {
+        const result = requestPasswordResetCode(targetEmail, forgotEmpCode ? forgotEmpCode.trim() : '');
+
+        if (result && result.success && result.securityCode) {
+          setGeneratedSecurityCode(result.securityCode);
+          setDispatchedEmail(result.userEmail || targetEmail);
+          setDispatchedUserName(result.userName || 'Portal User');
+          setForgotStep('verify');
+          setForgotCode('');
+          setForgotNewPassword('');
+          setForgotConfirmPassword('');
+          setForgotErrorMsg(null);
+        } else {
+          setForgotErrorMsg(result?.message || 'Unable to send security code. Please check your email.');
+        }
+      } catch (error) {
+        console.error('Error requesting reset code:', error);
+        setForgotErrorMsg('An unexpected error occurred while requesting the security code. Please try again.');
+      } finally {
+        setIsSendingCode(false);
       }
-    }, 350);
+    }, 200);
   };
 
   const handleVerifyAndReset = (e: React.FormEvent) => {
@@ -375,19 +384,6 @@ export const LoginPage: React.FC = () => {
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                       Password
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('forgot');
-                        setForgotEmail(email);
-                        setForgotErrorMsg(null);
-                        setForgotSuccessMsg(null);
-                      }}
-                      className="text-xs font-bold text-[#3F51B5] hover:text-[#303F9F] hover:underline cursor-pointer flex items-center gap-1 transition-colors"
-                    >
-                      <KeyRound className="w-3 h-3" />
-                      Forgot Password?
-                    </button>
                   </div>
                   <div className="relative rounded-xl shadow-2xs">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -694,6 +690,23 @@ export const LoginPage: React.FC = () => {
                         className="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
                       />
                     </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-medium">Quick select demo email:</span>
+                      {[
+                        'rajesh.kumar@institution.edu',
+                        'registrar@institution.edu',
+                        'dean.academic@institution.edu'
+                      ].map((demoEmail) => (
+                        <button
+                          key={demoEmail}
+                          type="button"
+                          onClick={() => setForgotEmail(demoEmail)}
+                          className="text-[10px] bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-600 px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                        >
+                          {demoEmail.split('@')[0]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
@@ -872,31 +885,33 @@ export const LoginPage: React.FC = () => {
           )}
 
           {/* Modern Forgot Password / Account Recovery Card */}
-          <div className="bg-gradient-to-r from-indigo-50/60 to-slate-50 p-4 rounded-2xl border border-indigo-100/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs">
-                <KeyRound className="w-4 h-4 text-[#3F51B5]" />
-                Forgot Your Portal Password?
+          {activeTab === 'login' && (
+            <div className="bg-gradient-to-r from-indigo-50/60 to-slate-50 p-4 rounded-2xl border border-indigo-100/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-slate-900 font-bold text-xs">
+                  <KeyRound className="w-4 h-4 text-[#3F51B5]" />
+                  Forgot Your Portal Password?
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Request a 6-digit email security code to verify your identity and reset your portal password safely.
+                </p>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Request a 6-digit email security code to verify your identity and reset your portal password safely.
-              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('forgot');
+                  setForgotStep('request');
+                  setForgotEmail(email);
+                  setForgotErrorMsg(null);
+                  setForgotSuccessMsg(null);
+                }}
+                className="px-3.5 py-2 bg-white hover:bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Forgot Password
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('forgot');
-                setForgotStep('request');
-                setForgotEmail(email);
-                setForgotErrorMsg(null);
-                setForgotSuccessMsg(null);
-              }}
-              className="px-3.5 py-2 bg-white hover:bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              Forgot Password
-            </button>
-          </div>
+          )}
 
           </div>
         </div>
