@@ -308,7 +308,7 @@ export const LoginPage: React.FC = () => {
               </form>
 
               {/* Collapsible Demo Accounts Guide */}
-              {systemSettings.enableDemoAccounts ? (
+              {systemSettings.enableDemoAccounts && (
                 <div className="border-t border-slate-200 pt-4">
                   <button
                     type="button"
@@ -361,12 +361,6 @@ export const LoginPage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="border-t border-slate-200 pt-3 text-center">
-                  <p className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1">
-                    🔒 Demo account quick login cards disabled by Super Admin policy.
-                  </p>
                 </div>
               )}
             </div>
