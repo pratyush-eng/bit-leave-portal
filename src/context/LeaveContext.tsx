@@ -497,7 +497,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const target = allUsers.find(u => u.id === userId);
     if (!target) return { success: false, message: 'User not found.' };
 
-    // Department Admin Restriction: Department Admins cannot manage/reassign users outside their assigned department
+    // Department Admin Restriction: Department Admins cannot manage/reassign users outside their assigned department or assign roles other than FACULTY, STAFF, or HOD
     if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
       const adminDeptId = currentUser.departmentId;
       if (adminDeptId) {
@@ -507,6 +507,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             message: `Department Admin Restriction: As an administrator of department "${currentUser.departmentName || adminDeptId}", you can only manage user accounts within your assigned department.`
           };
         }
+      }
+      if (updatedData.role && !['FACULTY', 'STAFF', 'HOD'].includes(updatedData.role)) {
+        return {
+          success: false,
+          message: 'Department Admin Restriction: Department Admins can only assign roles as Faculty, Staff, or HOD.'
+        };
       }
     }
 
@@ -1117,6 +1123,25 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateUserRoleAndPermissions = (userId: string, role: Role, permissions: string[]) => {
+    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      const target = allUsers.find(u => u.id === userId);
+      if (target && target.departmentId !== currentUser.departmentId) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Department Admins can only manage users within their respective department.',
+          type: 'ERROR'
+        });
+        return;
+      }
+      if (!['FACULTY', 'STAFF', 'HOD'].includes(role)) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Department Admins can only assign roles as Faculty, Staff, or HOD.',
+          type: 'ERROR'
+        });
+        return;
+      }
+    }
     let updatedUser: User | null = null;
     setAllUsers(prev => prev.map(u => {
       if (u.id === userId) {
@@ -1165,6 +1190,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return {
           success: false,
           message: `Department Admin Restriction: As an administrator of department "${currentUser.departmentName || adminDeptId}" (${adminDeptId}), you are only permitted to add users within your own department. You cannot add users for department "${userData.departmentName || userData.departmentId}".`
+        };
+      }
+      if (!['FACULTY', 'STAFF', 'HOD'].includes(userData.role)) {
+        return {
+          success: false,
+          message: 'Department Admin Restriction: Department Admins can only assign roles as Faculty, Staff, or HOD.'
         };
       }
     }

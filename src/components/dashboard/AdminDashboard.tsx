@@ -502,9 +502,13 @@ export const AdminDashboard: React.FC = () => {
                           <option value="FACULTY">FACULTY</option>
                           <option value="STAFF">STAFF</option>
                           <option value="HOD">HOD</option>
-                          <option value="REGISTRAR">REGISTRAR</option>
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                          {currentUser?.role === 'SUPER_ADMIN' && (
+                            <>
+                              <option value="REGISTRAR">REGISTRAR</option>
+                              <option value="ADMIN">ADMIN</option>
+                              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                            </>
+                          )}
                         </select>
                       ) : (
                         <MaterialChip label={usr.role} variant="role" role={usr.role} />
@@ -1054,18 +1058,30 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Role</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Role * {isDeptAdmin && <span className="text-[10px] text-amber-700 font-normal lowercase">(restricted)</span>}
+                  </label>
                   <select
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value as Role)}
                     className="w-full px-3 py-2 border rounded-xl font-medium"
                   >
-                    <option value="FACULTY">FACULTY</option>
-                    <option value="STAFF">STAFF</option>
-                    <option value="HOD">HOD</option>
-                    <option value="REGISTRAR">REGISTRAR</option>
-                    <option value="ADMIN">ADMIN</option>
+                    <option value="FACULTY">FACULTY (Teaching Faculty)</option>
+                    <option value="STAFF">STAFF (Non-Teaching Staff)</option>
+                    <option value="HOD">HOD (Head of Dept)</option>
+                    {currentUser?.role === 'SUPER_ADMIN' && (
+                      <>
+                        <option value="REGISTRAR">REGISTRAR</option>
+                        <option value="ADMIN">ADMIN (Department Admin)</option>
+                        <option value="SUPER_ADMIN">SUPER_ADMIN (System Admin)</option>
+                      </>
+                    )}
                   </select>
+                  {isDeptAdmin && (
+                    <p className="text-[10px] text-slate-500 font-medium mt-1">
+                      Department Admins can assign roles as Faculty, Staff, and HOD of their respective department only.
+                    </p>
+                  )}
                 </div>
               </div>
 

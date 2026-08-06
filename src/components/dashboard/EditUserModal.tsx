@@ -168,20 +168,35 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Role / Access *
+                Role / Access * {currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN' && <span className="text-[10px] text-amber-700 font-normal lowercase">(restricted)</span>}
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-bold"
               >
-                <option value="FACULTY">FACULTY</option>
-                <option value="STAFF">STAFF</option>
-                <option value="HOD">HOD (Head of Dept)</option>
-                <option value="REGISTRAR">REGISTRAR</option>
-                <option value="ADMIN">ADMIN (Department Admin)</option>
-                <option value="SUPER_ADMIN">SUPER_ADMIN (System Admin)</option>
+                {currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN' ? (
+                  <>
+                    <option value="FACULTY">FACULTY (Teaching Faculty)</option>
+                    <option value="STAFF">STAFF (Non-Teaching Staff)</option>
+                    <option value="HOD">HOD (Head of Dept)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="FACULTY">FACULTY (Teaching Faculty)</option>
+                    <option value="STAFF">STAFF (Non-Teaching Staff)</option>
+                    <option value="HOD">HOD (Head of Dept)</option>
+                    <option value="REGISTRAR">REGISTRAR</option>
+                    <option value="ADMIN">ADMIN (Department Admin)</option>
+                    <option value="SUPER_ADMIN">SUPER_ADMIN (System Admin)</option>
+                  </>
+                )}
               </select>
+              {currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN' && (
+                <p className="text-[10px] text-slate-500 font-medium mt-1">
+                  Department Admins can assign roles as Faculty, Staff, and HOD of their respective department only.
+                </p>
+              )}
             </div>
           </div>
 
