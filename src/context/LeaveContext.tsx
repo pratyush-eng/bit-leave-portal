@@ -95,6 +95,7 @@ interface LeaveContextType {
   
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  clearSanctionLogs: () => { success: boolean; message: string };
   resetData: () => void;
 }
 
@@ -1296,6 +1297,29 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
+  const clearSanctionLogs = (): { success: boolean; message: string } => {
+    if (currentUser.role !== 'SUPER_ADMIN') {
+      return { success: false, message: 'Unauthorized: Only Super Admin can clear leave sanction logs.' };
+    }
+
+    leaveRequests.forEach(req => {
+      deleteDocFromFirestore('leaveRequests', req.id);
+    });
+
+    setLeaveRequests([]);
+    localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
+
+    addAuditLog(currentUser, 'SANCTION_LOGS_CLEARED', 'Super Admin cleared all historical leave sanction logs.');
+
+    addToast({
+      title: 'Sanction Logs Cleared 🗑️',
+      message: 'All historical leave sanction logs have been cleared successfully.',
+      type: 'SUCCESS'
+    });
+
+    return { success: true, message: 'Historical leave sanction logs cleared successfully.' };
+  };
+
   const resetData = () => {
     localStorage.removeItem(STORAGE_KEYS.USERS);
     localStorage.removeItem(STORAGE_KEYS.REQUESTS);
@@ -1366,6 +1390,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateLeavePolicy,
         markNotificationRead,
         markAllNotificationsRead,
+        clearSanctionLogs,
         resetData
       }}
     >

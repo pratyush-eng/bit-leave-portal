@@ -19,12 +19,15 @@ import {
   Printer, 
   PieChart as PieIcon, 
   Building2,
-  Lock
+  Lock,
+  Trash2,
+  ShieldAlert
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { currentUser, leaveRequests, departments, leavePolicies } = useLeave();
+  const { currentUser, leaveRequests, departments, leavePolicies, clearSanctionLogs } = useLeave();
 
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
   const isDeptRestricted = isDeptAdmin || (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'REGISTRAR');
   const userDeptId = currentUser?.departmentId;
@@ -32,6 +35,7 @@ export const AnalyticsReports: React.FC = () => {
 
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>('ALL');
+  const [showClearModal, setShowClearModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (isDeptRestricted && userDeptId) {
@@ -282,11 +286,18 @@ export const AnalyticsReports: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-slate-50">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Historical Leave Sanction Logs</h3>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              Historical Leave Sanction Logs
+              {isSuperAdmin && (
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-extrabold border border-purple-200">
+                  Super Admin
+                </span>
+              )}
+            </h3>
             <p className="text-xs text-slate-500">Filter and audit past leave entries</p>
           </div>
 
-          {/* Table Filters */}
+          {/* Table Filters & Super Admin Action */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
               <span className="text-slate-400">Dept:</span>
@@ -322,6 +333,20 @@ export const AnalyticsReports: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            {/* Clear Leave Sanction Logs option - Super Admin Only */}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowClearModal(true)}
+                disabled={leaveRequests.length === 0}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed shadow-2xs active:scale-95 ml-1"
+                title="Super Admin Only: Permanently clear all historical leave sanction logs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear Sanction Logs
+              </button>
+            )}
           </div>
         </div>
 
@@ -369,6 +394,59 @@ export const AnalyticsReports: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Clear Sanction Logs Confirmation Modal for Super Admin */}
+      {showClearModal && isSuperAdmin && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">Clear Leave Sanction Logs?</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-extrabold border border-purple-200">
+                    Super Admin
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed pt-1">
+                  Are you sure you want to permanently clear all <strong>{leaveRequests.length}</strong> historical leave sanction log records from the institutional database?
+                </p>
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-1 mt-2">
+                  <p className="font-bold flex items-center gap-1">
+                    <Trash2 className="w-3.5 h-3.5" /> Irreversible Administrative Action
+                  </p>
+                  <p className="text-rose-700 leading-normal">
+                    This will permanently delete all leave applications, sanction histories, and status records across all departments.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearSanctionLogs();
+                  setShowClearModal(false);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Yes, Clear All Logs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
