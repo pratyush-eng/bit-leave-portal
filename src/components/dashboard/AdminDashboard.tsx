@@ -24,8 +24,11 @@ import {
   Lock,
   Search,
   Printer,
-  FileText
+  FileText,
+  Database,
+  Download
 } from 'lucide-react';
+import { generateMySQLDump } from '../../lib/firestoreSync';
 
 interface AdminDashboardProps {
   onSelectLeaveRequest?: (id: string, printMode?: boolean) => void;
@@ -290,6 +293,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
     setPolicyDesc('');
   };
 
+  const handleExportMySQLDump = () => {
+    const sqlContent = generateMySQLDump({
+      users: allUsers,
+      leaveRequests: leaveRequests,
+      departments: departments,
+      leavePolicies: leavePolicies,
+      auditLogs: useLeave().auditLogs || []
+    });
+
+    const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bit_leave_portal_mysql_dump_${new Date().toISOString().split('T')[0]}.sql`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (addToast) {
+      addToast({
+        title: 'MySQL SQL Dump Exported 🛢️',
+        message: 'Downloaded complete MySQL DDL & DML database script for Vercel / MySQL hosting.',
+        type: 'SUCCESS'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans">
       
@@ -310,6 +341,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
         </div>
 
         <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            onClick={handleExportMySQLDump}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            title="Download complete MySQL DDL & DML script to transfer data to MySQL or Vercel Postgres"
+          >
+            <Database className="w-3.5 h-3.5" />
+            Export MySQL (.sql)
+          </button>
+
           <button
             onClick={openAddUserModal}
             className="px-4 py-2 bg-white text-[#3F51B5] hover:bg-slate-50 rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"

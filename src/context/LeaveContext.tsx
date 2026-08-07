@@ -366,20 +366,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     keyField: string = 'id'
   ): T[] {
     const map = new Map<string, T>();
-    // Insert remote records from Firestore first
-    remoteItems.forEach(item => {
+    // First insert local items into the map
+    localItems.forEach(item => {
       const key = String(item[keyField] || item.id || item.type || '');
       if (key) map.set(key, item);
     });
-    // Merge local records if they are not yet present or preserve updated properties
-    localItems.forEach(item => {
+    // Remote items from Firestore MUST ALWAYS take precedence and overwrite local state
+    remoteItems.forEach(item => {
       const key = String(item[keyField] || item.id || item.type || '');
       if (!key) return;
       if (!map.has(key)) {
         map.set(key, item);
       } else {
-        const remoteItem = map.get(key)!;
-        map.set(key, { ...remoteItem, ...item });
+        const localItem = map.get(key)!;
+        map.set(key, { ...localItem, ...item });
       }
     });
     return Array.from(map.values());
@@ -391,18 +391,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadOrSeedFirestoreData().then((data) => {
       if (!mounted) return;
       if (data.users?.length) setAllUsers(prev => mergeById(data.users, prev, 'id'));
-      if (data.leaveRequests?.length) {
-        setLeaveRequests(prev => {
-          const merged = mergeById(data.leaveRequests!, prev, 'id');
-          // Automatically backfill any locally stored leave applications to Firestore
-          prev.forEach(req => {
-            if (req.id && !data.leaveRequests!.some(r => r.id === req.id)) {
-              saveDocToFirestore('leaveRequests', req.id, req);
-            }
-          });
-          return merged;
-        });
-      }
+      if (data.leaveRequests?.length) setLeaveRequests(prev => mergeById(data.leaveRequests, prev, 'id'));
       if (data.departments?.length) setDepartments(prev => mergeById(data.departments, prev, 'id'));
       if (data.leavePolicies?.length) setLeavePolicies(prev => mergeById(data.leavePolicies, prev, 'type'));
       if (data.notifications?.length) setNotifications(prev => mergeById(data.notifications, prev, 'id'));
@@ -419,21 +408,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
       if (mounted && items && items.length > 0) {
-        setLeaveRequests(prev => {
-          const merged = mergeById(items, prev, 'id');
-          // Ensure any locally applied leave requests missing in Firestore snapshot get saved
-          prev.forEach(req => {
-            if (req.id && !items.some(r => r.id === req.id)) {
-              saveDocToFirestore('leaveRequests', req.id, req);
-            }
-          });
-          return merged;
-        });
+        setLeaveRequests(prev => mergeById(items, prev, 'id'));
       }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && items && items.length > 0) setAllUsers(prev => mergeById(items, prev, 'id'));
+      if (mounted && items && items.length > 0) {
+        setAllUsers(prev => mergeById(items, prev, 'id'));
+      }
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
