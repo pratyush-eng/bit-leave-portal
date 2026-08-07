@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LeaveProvider, useLeave } from './context/LeaveContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -29,7 +29,20 @@ import { TimelineStepper } from './components/common/TimelineStepper';
 import { Plus, Filter, Search, FileText, Printer } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { currentUser, leaveRequests, isAuthenticated } = useLeave();
+  const { currentUser, leaveRequests, isAuthenticated, systemSettings } = useLeave();
+
+  useEffect(() => {
+    const faviconUrl = systemSettings?.institutionLogoUrl || '/favicon.svg';
+    const existingIcon = document.querySelector<HTMLLinkElement>("link[rel='icon']") || document.querySelector<HTMLLinkElement>("link[rel='shortcut icon']");
+    if (existingIcon) {
+      existingIcon.href = faviconUrl;
+    } else {
+      const link = document.createElement('link');
+      link.rel = 'icon';
+      link.href = faviconUrl;
+      document.head.appendChild(link);
+    }
+  }, [systemSettings?.institutionLogoUrl]);
 
   const [activeView, setActiveView] = useState<string>('dashboard');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
