@@ -15,6 +15,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   onDeleteSuccess
 }) => {
   const { departments, updateUser, deleteUser, currentUser } = useLeave();
+  const isProtectedSuperAdmin = user.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -33,6 +34,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    if (isProtectedSuperAdmin) {
+      setErrorMsg("Department Admins cannot modify Institutional Super Admin accounts.");
+      return;
+    }
 
     const selectedDept = departments.find(d => d.id === departmentId);
     const departmentName = selectedDept ? selectedDept.name : user.departmentName;
@@ -64,6 +70,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
   };
 
   const handleDelete = () => {
+    if (isProtectedSuperAdmin) {
+      setErrorMsg("Department Admins cannot delete Institutional Super Admin accounts.");
+      setShowConfirmDelete(false);
+      return;
+    }
     const result = deleteUser(user.id);
     if (!result.success) {
       setErrorMsg(result.message);
@@ -95,6 +106,16 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
         {/* Body */}
         <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          {isProtectedSuperAdmin && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-amber-900 text-xs font-medium">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Super Admin Account Protected</p>
+                <p>As a Department Admin, you cannot modify or delete Institutional Super Admin accounts.</p>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-rose-800 text-xs">
               <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -304,8 +325,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                   <button
                     type="button"
                     onClick={handleDelete}
-                    disabled={user.id === currentUser.id}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer disabled:opacity-50"
+                    disabled={user.id === currentUser.id || isProtectedSuperAdmin}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Yes, Delete Forever
                   </button>
@@ -316,9 +337,9 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowConfirmDelete(true)}
-                  disabled={user.id === currentUser.id}
+                  disabled={user.id === currentUser.id || isProtectedSuperAdmin}
                   className="px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={user.id === currentUser.id ? 'Cannot delete your own active account' : 'Delete User'}
+                  title={user.id === currentUser.id ? 'Cannot delete your own active account' : isProtectedSuperAdmin ? 'Super Admin accounts cannot be deleted by Department Admins' : 'Delete User'}
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete User
@@ -334,7 +355,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 text-xs font-bold text-white bg-[#3F51B5] hover:bg-indigo-700 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    disabled={isProtectedSuperAdmin}
+                    className="px-5 py-2 text-xs font-bold text-white bg-[#3F51B5] hover:bg-indigo-700 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" />
                     Save Changes

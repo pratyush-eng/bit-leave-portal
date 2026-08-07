@@ -515,6 +515,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Department Admin Restriction: Department Admins cannot manage/reassign users outside their assigned department or assign roles other than FACULTY, STAFF, or HOD
     if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      if (target.role === 'SUPER_ADMIN') {
+        return {
+          success: false,
+          message: 'Department Admin Restriction: Super Admin accounts cannot be modified by Department Admins.'
+        };
+      }
       const adminDeptId = currentUser.departmentId;
       if (adminDeptId) {
         if (target.departmentId !== adminDeptId || (updatedData.departmentId && updatedData.departmentId !== adminDeptId)) {
@@ -811,6 +817,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const target = allUsers.find(u => u.id === userId);
     if (!target) return { success: false, message: 'User not found.' };
+
+    if (target.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN') {
+      return { success: false, message: 'Department Admin Restriction: Super Admin accounts cannot be deleted by Department Admins.' };
+    }
 
     setAllUsers(prev => prev.filter(u => u.id !== userId));
     deleteDocFromFirestore('users', userId);

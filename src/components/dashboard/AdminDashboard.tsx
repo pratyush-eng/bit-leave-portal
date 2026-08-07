@@ -59,7 +59,7 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [isDeptAdmin, userDeptId]);
 
-  const effectiveDeptFilter = (isDeptAdmin && userDeptId) ? userDeptId : selectedDepartmentFilter;
+  const effectiveDeptFilter = isDeptAdmin && userDeptId ? userDeptId : selectedDepartmentFilter;
 
   const displayedUsers = effectiveDeptFilter === 'ALL'
     ? allUsers
@@ -413,12 +413,9 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               {isDeptAdmin ? (
-                <div className="flex items-center gap-1.5 bg-indigo-50 px-2.5 py-1.5 border border-indigo-200 rounded-lg shadow-2xs text-indigo-900">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 font-bold text-xs shadow-2xs">
                   <Lock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Department Scope:</span>
-                  <span className="text-xs font-bold text-indigo-950">
-                    {userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}
-                  </span>
+                  <span>Department Scope: <strong>{userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}</strong></span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 border border-slate-300 rounded-lg shadow-2xs">
@@ -535,13 +532,28 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setSelectedUserToEdit(usr)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                            Modify / Delete
-                          </button>
+                          {(() => {
+                            const isProtectedSuperAdmin = usr.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+                            return (
+                              <button
+                                onClick={() => {
+                                  if (!isProtectedSuperAdmin) {
+                                    setSelectedUserToEdit(usr);
+                                  }
+                                }}
+                                disabled={isProtectedSuperAdmin}
+                                title={isProtectedSuperAdmin ? "Super Admin accounts cannot be modified or deleted by Department Admins" : "Modify or delete user"}
+                                className={`px-2.5 py-1 text-[11px] font-bold border rounded transition-colors flex items-center gap-1 ${
+                                  isProtectedSuperAdmin
+                                    ? 'text-slate-400 bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
+                                    : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border-slate-300 cursor-pointer'
+                                }`}
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                                {isProtectedSuperAdmin ? 'Protected (Super Admin)' : 'Modify / Delete'}
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                     </td>
@@ -761,7 +773,7 @@ export const AdminDashboard: React.FC = () => {
 
               {/* Department Segregator Combo */}
               {isDeptAdmin ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 font-bold text-xs">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 font-bold text-xs shadow-2xs">
                   <Lock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span>Department Scope: <strong>{userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}</strong></span>
                 </div>
