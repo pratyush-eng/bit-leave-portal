@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Role, DepartmentId } from '../../types';
 import { useLeave } from '../../context/LeaveContext';
-import { X, Save, Trash2, ShieldAlert, Mail, User as UserIcon, Building2, Briefcase, Phone, Hash, KeyRound } from 'lucide-react';
+import { X, Save, Trash2, ShieldAlert, Mail, User as UserIcon, Building2, Briefcase, Phone, Hash, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 interface EditUserModalProps {
   user: User;
@@ -19,7 +19,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-  const [password, setPassword] = useState(user.password || '');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<Role>(user.role);
   const [designation, setDesignation] = useState(user.designation);
   const [departmentId, setDepartmentId] = useState<DepartmentId>(user.departmentId);
@@ -290,20 +291,28 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Account Login Password
+              Reset / Change Account Password
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
-                type="text"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Reset or set user login password"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-mono"
+                placeholder="Enter new password to reset (leave blank to keep current)"
+                className="w-full pl-9 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-hidden font-mono"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                title={showPassword ? "Hide password" : "Show new password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Admins can reset or update password for this user account.
+            <p className="text-[11px] text-slate-500 mt-1">
+              🔒 Existing passwords are hidden for security & privacy. Enter a new password above if you need to reset or update this user's login password.
             </p>
           </div>
 
