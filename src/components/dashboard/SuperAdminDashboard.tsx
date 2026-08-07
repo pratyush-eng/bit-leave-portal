@@ -41,7 +41,14 @@ import {
   X,
   Save,
   FolderPlus,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -71,6 +78,10 @@ export const SuperAdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'departments' | 'leave_policies' | 'pending' | 'settings' | 'email' | 'database' | 'audit_logs'>('permissions');
   const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[3]?.id || allUsers[0]?.id);
   const [logFilter, setLogFilter] = useState<string>('');
+  const [logSortField, setLogSortField] = useState<'timestamp' | 'actorName' | 'actorRole' | 'action' | 'details' | 'ipAddress'>('timestamp');
+  const [logSortOrder, setLogSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [logCurrentPage, setLogCurrentPage] = useState<number>(1);
+  const [logRowsPerPage, setLogRowsPerPage] = useState<number>(10);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
 
   // Department state (Super Admin Exclusive)
@@ -408,12 +419,58 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   };
 
-  const filteredLogs = auditLogs.filter(l => {
-    if (!logFilter) return true;
-    return l.action.toLowerCase().includes(logFilter.toLowerCase()) || 
-           l.actorName.toLowerCase().includes(logFilter.toLowerCase()) ||
-           l.details.toLowerCase().includes(logFilter.toLowerCase());
-  });
+  const handleLogSort = (field: 'timestamp' | 'actorName' | 'actorRole' | 'action' | 'details' | 'ipAddress') => {
+    if (logSortField === field) {
+      setLogSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setLogSortField(field);
+      setLogSortOrder(field === 'timestamp' ? 'desc' : 'asc');
+    }
+    setLogCurrentPage(1);
+  };
+
+  const sortedAndFilteredLogs = React.useMemo(() => {
+    const q = logFilter.toLowerCase().trim();
+    let result = auditLogs.filter(l => {
+      if (!q) return true;
+      return (
+        l.action.toLowerCase().includes(q) ||
+        l.actorName.toLowerCase().includes(q) ||
+        l.actorRole.toLowerCase().includes(q) ||
+        l.details.toLowerCase().includes(q) ||
+        l.timestamp.toLowerCase().includes(q) ||
+        (l.ipAddress && l.ipAddress.toLowerCase().includes(q))
+      );
+    });
+
+    result.sort((a, b) => {
+      const valA = a[logSortField] || '';
+      const valB = b[logSortField] || '';
+
+      if (logSortField === 'timestamp') {
+        const timeA = new Date(valA).getTime();
+        const timeB = new Date(valB).getTime();
+        if (!isNaN(timeA) && !isNaN(timeB)) {
+          return logSortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+      }
+
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      const comp = strA.localeCompare(strB);
+      return logSortOrder === 'asc' ? comp : -comp;
+    });
+
+    return result;
+  }, [auditLogs, logFilter, logSortField, logSortOrder]);
+
+  const totalLogPages = Math.max(1, Math.ceil(sortedAndFilteredLogs.length / logRowsPerPage));
+  const validLogPage = Math.min(logCurrentPage, totalLogPages);
+
+  const paginatedLogs = React.useMemo(() => {
+    const start = (validLogPage - 1) * logRowsPerPage;
+    return sortedAndFilteredLogs.slice(start, start + logRowsPerPage);
+  }, [sortedAndFilteredLogs, validLogPage, logRowsPerPage]);
 
   return (
     <div className="space-y-6">
@@ -1167,48 +1224,201 @@ export const SuperAdminDashboard: React.FC = () => {
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">System Security & Action Logs</h3>
-              <p className="text-xs text-slate-500">Real-time IP tracked audit trail</p>
+              <p className="text-xs text-slate-500">Real-time IP tracked audit trail ({sortedAndFilteredLogs.length} total entries)</p>
             </div>
 
-            <div className="relative min-w-[240px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search audit logs..."
-                value={logFilter}
-                onChange={(e) => setLogFilter(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium"
-              />
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <div className="relative min-w-[240px] flex-1 md:flex-none">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search audit logs..."
+                  value={logFilter}
+                  onChange={(e) => {
+                    setLogFilter(e.target.value);
+                    setLogCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 shrink-0">
+                <span className="font-medium text-[11px] uppercase tracking-wider text-slate-500">Rows:</span>
+                <select
+                  value={logRowsPerPage}
+                  onChange={(e) => {
+                    setLogRowsPerPage(Number(e.target.value));
+                    setLogCurrentPage(1);
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 select-none">
                 <tr>
-                  <th className="px-4 py-3">Timestamp</th>
-                  <th className="px-4 py-3">Actor Name</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Action Event</th>
-                  <th className="px-4 py-3">Event Details</th>
-                  <th className="px-4 py-3 text-right">IP Address</th>
+                  <th 
+                    onClick={() => handleLogSort('timestamp')}
+                    className="px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Timestamp</span>
+                      {logSortField === 'timestamp' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleLogSort('actorName')}
+                    className="px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Actor Name</span>
+                      {logSortField === 'actorName' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleLogSort('actorRole')}
+                    className="px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Role</span>
+                      {logSortField === 'actorRole' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleLogSort('action')}
+                    className="px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Action Event</span>
+                      {logSortField === 'action' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleLogSort('details')}
+                    className="px-4 py-3 cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Event Details</span>
+                      {logSortField === 'details' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleLogSort('ipAddress')}
+                    className="px-4 py-3 text-right cursor-pointer hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>IP Address</span>
+                      {logSortField === 'ipAddress' ? (
+                        logSortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-600" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-60" />
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{log.timestamp}</td>
-                    <td className="px-4 py-3 font-bold text-slate-900">{log.actorName}</td>
-                    <td className="px-4 py-3">
-                      <MaterialChip label={log.actorRole} variant="role" role={log.actorRole} />
+                {paginatedLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400 font-medium">
+                      No security audit logs match the specified search or filter criteria.
                     </td>
-                    <td className="px-4 py-3 font-bold text-indigo-900">{log.action}</td>
-                    <td className="px-4 py-3 text-slate-700 max-w-md">{log.details}</td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-400 text-right">{log.ipAddress || '172.16.0.1'}</td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{log.timestamp}</td>
+                      <td className="px-4 py-3 font-bold text-slate-900">{log.actorName}</td>
+                      <td className="px-4 py-3">
+                        <MaterialChip label={log.actorRole} variant="role" role={log.actorRole} />
+                      </td>
+                      <td className="px-4 py-3 font-bold text-indigo-900">{log.action}</td>
+                      <td className="px-4 py-3 text-slate-700 max-w-md">{log.details}</td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-slate-400 text-right">{log.ipAddress || '172.16.0.1'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div>
+              Showing <strong className="text-slate-900 font-bold">{sortedAndFilteredLogs.length > 0 ? (validLogPage - 1) * logRowsPerPage + 1 : 0}</strong> to <strong className="text-slate-900 font-bold">{Math.min(validLogPage * logRowsPerPage, sortedAndFilteredLogs.length)}</strong> of <strong className="text-slate-900 font-bold">{sortedAndFilteredLogs.length}</strong> action log entries
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLogCurrentPage(1)}
+                disabled={validLogPage === 1}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="First Page"
+              >
+                <ChevronsLeft className="w-4 h-4 text-slate-600" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={validLogPage === 1}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <span className="px-3 py-1 font-bold text-slate-800 bg-white border border-slate-300 rounded-lg">
+                Page {validLogPage} of {totalLogPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setLogCurrentPage(prev => Math.min(totalLogPages, prev + 1))}
+                disabled={validLogPage >= totalLogPages}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="Next Page"
+              >
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogCurrentPage(totalLogPages)}
+                disabled={validLogPage >= totalLogPages}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="Last Page"
+              >
+                <ChevronsRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
           </div>
         </div>
       )}
