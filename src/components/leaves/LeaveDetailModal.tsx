@@ -29,7 +29,7 @@ interface LeaveDetailModalProps {
 }
 
 export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onClose, initialPrintMode }) => {
-  const { currentUser, hodAction, registrarAction, cancelLeave } = useLeave();
+  const { currentUser, allUsers, hodAction, registrarAction, cancelLeave } = useLeave();
 
   const [comments, setComments] = useState<string>('');
   const [showSanctionOrderPrint, setShowSanctionOrderPrint] = useState<boolean>(false);
@@ -44,6 +44,9 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
   }, [initialPrintMode, request?.id]);
 
   if (!request) return null;
+
+  const activeRegistrar = allUsers?.find(u => u.role === 'REGISTRAR');
+  const registrarName = request.registrarApproval?.actionByName || activeRegistrar?.name || (currentUser.role === 'REGISTRAR' ? currentUser.name : 'University Registrar');
 
   const isApplicant = currentUser.id === request.applicantId;
   const isHodForDept = currentUser.role === 'HOD' && currentUser.departmentId === request.departmentId;
@@ -345,11 +348,11 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                 </div>
 
                 <p>
-                  <strong>Endorsed By HOD:</strong> {request.hodApproval?.actionByName} ({request.hodApproval?.comments})
+                  <strong>Endorsed By HOD:</strong> {request.hodApproval?.actionByName || 'Department Head'} {request.hodApproval?.comments ? `(${request.hodApproval.comments})` : ''}
                 </p>
 
                 <p>
-                  <strong>Approved By:</strong> {request.registrarApproval?.actionByName} ({request.registrarApproval?.comments})
+                  <strong>Approved By:</strong> {request.registrarApproval?.actionByName || registrarName} {request.registrarApproval?.comments ? `(${request.registrarApproval.comments})` : ''}
                 </p>
               </div>
 
@@ -359,7 +362,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                   <p className="text-[10px] text-slate-400">Digitally Verified Document</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-indigo-950">Dr. A. K. Kapoor</p>
+                  <p className="font-bold text-indigo-950">{registrarName}</p>
                   <p className="text-[10px] text-slate-500">Registrar</p>
                 </div>
               </div>
@@ -527,7 +530,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                     </div>
                     <div className="border-t border-slate-400 pt-1 text-center">
                       <span className="font-semibold block text-[11px]">
-                        {request.registrarApproval?.actionByName || 'Registrar Signature & Seal'}
+                        {request.registrarApproval?.actionByName || registrarName}
                       </span>
                       <span className="text-[9px] text-slate-500">
                         {request.registrarApproval?.actionDate ? `Date: ${request.registrarApproval.actionDate}` : 'Date: _______________'}

@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
           case 'ADMIN':
             return <AdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
           case 'SUPER_ADMIN':
-            return <SuperAdminDashboard />;
+            return <SuperAdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
           default:
             return (
               <FacultyDashboard 
@@ -202,10 +202,10 @@ const AppContent: React.FC = () => {
         return <AnalyticsReports />;
 
       case 'admin':
-        return <AdminDashboard />;
+        return <AdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
 
       case 'super_admin':
-        return <SuperAdminDashboard />;
+        return <SuperAdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
 
       default:
         return <FacultyDashboard onOpenApplyModal={() => setIsApplyModalOpen(true)} onSelectLeaveRequest={handleSelectLeaveRequest} />;
