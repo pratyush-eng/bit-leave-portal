@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings } from '../lib/firestoreSync';
+import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection } from '../lib/firestoreSync';
 import { 
   User, 
   LeaveRequest, 
@@ -359,17 +359,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  // Load or seed initial data from Firebase Firestore on boot
+  // Load or seed initial data from Firebase Firestore on boot & subscribe to real-time central database updates across all browsers
   useEffect(() => {
     let mounted = true;
     loadOrSeedFirestoreData().then((data) => {
       if (!mounted) return;
-      if (data.users.length) setAllUsers(data.users);
-      if (data.leaveRequests.length) setLeaveRequests(data.leaveRequests);
-      if (data.departments.length) setDepartments(data.departments);
-      if (data.leavePolicies.length) setLeavePolicies(data.leavePolicies);
-      if (data.notifications.length) setNotifications(data.notifications);
-      if (data.auditLogs.length) setAuditLogs(data.auditLogs);
+      if (data.users?.length) setAllUsers(data.users);
+      if (data.leaveRequests?.length) setLeaveRequests(data.leaveRequests);
+      if (data.departments?.length) setDepartments(data.departments);
+      if (data.leavePolicies?.length) setLeavePolicies(data.leavePolicies);
+      if (data.notifications?.length) setNotifications(data.notifications);
+      if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
+      if (data.emailLogs?.length) setEmailLogs(data.emailLogs);
       if (data.systemSettings) setSystemSettings(data.systemSettings);
     });
 
@@ -379,9 +380,44 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
+    const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
+      if (mounted && items && items.length > 0) setLeaveRequests(items);
+    });
+
+    const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
+      if (mounted && items && items.length > 0) setAllUsers(items);
+    });
+
+    const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
+      if (mounted && items && items.length > 0) setDepartments(items);
+    });
+
+    const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
+      if (mounted && items && items.length > 0) setLeavePolicies(items);
+    });
+
+    const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
+      if (mounted && items && items.length > 0) setNotifications(items);
+    });
+
+    const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
+      if (mounted && items && items.length > 0) setAuditLogs(items);
+    });
+
+    const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
+      if (mounted && items && items.length > 0) setEmailLogs(items);
+    });
+
     return () => {
       mounted = false;
       if (unsubscribeSettings) unsubscribeSettings();
+      if (unsubscribeRequests) unsubscribeRequests();
+      if (unsubscribeUsers) unsubscribeUsers();
+      if (unsubscribeDepts) unsubscribeDepts();
+      if (unsubscribePolicies) unsubscribePolicies();
+      if (unsubscribeNotifications) unsubscribeNotifications();
+      if (unsubscribeAuditLogs) unsubscribeAuditLogs();
+      if (unsubscribeEmailLogs) unsubscribeEmailLogs();
     };
   }, []);
 
