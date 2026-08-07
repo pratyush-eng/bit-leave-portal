@@ -83,7 +83,7 @@ const AppContent: React.FC = () => {
           case 'REGISTRAR':
             return <RegistrarDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
           case 'ADMIN':
-            return <AdminDashboard />;
+            return <AdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
           case 'SUPER_ADMIN':
             return <SuperAdminDashboard />;
           default:
@@ -122,7 +122,11 @@ const AppContent: React.FC = () => {
         );
 
       case 'my_leaves':
-        const myRequests = leaveRequests.filter(r => r.applicantId === currentUser.id);
+        const myRequests = leaveRequests.filter(r => 
+          r.applicantId === currentUser.id ||
+          (!!r.applicantEmail && !!currentUser.email && r.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (!!r.applicantEmployeeCode && !!currentUser.employeeCode && r.applicantEmployeeCode === currentUser.employeeCode)
+        );
         return (
           <div className="space-y-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">

@@ -27,8 +27,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 }) => {
   const { currentUser, leaveRequests, leavePolicies } = useLeave();
 
-  // Faculty's own requests
-  const myRequests = leaveRequests.filter(r => r.applicantId === currentUser.id);
+  // Faculty/Staff member's own requests
+  const myRequests = leaveRequests.filter(r => 
+    r.applicantId === currentUser.id ||
+    (!!r.applicantEmail && !!currentUser.email && r.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (!!r.applicantEmployeeCode && !!currentUser.employeeCode && r.applicantEmployeeCode === currentUser.employeeCode)
+  );
   const activeRequests = myRequests.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR');
   const recentHistory = myRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED' || r.status === 'CANCELLED');
 

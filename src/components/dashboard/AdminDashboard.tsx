@@ -22,14 +22,21 @@ import {
   CheckCircle2,
   Filter,
   Lock,
-  Search
+  Search,
+  Printer,
+  FileText
 } from 'lucide-react';
 
-export const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+  onSelectLeaveRequest?: (id: string, printMode?: boolean) => void;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveRequest }) => {
   const { 
     allUsers, 
     departments, 
     leavePolicies, 
+    leaveRequests,
     updateUserRoleAndPermissions, 
     adjustUserLeaveBalance,
     createNewUser,
@@ -42,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
     addToast
   } = useLeave();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending' | 'leaves'>('users');
   
   const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
   const userDeptId = currentUser?.departmentId;
@@ -52,6 +59,10 @@ export const AdminDashboard: React.FC = () => {
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('ALL');
   const [userSearchQuery, setUserSearchQuery] = useState<string>('');
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
+
+  // Leave Search & Status Filter
+  const [leaveSearchQuery, setLeaveSearchQuery] = useState<string>('');
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState<string>('ALL');
 
   React.useEffect(() => {
     if (isDeptAdmin && userDeptId) {
@@ -81,6 +92,24 @@ export const AdminDashboard: React.FC = () => {
     u.accountStatus === 'PENDING_APPROVAL' && 
     (effectiveDeptFilter === 'ALL' || u.departmentId === effectiveDeptFilter)
   );
+
+  const departmentLeaveRequests = effectiveDeptFilter === 'ALL'
+    ? leaveRequests
+    : leaveRequests.filter(r => r.departmentId === effectiveDeptFilter);
+
+  const filteredLeaveRequests = departmentLeaveRequests.filter(r => {
+    if (leaveStatusFilter !== 'ALL' && r.status !== leaveStatusFilter) return false;
+    if (!leaveSearchQuery.trim()) return true;
+    const q = leaveSearchQuery.toLowerCase();
+    return (
+      r.id.toLowerCase().includes(q) ||
+      r.applicantName.toLowerCase().includes(q) ||
+      r.applicantEmail.toLowerCase().includes(q) ||
+      (r.applicantEmployeeCode && r.applicantEmployeeCode.toLowerCase().includes(q)) ||
+      r.leaveType.toLowerCase().includes(q) ||
+      r.reason.toLowerCase().includes(q)
+    );
+  });
 
   // User editing state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -376,6 +405,18 @@ export const AdminDashboard: React.FC = () => {
               {pendingUsers.length}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('leaves')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer relative ${
+            activeTab === 'leaves'
+              ? 'bg-[#3F51B5] text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          {isDeptAdmin ? 'Department Leave Applications' : 'Applied Leave Data'} ({departmentLeaveRequests.length})
         </button>
       </div>
 
@@ -993,6 +1034,115 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 6: APPLIED LEAVE DATA & DOSSIERS */}
+      {activeTab === 'leaves' && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-xs overflow-hidden p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3F51B5]" />
+                {isDeptAdmin ? `Department Leave Applications (${currentUser?.departmentName || userDeptId})` : 'All Institutional Leave Applications'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Monitor and inspect applied leave requests, HOD endorsements, and Registrar final sanction records.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[220px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search applicant, Ref ID, Code..."
+                  value={leaveSearchQuery}
+                  onChange={(e) => setLeaveSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] focus:outline-none"
+                />
+              </div>
+
+              <select
+                value={leaveStatusFilter}
+                onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="PENDING_HOD">Pending HOD</option>
+                <option value="PENDING_REGISTRAR">Pending Registrar</option>
+                <option value="APPROVED">Approved / Sanctioned</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredLeaveRequests.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-slate-100">
+              No applied leave records found matching the specified filters.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Ref ID</th>
+                    <th className="px-4 py-3">Applicant Name</th>
+                    <th className="px-4 py-3">Department</th>
+                    <th className="px-4 py-3">Leave Type</th>
+                    <th className="px-4 py-3">Leave Period</th>
+                    <th className="px-4 py-3">Days</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                  {filteredLeaveRequests.map((r) => (
+                    <tr 
+                      key={r.id} 
+                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id)}
+                    >
+                      <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{r.id}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-900">{r.applicantName}</div>
+                        <div className="text-[10px] text-slate-500">{r.applicantDesignation} ({r.applicantEmployeeCode || 'N/A'})</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{r.departmentName}</td>
+                      <td className="px-4 py-3">
+                        <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{r.startDate} to {r.endDate}</td>
+                      <td className="px-4 py-3 font-bold text-slate-800">{r.totalDays}</td>
+                      <td className="px-4 py-3">
+                        <MaterialChip label={r.status} variant="status" status={r.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, true)}
+                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-[#3F51B5] bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Printer className="w-3 h-3" />
+                            Print
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, false)}
+                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
+                          >
+                            View Dossier
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

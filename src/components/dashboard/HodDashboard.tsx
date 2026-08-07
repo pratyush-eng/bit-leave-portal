@@ -14,7 +14,9 @@ import {
   Building2,
   ChevronRight,
   Sparkles,
-  Search
+  Search,
+  FileText,
+  Printer
 } from 'lucide-react';
 
 interface HodDashboardProps {
@@ -24,9 +26,10 @@ interface HodDashboardProps {
 export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest }) => {
   const { currentUser, leaveRequests, allUsers, hodAction } = useLeave();
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'department_team'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'department_team' | 'department_leaves'>('pending');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [remarks, setRemarks] = useState<string>('');
+  const [deptLeaveSearch, setDeptLeaveSearch] = useState<string>('');
 
   // Requests in HOD's department waiting for HOD recommendation
   const pendingRequests = leaveRequests.filter(
@@ -109,6 +112,18 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
         >
           <Users className="w-4 h-4" />
           Department Members & Balances ({deptMembers.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('department_leaves')}
+          className={`px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'department_leaves'
+              ? 'bg-[#3F51B5] text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Department Leave Applications ({departmentRequests.length})
         </button>
       </div>
 
@@ -269,6 +284,109 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Tab 3: Department Applied Leave Applications */}
+      {activeTab === 'department_leaves' && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-xs overflow-hidden p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#3F51B5]" />
+                All Department Leave Applications ({currentUser.departmentName || currentUser.departmentId})
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Complete institutional records for faculty and staff leave requests in your department.
+              </p>
+            </div>
+
+            <div className="relative min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Filter applicant name, ID, type..."
+                value={deptLeaveSearch}
+                onChange={(e) => setDeptLeaveSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {departmentRequests.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-slate-100">
+              No leave requests submitted in this department yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Ref ID</th>
+                    <th className="px-4 py-3">Applicant Name</th>
+                    <th className="px-4 py-3">Leave Type</th>
+                    <th className="px-4 py-3">Period</th>
+                    <th className="px-4 py-3">Days</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                  {departmentRequests
+                    .filter(r => {
+                      if (!deptLeaveSearch.trim()) return true;
+                      const q = deptLeaveSearch.toLowerCase();
+                      return (
+                        r.id.toLowerCase().includes(q) ||
+                        r.applicantName.toLowerCase().includes(q) ||
+                        r.leaveType.toLowerCase().includes(q) ||
+                        r.status.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((r) => (
+                      <tr 
+                        key={r.id} 
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        onClick={() => onSelectLeaveRequest(r.id)}
+                      >
+                        <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{r.id}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-slate-900">{r.applicantName}</div>
+                          <div className="text-[10px] text-slate-500">{r.applicantDesignation}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{r.startDate} to {r.endDate}</td>
+                        <td className="px-4 py-3 font-bold text-slate-800">{r.totalDays}</td>
+                        <td className="px-4 py-3">
+                          <MaterialChip label={r.status} variant="status" status={r.status} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => onSelectLeaveRequest(r.id, true)}
+                              className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-[#3F51B5] bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Printer className="w-3 h-3" />
+                              Print
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectLeaveRequest(r.id, false)}
+                              className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
+                            >
+                              View Dossier
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
