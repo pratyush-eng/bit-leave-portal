@@ -160,6 +160,7 @@ export interface EmailSettings {
   encryption: 'TLS' | 'SSL' | 'NONE';
   sendCopyAdmin: boolean;
   adminCcEmail?: string;
+  apiEndpoint?: string;
 }
 
 export interface EmailLog {

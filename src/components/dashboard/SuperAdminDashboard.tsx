@@ -124,6 +124,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [encryption, setEncryption] = useState<'TLS' | 'SSL' | 'NONE'>(initialEmailConfig.encryption || 'TLS');
   const [sendCopyAdmin, setSendCopyAdmin] = useState<boolean>(initialEmailConfig.sendCopyAdmin ?? true);
   const [adminCcEmail, setAdminCcEmail] = useState<string>(initialEmailConfig.adminCcEmail || 'admin.leave@bitmesra.ac.in');
+  const [apiEndpoint, setApiEndpoint] = useState<string>(initialEmailConfig.apiEndpoint || '');
   const [emailSettingsSavedMsg, setEmailSettingsSavedMsg] = useState<string | null>(null);
 
   // Test Email state
@@ -154,6 +155,7 @@ export const SuperAdminDashboard: React.FC = () => {
       setEncryption(systemSettings.emailSettings.encryption);
       setSendCopyAdmin(systemSettings.emailSettings.sendCopyAdmin);
       if (systemSettings.emailSettings.adminCcEmail) setAdminCcEmail(systemSettings.emailSettings.adminCcEmail);
+      if (systemSettings.emailSettings.apiEndpoint !== undefined) setApiEndpoint(systemSettings.emailSettings.apiEndpoint);
     }
   }, [systemSettings]);
 
@@ -169,7 +171,8 @@ export const SuperAdminDashboard: React.FC = () => {
         senderName,
         encryption,
         sendCopyAdmin,
-        adminCcEmail
+        adminCcEmail,
+        apiEndpoint
       }
     });
     setEmailSettingsSavedMsg('SMTP gateway & automated email dispatch settings saved successfully!');
@@ -1697,6 +1700,22 @@ export const SuperAdminDashboard: React.FC = () => {
                     placeholder="admin.leave@bitmesra.ac.in"
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                </div>
+
+                <div className="sm:col-span-2 bg-indigo-50/50 border border-indigo-100 p-3.5 rounded-xl space-y-1.5">
+                  <label className="block text-xs font-bold text-indigo-950">
+                    Custom External Mail Service API Endpoint (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={apiEndpoint}
+                    onChange={(e) => setApiEndpoint(e.target.value)}
+                    placeholder="e.g. https://your-domain.com/api/send-email (Leave blank to auto-detect /api/send-email)"
+                    className="w-full px-3.5 py-2 bg-white border border-indigo-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-600">
+                    If hosting on a static platform (like Vercel static export / GitHub Pages), specify your full backend proxy URL here.
+                  </p>
                 </div>
               </div>
 

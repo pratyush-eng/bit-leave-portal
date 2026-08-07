@@ -195,7 +195,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Asynchronously dispatch email via backend Express SMTP server
     if (systemSettings.emailSettings?.enabled !== false) {
-      fetch('/api/send-email', {
+      const targetEndpoint = systemSettings.emailSettings?.apiEndpoint?.trim() || '/api/send-email';
+      fetch(targetEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1225,7 +1226,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     try {
-      const res = await fetch('/api/send-email', {
+      const targetEndpoint = settings.apiEndpoint?.trim() || '/api/send-email';
+      const res = await fetch(targetEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
