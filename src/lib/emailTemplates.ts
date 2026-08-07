@@ -49,7 +49,7 @@ const getBaseEmailHtml = (title: string, subtitle: string, contentHtml: string, 
     <div class="email-body">
       ${contentHtml}
       <div style="text-align: center;">
-        <a href="https://ai.studio/build" class="cta-button">Open Leave Portal</a>
+        <a href="https://leave.bitmesra.ac.in" class="cta-button">Open Leave Portal</a>
       </div>
     </div>
     <div class="email-footer">
