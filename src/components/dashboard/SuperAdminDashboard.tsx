@@ -1702,7 +1702,7 @@ export const SuperAdminDashboard: React.FC = () => {
                   />
                 </div>
 
-                <div className="sm:col-span-2 bg-indigo-50/50 border border-indigo-100 p-3.5 rounded-xl space-y-1.5">
+                <div className="sm:col-span-2 bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl space-y-2">
                   <label className="block text-xs font-bold text-indigo-950">
                     Custom External Mail Service API Endpoint (Optional)
                   </label>
@@ -1710,12 +1710,17 @@ export const SuperAdminDashboard: React.FC = () => {
                     type="text"
                     value={apiEndpoint}
                     onChange={(e) => setApiEndpoint(e.target.value)}
-                    placeholder="e.g. https://your-domain.com/api/send-email (Leave blank to auto-detect /api/send-email)"
-                    className="w-full px-3.5 py-2 bg-white border border-indigo-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Leave blank to use default relative path (/api/send-email)"
+                    className="w-full px-3.5 py-2.5 bg-white border border-indigo-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
-                  <p className="text-[11px] text-slate-600">
-                    If hosting on a static platform (like Vercel static export / GitHub Pages), specify your full backend proxy URL here.
-                  </p>
+                  <div className="text-[11px] text-slate-600 space-y-1 leading-relaxed">
+                    <p className="font-semibold text-indigo-900">💡 How endpoint URLs work:</p>
+                    <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+                      <li><strong>Leave Blank (Recommended):</strong> Uses relative route <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">/api/send-email</code>. Works out-of-the-box in Google AI Studio and when hosting the app via Node (<code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">npm start</code> / Cloud Run / Docker container).</li>
+                      <li><strong>⚠️ Do NOT use AI Studio (*.run.app) URLs:</strong> AI Studio sandbox preview domains enforce CORS security & container isolation, blocking cross-origin browser requests from external sites like <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">leave.bitmesra.ac.in</code>.</li>
+                      <li><strong>GitHub Pages / Static CNAME (<code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">leave.bitmesra.ac.in</code>):</strong> If hosted statically on GitHub Pages, GitHub Pages cannot execute Node.js <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px]">server.ts</code>. You must deploy the full app container or backend server to a host (like Render, Vercel, Railway, or VPS) and enter its public endpoint URL here.</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 

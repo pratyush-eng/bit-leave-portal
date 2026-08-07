@@ -1225,8 +1225,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       systemSettings.institutionName || 'BIT Leave Portal'
     );
 
+    const targetEndpoint = settings.apiEndpoint?.trim() || '/api/send-email';
+
     try {
-      const targetEndpoint = settings.apiEndpoint?.trim() || '/api/send-email';
       const res = await fetch(targetEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1292,9 +1293,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         triggerEvent: 'TEST_EMAIL'
       });
 
+      const isNetworkErr = err?.message?.includes('Failed to fetch') || err?.name === 'TypeError';
+      let errorMsg = `Failed to connect to backend email gateway service: ${err.message || String(err)}`;
+
+      if (isNetworkErr && settings.apiEndpoint?.includes('run.app')) {
+        errorMsg = `Connection blocked: AI Studio preview domains (*.run.app) enforce sandbox CORS & container access policies and cannot be called cross-origin from external sites or browser fetch. Please leave the Custom API Endpoint field blank (or set to /api/send-email) for native local/AI Studio testing.`;
+      } else if (isNetworkErr) {
+        errorMsg = `Network / CORS Error connecting to ${targetEndpoint}. Ensure the mail server backend is running and CORS headers allow connections from ${window.location.origin}.`;
+      }
+
       return {
         success: false,
-        message: `Failed to connect to backend email gateway service: ${err.message || String(err)}`
+        message: `${errorMsg} (Log ID: ${log.id})`
       };
     }
   };
