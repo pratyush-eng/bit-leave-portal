@@ -150,7 +150,12 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Applicant</p>
               <p className="text-sm font-bold text-slate-900 mt-0.5">{request.applicantName}</p>
               <p className="text-xs text-slate-600">{request.applicantDesignation}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{request.applicantEmail}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] font-mono font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                  Emp ID: {request.applicantEmployeeCode || 'N/A'}
+                </span>
+                <span className="text-xs text-slate-500">{request.applicantEmail}</span>
+              </div>
             </div>
 
             <div>
@@ -333,6 +338,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 font-sans text-xs">
                   <p><strong>Name:</strong> {request.applicantName}</p>
+                  <p><strong>Employee Code / Staff ID:</strong> {request.applicantEmployeeCode || 'N/A'}</p>
                   <p><strong>Designation:</strong> {request.applicantDesignation}</p>
                   <p><strong>Department:</strong> {request.departmentName}</p>
                   <p><strong>Period of Sanction:</strong> From {request.startDate} to {request.endDate}</p>
@@ -403,10 +409,14 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-[#3F51B5]">
                   1. Applicant Particulars
                 </h3>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-xs text-slate-800 px-2 pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5 text-xs text-slate-800 px-2 pt-1">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Full Name</span>
                     <span className="font-bold">{request.applicantName}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase">Employee Code / Staff ID</span>
+                    <span className="font-bold text-indigo-950 font-mono">{request.applicantEmployeeCode || 'N/A'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Designation</span>

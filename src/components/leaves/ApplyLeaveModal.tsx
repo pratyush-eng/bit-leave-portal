@@ -178,6 +178,30 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
         {/* Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
           
+          {/* Applicant Profile & Employee Code Header */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#3F51B5]/10 text-[#3F51B5] flex items-center justify-center font-bold text-sm shrink-0">
+                {currentUser.name.charAt(0)}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">{currentUser.name}</span>
+                  <span className="px-2 py-0.5 text-[10px] font-extrabold bg-indigo-100 text-indigo-800 rounded-md uppercase tracking-wider">
+                    {currentUser.role}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  {currentUser.designation} • {currentUser.departmentName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 border border-slate-200 rounded-lg text-xs shrink-0 shadow-2xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee Code:</span>
+              <span className="font-mono font-bold text-indigo-950">{currentUser.employeeCode || 'N/A'}</span>
+            </div>
+          </div>
+
           {/* Leave Type Selector with Balance Overview */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">

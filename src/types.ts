@@ -54,6 +54,7 @@ export interface LeaveRequest {
   applicantId: string;
   applicantName: string;
   applicantEmail: string;
+  applicantEmployeeCode?: string;
   applicantDesignation: string;
   applicantRole: Role;
   departmentId: DepartmentId;

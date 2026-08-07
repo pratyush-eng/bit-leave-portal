@@ -909,6 +909,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       applicantId: currentUser.id,
       applicantName: currentUser.name,
       applicantEmail: currentUser.email,
+      applicantEmployeeCode: currentUser.employeeCode,
       applicantDesignation: currentUser.designation,
       applicantRole: currentUser.role,
       departmentId: currentUser.departmentId,
