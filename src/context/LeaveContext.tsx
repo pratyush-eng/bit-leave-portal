@@ -359,18 +359,55 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  // Helper to merge incoming central database records with existing local state by unique identifier
+  function mergeById<T extends Record<string, any>>(
+    remoteItems: T[], 
+    localItems: T[], 
+    keyField: string = 'id'
+  ): T[] {
+    const map = new Map<string, T>();
+    // Insert remote records from Firestore first
+    remoteItems.forEach(item => {
+      const key = String(item[keyField] || item.id || item.type || '');
+      if (key) map.set(key, item);
+    });
+    // Merge local records if they are not yet present or preserve updated properties
+    localItems.forEach(item => {
+      const key = String(item[keyField] || item.id || item.type || '');
+      if (!key) return;
+      if (!map.has(key)) {
+        map.set(key, item);
+      } else {
+        const remoteItem = map.get(key)!;
+        map.set(key, { ...remoteItem, ...item });
+      }
+    });
+    return Array.from(map.values());
+  }
+
   // Load or seed initial data from Firebase Firestore on boot & subscribe to real-time central database updates across all browsers
   useEffect(() => {
     let mounted = true;
     loadOrSeedFirestoreData().then((data) => {
       if (!mounted) return;
-      if (data.users?.length) setAllUsers(data.users);
-      if (data.leaveRequests?.length) setLeaveRequests(data.leaveRequests);
-      if (data.departments?.length) setDepartments(data.departments);
-      if (data.leavePolicies?.length) setLeavePolicies(data.leavePolicies);
-      if (data.notifications?.length) setNotifications(data.notifications);
-      if (data.auditLogs?.length) setAuditLogs(data.auditLogs);
-      if (data.emailLogs?.length) setEmailLogs(data.emailLogs);
+      if (data.users?.length) setAllUsers(prev => mergeById(data.users, prev, 'id'));
+      if (data.leaveRequests?.length) {
+        setLeaveRequests(prev => {
+          const merged = mergeById(data.leaveRequests!, prev, 'id');
+          // Automatically backfill any locally stored leave applications to Firestore
+          prev.forEach(req => {
+            if (req.id && !data.leaveRequests!.some(r => r.id === req.id)) {
+              saveDocToFirestore('leaveRequests', req.id, req);
+            }
+          });
+          return merged;
+        });
+      }
+      if (data.departments?.length) setDepartments(prev => mergeById(data.departments, prev, 'id'));
+      if (data.leavePolicies?.length) setLeavePolicies(prev => mergeById(data.leavePolicies, prev, 'type'));
+      if (data.notifications?.length) setNotifications(prev => mergeById(data.notifications, prev, 'id'));
+      if (data.auditLogs?.length) setAuditLogs(prev => mergeById(data.auditLogs, prev, 'id'));
+      if (data.emailLogs?.length) setEmailLogs(prev => mergeById(data.emailLogs, prev, 'id'));
       if (data.systemSettings) setSystemSettings(data.systemSettings);
     });
 
@@ -381,31 +418,42 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
-      if (mounted && items && items.length > 0) setLeaveRequests(items);
+      if (mounted && items && items.length > 0) {
+        setLeaveRequests(prev => {
+          const merged = mergeById(items, prev, 'id');
+          // Ensure any locally applied leave requests missing in Firestore snapshot get saved
+          prev.forEach(req => {
+            if (req.id && !items.some(r => r.id === req.id)) {
+              saveDocToFirestore('leaveRequests', req.id, req);
+            }
+          });
+          return merged;
+        });
+      }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && items && items.length > 0) setAllUsers(items);
+      if (mounted && items && items.length > 0) setAllUsers(prev => mergeById(items, prev, 'id'));
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
-      if (mounted && items && items.length > 0) setDepartments(items);
+      if (mounted && items && items.length > 0) setDepartments(prev => mergeById(items, prev, 'id'));
     });
 
     const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
-      if (mounted && items && items.length > 0) setLeavePolicies(items);
+      if (mounted && items && items.length > 0) setLeavePolicies(prev => mergeById(items, prev, 'type'));
     });
 
     const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
-      if (mounted && items && items.length > 0) setNotifications(items);
+      if (mounted && items && items.length > 0) setNotifications(prev => mergeById(items, prev, 'id'));
     });
 
     const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
-      if (mounted && items && items.length > 0) setAuditLogs(items);
+      if (mounted && items && items.length > 0) setAuditLogs(prev => mergeById(items, prev, 'id'));
     });
 
     const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
-      if (mounted && items && items.length > 0) setEmailLogs(items);
+      if (mounted && items && items.length > 0) setEmailLogs(prev => mergeById(items, prev, 'id'));
     });
 
     return () => {
