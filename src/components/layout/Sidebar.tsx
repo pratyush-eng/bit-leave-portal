@@ -109,11 +109,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 'LP'
               )}
             </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-white leading-tight">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight whitespace-nowrap truncate">
                 {systemSettings?.institutionName || 'BIT Leave Portal'}
               </h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-0.5">
+              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-0.5 whitespace-nowrap truncate">
                 University Portal
               </p>
             </div>

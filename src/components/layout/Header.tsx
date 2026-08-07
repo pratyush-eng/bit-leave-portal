@@ -33,21 +33,21 @@ export const Header: React.FC<HeaderProps> = ({
   const { currentUser, unreadNotificationCount, logout, systemSettings } = useLeave();
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
-      <div className="flex items-center justify-between w-full">
+    <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs flex items-center justify-between px-3 sm:px-6 lg:px-8 shrink-0">
+      <div className="flex items-center justify-between w-full min-w-0 gap-2">
         
         {/* Left Side: Mobile Menu Button & Portal Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onToggleMobileSidebar}
-            className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 lg:hidden transition-colors"
+            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 lg:hidden transition-colors shrink-0"
             aria-label="Toggle navigation drawer"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#3F51B5] text-white flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#3F51B5] text-white flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden shrink-0">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
@@ -62,11 +62,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <GraduationCap className="w-4 h-4 text-white" />
               )}
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-slate-800 leading-tight">
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 leading-tight whitespace-nowrap truncate">
                 {systemSettings?.institutionName || 'BIT Mesra Leave Portal'}
               </h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block whitespace-nowrap truncate">
                 Leave Portal • Multi-Tier Approval
               </p>
             </div>
@@ -74,17 +74,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Side: Quick Role Switcher, Change Password, Notifications, User Profile & Sign Out */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
           
           {/* Persona / Role Switcher Launcher Button */}
           {(systemSettings?.enableRoleSwitcher || currentUser.role === 'SUPER_ADMIN') && (
             <button
               onClick={onOpenRoleSwitcher}
-              className="bg-[#3F51B5] hover:bg-[#303F9F] text-white px-3 sm:px-4 py-2 rounded-lg shadow-xs text-xs font-medium uppercase tracking-wide flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              className="bg-[#3F51B5] hover:bg-[#303F9F] text-white px-2 sm:px-3 py-1.5 rounded-lg shadow-xs text-[11px] sm:text-xs font-bold uppercase tracking-wide flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0"
               title="Click to switch persona or role"
             >
               <ArrowLeftRight className="w-3.5 h-3.5 shrink-0 opacity-90" />
-              <span className="hidden md:inline">Role:</span>
+              <span className="hidden sm:inline">Role:</span>
               <span>{currentUser.role}</span>
             </button>
           )}
@@ -93,10 +93,10 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenChangePassword && (
             <button
               onClick={onOpenChangePassword}
-              className="flex items-center gap-1.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0"
               title="Change Account Password"
             >
-              <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+              <KeyRound className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
               <span className="hidden sm:inline">Password</span>
             </button>
           )}
@@ -104,24 +104,24 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Notifications Button */}
           <button
             onClick={onOpenNotifications}
-            className="relative flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+            className="relative flex items-center gap-1 text-slate-600 hover:text-slate-900 transition-colors p-1.5 sm:p-2 rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
             title="Notifications"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="text-xs font-medium text-slate-600 hidden md:inline">Alerts</span>
             {unreadNotificationCount > 0 && (
-              <div className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-2xs">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold shadow-2xs">
                 {unreadNotificationCount}
               </div>
             )}
           </button>
 
           {/* User Avatar */}
-          <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-slate-200">
+          <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 shrink-0">
             <img
               src={currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e3a8a&color=fff`}
               alt={currentUser.name}
-              className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
             />
             <div className="text-left hidden lg:block">
               <p className="text-xs font-semibold text-slate-800 leading-none">{currentUser.name}</p>
@@ -132,10 +132,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Sign Out Button */}
           <button
             onClick={logout}
-            className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all cursor-pointer active:scale-95 uppercase tracking-wider ml-1"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all cursor-pointer active:scale-95 uppercase tracking-wider shrink-0"
             title="Log out of session"
           >
-            <LogOut className="w-3.5 h-3.5 text-rose-600" />
+            <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             <span className="hidden sm:inline">Logout</span>
           </button>
 
