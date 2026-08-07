@@ -1465,7 +1465,7 @@ export const SuperAdminDashboard: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold leading-tight">{institutionNameInput || 'BIT Leave Portal'}</p>
-                      <p className="text-[10px] text-blue-100 opacity-90">Fully manage leave portal</p>
+                      <p className="text-[10px] text-blue-100 opacity-90">Fully Managed Leave Portal</p>
                     </div>
                   </div>
                 </div>

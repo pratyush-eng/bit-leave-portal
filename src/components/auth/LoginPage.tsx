@@ -302,7 +302,7 @@ export const LoginPage: React.FC = () => {
                 {systemSettings?.institutionName || 'BIT Leave Portal'}
               </h1>
               <p className="text-xs text-blue-100 font-medium opacity-90 mt-0.5">
-                Fully manage leave portal
+                Fully Managed Leave Portal
               </p>
             </div>
           </div>
