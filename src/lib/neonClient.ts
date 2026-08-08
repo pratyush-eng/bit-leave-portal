@@ -70,6 +70,16 @@ async function ensureClientTables() {
         description TEXT
       )
     `;
+
+    try {
+      await sqlClient`
+        ALTER TABLE leave_policies 
+        ALTER COLUMN requires_document TYPE BOOLEAN 
+        USING (CASE WHEN requires_document::text IN ('1', 'true', 't', 'TRUE') THEN true ELSE false END);
+      `;
+    } catch (_e) {
+      // Column is already boolean or newly created
+    }
     await sqlClient`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id TEXT PRIMARY KEY,
