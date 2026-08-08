@@ -73,6 +73,44 @@ export function notifySyncEnd() {
   syncListeners.forEach(l => l(status));
 }
 
+async function getOrSeedCollection<T>(
+  colName: string, 
+  storageKey: string, 
+  defaultItems: T[], 
+  idField: string = 'id'
+): Promise<T[]> {
+  try {
+    const snap = await getDocs(collection(db, colName));
+    if (!snap.empty) {
+      const items = snap.docs.map(d => d.data() as T);
+      if (items.length > 0) return items;
+    }
+  } catch (err) {
+    console.warn(`Error fetching ${colName} from Firestore:`, err);
+  }
+
+  // Collection is empty or failed to load in Firestore. Check localStorage fallback.
+  let localItems: T[] = [];
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        localItems = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn(`Error parsing localStorage for ${storageKey}:`, e);
+  }
+
+  const itemsToSeed = localItems.length > 0 ? localItems : defaultItems;
+  if (itemsToSeed.length > 0) {
+    await seedCollection(colName, itemsToSeed, idField);
+  }
+
+  return itemsToSeed;
+}
+
 export async function loadOrSeedFirestoreData(): Promise<{
   users: User[];
   leaveRequests: LeaveRequest[];
@@ -84,8 +122,6 @@ export async function loadOrSeedFirestoreData(): Promise<{
   systemSettings?: SystemSettings;
 }> {
   try {
-    const usersSnap = await getDocs(collection(db, 'users'));
-    
     // Fetch global system settings (logo, institution name, feature toggles, email settings)
     let systemSettings: SystemSettings | undefined = undefined;
     try {
@@ -97,62 +133,47 @@ export async function loadOrSeedFirestoreData(): Promise<{
       console.warn('Could not load global settings from Firestore:', sErr);
     }
 
-    if (usersSnap.empty) {
-      console.log('Seeding initial data into Firebase Firestore...');
-      await seedCollection('users', MOCK_USERS, 'id');
-      await seedCollection('leaveRequests', INITIAL_LEAVE_REQUESTS, 'id');
-      await seedCollection('departments', INITIAL_DEPARTMENTS, 'id');
-      await seedCollection('leavePolicies', INITIAL_LEAVE_POLICIES, 'type');
-      await seedCollection('notifications', INITIAL_NOTIFICATIONS, 'id');
-      await seedCollection('auditLogs', INITIAL_AUDIT_LOGS, 'id');
-
-      return {
-        users: MOCK_USERS,
-        leaveRequests: INITIAL_LEAVE_REQUESTS,
-        departments: INITIAL_DEPARTMENTS,
-        leavePolicies: INITIAL_LEAVE_POLICIES,
-        notifications: INITIAL_NOTIFICATIONS,
-        auditLogs: INITIAL_AUDIT_LOGS,
-        emailLogs: [],
-        systemSettings,
-      };
-    } else {
-      const users: User[] = usersSnap.docs.map(d => d.data() as User);
-      const reqSnap = await getDocs(collection(db, 'leaveRequests'));
-      const leaveRequests: LeaveRequest[] = reqSnap.docs.map(d => d.data() as LeaveRequest);
-      const deptSnap = await getDocs(collection(db, 'departments'));
-      const departments: Department[] = deptSnap.docs.map(d => d.data() as Department);
-      const polSnap = await getDocs(collection(db, 'leavePolicies'));
-      const leavePolicies: LeavePolicy[] = polSnap.docs.map(d => d.data() as LeavePolicy);
-      const notSnap = await getDocs(collection(db, 'notifications'));
-      const notifications: Notification[] = notSnap.docs.map(d => d.data() as Notification);
-      const logSnap = await getDocs(collection(db, 'auditLogs'));
-      const auditLogs: AuditLog[] = logSnap.docs.map(d => d.data() as AuditLog);
-      
-      let emailLogs: EmailLog[] = [];
-      try {
-        const mailSnap = await getDocs(collection(db, 'emailLogs'));
+    const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', MOCK_USERS, 'id');
+    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
+    const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
+    const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
+    const notifications = await getOrSeedCollection<Notification>('notifications', 'academia_leave_notifications_v1', INITIAL_NOTIFICATIONS, 'id');
+    const auditLogs = await getOrSeedCollection<AuditLog>('auditLogs', 'academia_leave_logs_v1', INITIAL_AUDIT_LOGS, 'id');
+    
+    let emailLogs: EmailLog[] = [];
+    try {
+      const mailSnap = await getDocs(collection(db, 'emailLogs'));
+      if (!mailSnap.empty) {
         emailLogs = mailSnap.docs.map(d => d.data() as EmailLog);
-      } catch (mErr) {
-        console.warn('Could not load emailLogs from Firestore:', mErr);
       }
-
-      return {
-        users: users,
-        leaveRequests: leaveRequests,
-        departments: departments.length ? departments : INITIAL_DEPARTMENTS,
-        leavePolicies: leavePolicies.length ? leavePolicies : INITIAL_LEAVE_POLICIES,
-        notifications: notifications,
-        auditLogs: auditLogs,
-        emailLogs: emailLogs,
-        systemSettings,
-      };
+    } catch (mErr) {
+      console.warn('Could not load emailLogs from Firestore:', mErr);
     }
+
+    return {
+      users,
+      leaveRequests,
+      departments,
+      leavePolicies,
+      notifications,
+      auditLogs,
+      emailLogs,
+      systemSettings,
+    };
   } catch (error) {
     console.error('Firestore sync failed, falling back to local storage/mock data:', error);
+    let localRequests = INITIAL_LEAVE_REQUESTS;
+    try {
+      const saved = localStorage.getItem('academia_leave_requests_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) localRequests = parsed;
+      }
+    } catch (_) {}
+
     return {
       users: MOCK_USERS,
-      leaveRequests: INITIAL_LEAVE_REQUESTS,
+      leaveRequests: localRequests,
       departments: INITIAL_DEPARTMENTS,
       leavePolicies: INITIAL_LEAVE_POLICIES,
       notifications: INITIAL_NOTIFICATIONS,

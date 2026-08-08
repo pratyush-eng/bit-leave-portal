@@ -491,23 +491,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
-      if (mounted && items) {
+      if (mounted && items && items.length > 0) {
         setLeaveRequests(items);
       }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && items) {
+      if (mounted && items && items.length > 0) {
         setAllUsers(items);
       }
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
-      if (mounted && items) setDepartments(items);
+      if (mounted && items && items.length > 0) setDepartments(items);
     });
 
     const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
-      if (mounted && items) setLeavePolicies(items);
+      if (mounted && items && items.length > 0) setLeavePolicies(items);
     });
 
     const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
