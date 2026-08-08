@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
+import { subscribeToSyncStatus, SyncStatus } from '../../lib/firestoreSync';
 import { 
   Bell, 
   Search, 
@@ -12,7 +13,9 @@ import {
   ShieldAlert,
   ChevronDown,
   LogOut,
-  KeyRound
+  KeyRound,
+  Database,
+  Check
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -31,6 +34,17 @@ export const Header: React.FC<HeaderProps> = ({
   activeView
 }) => {
   const { currentUser, unreadNotificationCount, logout, systemSettings } = useLeave();
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    isSyncing: false,
+    message: 'Live DB Synced',
+    opType: 'IDLE',
+    activeCount: 0
+  });
+
+  useEffect(() => {
+    const unsub = subscribeToSyncStatus(setSyncStatus);
+    return () => unsub();
+  }, []);
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs flex items-center justify-between px-3 sm:px-6 lg:px-8 shrink-0">
@@ -63,9 +77,22 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 leading-tight whitespace-nowrap truncate">
-                {systemSettings?.institutionName || 'BIT Mesra Leave Portal'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 leading-tight whitespace-nowrap truncate">
+                  {systemSettings?.institutionName || 'BIT Mesra Leave Portal'}
+                </h2>
+                {syncStatus.isSyncing ? (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                    <RefreshCw className="w-3 h-3 text-indigo-600 animate-spin" />
+                    <span>Live DB Syncing...</span>
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    <span>Live DB Online</span>
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block whitespace-nowrap truncate">
                 Leave Portal • Multi-Tier Approval
               </p>

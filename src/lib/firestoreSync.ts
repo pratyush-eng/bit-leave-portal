@@ -10,6 +10,69 @@ import {
 } from '../data/mockData';
 import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings, EmailLog } from '../types';
 
+export type DbOpType = 'INSERT' | 'UPDATE' | 'DELETE' | 'RESET' | 'SYNC' | 'IDLE';
+
+export interface SyncStatus {
+  isSyncing: boolean;
+  message: string;
+  opType: DbOpType;
+  lastSyncedAt?: Date;
+  activeCount: number;
+}
+
+type SyncListener = (status: SyncStatus) => void;
+
+let syncListeners: SyncListener[] = [];
+let activeOpCount = 0;
+let currentOpMessage = '';
+let currentOpType: DbOpType = 'IDLE';
+let lastSyncedAt: Date | undefined = undefined;
+
+export function subscribeToSyncStatus(listener: SyncListener) {
+  syncListeners.push(listener);
+  listener({
+    isSyncing: activeOpCount > 0,
+    message: activeOpCount > 0 ? currentOpMessage : 'Live Database Synced',
+    opType: currentOpType,
+    lastSyncedAt,
+    activeCount: activeOpCount
+  });
+  return () => {
+    syncListeners = syncListeners.filter(l => l !== listener);
+  };
+}
+
+export function notifySyncStart(msg: string, opType: DbOpType = 'UPDATE') {
+  activeOpCount++;
+  currentOpMessage = msg;
+  currentOpType = opType;
+  const status: SyncStatus = {
+    isSyncing: true,
+    message: currentOpMessage,
+    opType: currentOpType,
+    lastSyncedAt,
+    activeCount: activeOpCount
+  };
+  syncListeners.forEach(l => l(status));
+}
+
+export function notifySyncEnd() {
+  activeOpCount = Math.max(0, activeOpCount - 1);
+  if (activeOpCount === 0) {
+    currentOpType = 'IDLE';
+    currentOpMessage = 'Live Data Saved & Synced';
+    lastSyncedAt = new Date();
+  }
+  const status: SyncStatus = {
+    isSyncing: activeOpCount > 0,
+    message: activeOpCount > 0 ? currentOpMessage : 'Live Data Saved & Synced',
+    opType: currentOpType,
+    lastSyncedAt,
+    activeCount: activeOpCount
+  };
+  syncListeners.forEach(l => l(status));
+}
+
 export async function loadOrSeedFirestoreData(): Promise<{
   users: User[];
   leaveRequests: LeaveRequest[];
@@ -131,6 +194,7 @@ let isQuotaExceeded = false;
 
 async function seedCollection(colName: string, items: any[], idField: string) {
   if (isQuotaExceeded) return;
+  notifySyncStart(`Seeding database collection (${colName})...`, 'INSERT');
   try {
     const batch = writeBatch(db);
     items.forEach((item) => {
@@ -145,11 +209,18 @@ async function seedCollection(colName: string, items: any[], idField: string) {
     } else {
       console.error(`Failed seeding ${colName}:`, err);
     }
+  } finally {
+    notifySyncEnd();
   }
 }
 
-export async function saveDocToFirestore(colName: string, id: string, data: any) {
+export async function saveDocToFirestore(colName: string, id: string, data: any, isNewRecord: boolean = false) {
   if (isQuotaExceeded) return;
+  const opType: DbOpType = isNewRecord ? 'INSERT' : 'UPDATE';
+  notifySyncStart(
+    isNewRecord ? `Inserting record into live database (${colName})...` : `Updating record in live database (${colName})...`,
+    opType
+  );
   try {
     await setDoc(doc(db, colName, String(id)), data, { merge: true });
   } catch (err: any) {
@@ -159,11 +230,14 @@ export async function saveDocToFirestore(colName: string, id: string, data: any)
     } else {
       console.error(`Error saving doc to ${colName}/${id}:`, err);
     }
+  } finally {
+    notifySyncEnd();
   }
 }
 
 export async function deleteDocFromFirestore(colName: string, id: string) {
   if (isQuotaExceeded) return;
+  notifySyncStart(`Deleting record from live database (${colName})...`, 'DELETE');
   try {
     await deleteDoc(doc(db, colName, String(id)));
   } catch (err: any) {
@@ -173,11 +247,14 @@ export async function deleteDocFromFirestore(colName: string, id: string) {
     } else {
       console.error(`Error deleting doc from ${colName}/${id}:`, err);
     }
+  } finally {
+    notifySyncEnd();
   }
 }
 
 export async function resetFirestoreData() {
   if (isQuotaExceeded) return;
+  notifySyncStart('Resetting institutional database records...', 'RESET');
   try {
     const collectionsToClear = ['users', 'leaveRequests', 'departments', 'leavePolicies', 'notifications', 'auditLogs', 'emailLogs'];
     for (const col of collectionsToClear) {
@@ -196,6 +273,8 @@ export async function resetFirestoreData() {
     await seedCollection('auditLogs', INITIAL_AUDIT_LOGS, 'id');
   } catch (err) {
     console.warn('Error resetting Firestore database:', err);
+  } finally {
+    notifySyncEnd();
   }
 }
 

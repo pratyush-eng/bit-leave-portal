@@ -15,6 +15,7 @@ import { LeaveCalendar } from './components/leaves/LeaveCalendar';
 import { AnalyticsReports } from './components/reports/AnalyticsReports';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
+import { DatabaseSyncIndicator } from './components/common/DatabaseSyncIndicator';
 
 import { FacultyDashboard } from './components/dashboard/FacultyDashboard';
 import { HodDashboard } from './components/dashboard/HodDashboard';
@@ -274,6 +275,7 @@ const AppContent: React.FC = () => {
       )}
 
       <ToastContainer onSelectLeaveRequest={handleSelectLeaveRequest} />
+      <DatabaseSyncIndicator />
     </div>
   );
 };
