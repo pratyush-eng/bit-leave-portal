@@ -40,6 +40,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
     departments, 
     leavePolicies, 
     leaveRequests,
+    auditLogs,
     updateUserRoleAndPermissions, 
     adjustUserLeaveBalance,
     createNewUser,
@@ -294,30 +295,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
   };
 
   const handleExportMySQLDump = () => {
-    const sqlContent = generateMySQLDump({
-      users: allUsers,
-      leaveRequests: leaveRequests,
-      departments: departments,
-      leavePolicies: leavePolicies,
-      auditLogs: useLeave().auditLogs || []
-    });
-
-    const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `bit_leave_portal_mysql_dump_${new Date().toISOString().split('T')[0]}.sql`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    if (addToast) {
-      addToast({
-        title: 'MySQL SQL Dump Exported 🛢️',
-        message: 'Downloaded complete MySQL DDL & DML database script for Vercel / MySQL hosting.',
-        type: 'SUCCESS'
+    try {
+      const sqlContent = generateMySQLDump({
+        users: allUsers || [],
+        leaveRequests: leaveRequests || [],
+        departments: departments || [],
+        leavePolicies: leavePolicies || [],
+        auditLogs: auditLogs || []
       });
+
+      const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bit_leave_portal_mysql_dump_${new Date().toISOString().split('T')[0]}.sql`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      if (addToast) {
+        addToast({
+          title: 'MySQL SQL Dump Exported 🛢️',
+          message: 'Downloaded complete MySQL DDL & DML database script for Vercel / MySQL hosting.',
+          type: 'SUCCESS'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error exporting MySQL dump:', err);
+      alert('Error exporting MySQL script: ' + (err?.message || 'Unknown error'));
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
+import { generateMySQLDump } from '../../lib/firestoreSync';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
 import { 
@@ -355,6 +356,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     setDbJsonString(snapshot);
   };
 
+  const handleExportMySQLDump = () => {
+    try {
+      const sqlContent = generateMySQLDump({
+        users: allUsers || [],
+        leaveRequests: leaveRequests || [],
+        departments: departments || [],
+        leavePolicies: leavePolicies || [],
+        auditLogs: auditLogs || []
+      });
+
+      const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bit_leave_portal_mysql_dump_${new Date().toISOString().split('T')[0]}.sql`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Error exporting MySQL dump:', err);
+      alert('Error exporting MySQL script: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
   const handleCopyDb = () => {
     const snapshot = dbJsonString || exportDbJson();
     navigator.clipboard.writeText(snapshot);
@@ -515,17 +541,28 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (window.confirm('Reset institutional data to default sample state?')) {
-              resetData();
-            }
-          }}
-          className="px-4 py-2 bg-rose-700/80 hover:bg-rose-800 text-white rounded font-medium text-xs border border-rose-600 shadow-sm transition-all active:scale-95 flex items-center gap-2 shrink-0 uppercase tracking-wide cursor-pointer"
-        >
-          <RefreshCw className="w-4 h-4 text-white" />
-          Reset System Data
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportMySQLDump}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-xs border border-emerald-500 shadow-sm transition-all active:scale-95 flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
+            title="Download complete MySQL DDL & DML database dump file"
+          >
+            <Database className="w-3.5 h-3.5 text-white" />
+            Export MySQL (.sql)
+          </button>
+
+          <button
+            onClick={() => {
+              if (window.confirm('Reset institutional data to default sample state?')) {
+                resetData();
+              }
+            }}
+            className="px-4 py-2 bg-rose-700/80 hover:bg-rose-800 text-white rounded font-medium text-xs border border-rose-600 shadow-sm transition-all active:scale-95 flex items-center gap-2 shrink-0 uppercase tracking-wide cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4 text-white" />
+            Reset System Data
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1202,6 +1239,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 Database JSON Snapshot (Export / Restore)
               </label>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportMySQLDump}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Export complete relational MySQL database DDL & DML script (.sql)"
+                >
+                  <Database className="w-3.5 h-3.5 text-white" />
+                  Export MySQL (.sql)
+                </button>
                 <button
                   type="button"
                   onClick={handleExportDb}
