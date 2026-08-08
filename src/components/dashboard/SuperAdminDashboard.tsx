@@ -3,6 +3,7 @@ import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
 import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSync';
+import { getNeonStatus, inspectNeonTable, syncDataToNeon } from '../../lib/neonClient';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
 import { 
@@ -202,19 +203,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     setSyncingNeon(true);
     setNeonSyncMsg(null);
     try {
-      const res = await fetch('/api/neon/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          users: allUsers,
-          leaveRequests,
-          departments,
-          leavePolicies,
-          auditLogs
-        })
+      const data = await syncDataToNeon({
+        users: allUsers,
+        leaveRequests,
+        departments,
+        leavePolicies,
+        auditLogs
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (data && data.success) {
         setNeonSyncMsg({
           type: 'success',
           text: `Neon PostgreSQL Synced! Stored ${data.counts?.auditLogs} Audit Logs, ${data.counts?.users} Users, and ${data.counts?.leaveRequests} Leave Requests.`
@@ -224,7 +220,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       } else {
         setNeonSyncMsg({
           type: 'error',
-          text: data.error || 'Failed to sync portal data into Neon PostgreSQL.'
+          text: data?.error || 'Failed to sync portal data into Neon PostgreSQL.'
         });
       }
     } catch (err: any) {
@@ -242,16 +238,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     setInspectLoading(true);
     setInspectError(null);
     try {
-      const res = await fetch(`/api/neon/inspect-table?table=${encodeURIComponent(tableName)}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await inspectNeonTable(tableName);
+      if (data && data.success) {
         setInspectData({
           columns: data.columns || [],
           rows: data.rows || [],
           totalRows: data.totalRows || 0,
         });
       } else {
-        setInspectError(data.error || 'Failed to inspect table.');
+        setInspectError(data?.error || 'Failed to inspect table.');
       }
     } catch (err: any) {
       setInspectError(err?.message || 'Error fetching table data.');
@@ -263,9 +258,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const checkNeonConnection = async () => {
     setNeonStatus(prev => ({ ...prev, loading: true, error: undefined }));
     try {
-      const res = await fetch('/api/neon/status');
-      const data = await res.json();
-      if (res.ok && data.connected) {
+      const data = await getNeonStatus();
+      if (data && data.connected) {
         setNeonStatus({
           loading: false,
           connected: true,
@@ -278,14 +272,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         setNeonStatus({
           loading: false,
           connected: false,
-          error: data.error || 'Failed to connect to Neon PostgreSQL database',
+          error: data?.error || 'Failed to connect to Neon PostgreSQL database',
         });
       }
     } catch (err: any) {
       setNeonStatus({
         loading: false,
         connected: false,
-        error: err?.message || 'Network error pinging Neon status endpoint',
+        error: err?.message || 'Network error pinging Neon status',
       });
     }
   };

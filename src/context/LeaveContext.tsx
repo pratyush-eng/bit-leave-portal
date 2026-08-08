@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
+import { sendAuditLogToNeon, syncDataToNeon } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -539,20 +540,15 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (auditLogs.length > 0) {
       const timer = setTimeout(() => {
-        fetch('/api/neon/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            users: allUsers,
-            leaveRequests,
-            departments,
-            leavePolicies,
-            auditLogs
-          })
+        syncDataToNeon({
+          users: allUsers,
+          leaveRequests,
+          departments,
+          leavePolicies,
+          auditLogs
         })
-        .then(res => res.json())
         .then(data => {
-          if (data.success) {
+          if (data && data.success) {
             console.log(`[Neon DB Sync Success] Synced ${data.counts?.auditLogs} audit logs into Neon PostgreSQL.`);
           }
         })
@@ -1057,11 +1053,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveDocToFirestore('auditLogs', newLog.id, newLog);
 
     // Sync log to Neon DB PostgreSQL in real-time
-    fetch('/api/neon/audit-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newLog)
-    }).catch(err => console.warn('[Neon Audit Log Sync Warning]', err));
+    sendAuditLogToNeon(newLog).catch(err => console.warn('[Neon Audit Log Sync Warning]', err));
   };
 
   const addNotification = (userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {
