@@ -535,6 +535,34 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
+  // Auto-sync portal data (including all audit logs, users, leave requests) to Neon PostgreSQL DB
+  useEffect(() => {
+    if (auditLogs.length > 0) {
+      const timer = setTimeout(() => {
+        fetch('/api/neon/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            users: allUsers,
+            leaveRequests,
+            departments,
+            leavePolicies,
+            auditLogs
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            console.log(`[Neon DB Sync Success] Synced ${data.counts?.auditLogs} audit logs into Neon PostgreSQL.`);
+          }
+        })
+        .catch(err => console.warn('[Neon Auto Sync Warning]', err));
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [auditLogs.length, allUsers.length, leaveRequests.length]);
+
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const matched = allUsers.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
     if (!matched) {
@@ -1027,6 +1055,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setAuditLogs(prev => [newLog, ...prev]);
     saveDocToFirestore('auditLogs', newLog.id, newLog);
+
+    // Sync log to Neon DB PostgreSQL in real-time
+    fetch('/api/neon/audit-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newLog)
+    }).catch(err => console.warn('[Neon Audit Log Sync Warning]', err));
   };
 
   const addNotification = (userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {

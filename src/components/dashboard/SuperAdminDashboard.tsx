@@ -172,6 +172,128 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [selectedEmailLog, setSelectedEmailLog] = useState<EmailLog | null>(null);
   const [emailLogSearch, setEmailLogSearch] = useState<string>('');
 
+  // Neon DB Connection State
+  const [neonStatus, setNeonStatus] = useState<{
+    loading: boolean;
+    connected: boolean | null;
+    database?: string;
+    host?: string;
+    tables?: string[];
+    counts?: { users: number; leaveRequests: number; departments: number };
+    error?: string;
+  }>({
+    loading: false,
+    connected: null,
+  });
+
+  // Neon Table Explorer State
+  const [selectedInspectTable, setSelectedInspectTable] = useState<string>('audit_logs');
+  const [inspectData, setInspectData] = useState<{
+    columns: Array<{ column_name: string; data_type: string; is_nullable: string }>;
+    rows: any[];
+    totalRows: number;
+  } | null>(null);
+  const [inspectLoading, setInspectLoading] = useState<boolean>(false);
+  const [inspectError, setInspectError] = useState<string | null>(null);
+  const [syncingNeon, setSyncingNeon] = useState<boolean>(false);
+  const [neonSyncMsg, setNeonSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const syncAllDataToNeon = async () => {
+    setSyncingNeon(true);
+    setNeonSyncMsg(null);
+    try {
+      const res = await fetch('/api/neon/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          users: allUsers,
+          leaveRequests,
+          departments,
+          leavePolicies,
+          auditLogs
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setNeonSyncMsg({
+          type: 'success',
+          text: `Neon PostgreSQL Synced! Stored ${data.counts?.auditLogs} Audit Logs, ${data.counts?.users} Users, and ${data.counts?.leaveRequests} Leave Requests.`
+        });
+        await checkNeonConnection();
+        await fetchInspectTable(selectedInspectTable || 'audit_logs');
+      } else {
+        setNeonSyncMsg({
+          type: 'error',
+          text: data.error || 'Failed to sync portal data into Neon PostgreSQL.'
+        });
+      }
+    } catch (err: any) {
+      setNeonSyncMsg({
+        type: 'error',
+        text: err?.message || 'Network error syncing to Neon DB.'
+      });
+    } finally {
+      setSyncingNeon(false);
+    }
+  };
+
+  const fetchInspectTable = async (tableName: string) => {
+    setSelectedInspectTable(tableName);
+    setInspectLoading(true);
+    setInspectError(null);
+    try {
+      const res = await fetch(`/api/neon/inspect-table?table=${encodeURIComponent(tableName)}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setInspectData({
+          columns: data.columns || [],
+          rows: data.rows || [],
+          totalRows: data.totalRows || 0,
+        });
+      } else {
+        setInspectError(data.error || 'Failed to inspect table.');
+      }
+    } catch (err: any) {
+      setInspectError(err?.message || 'Error fetching table data.');
+    } finally {
+      setInspectLoading(false);
+    }
+  };
+
+  const checkNeonConnection = async () => {
+    setNeonStatus(prev => ({ ...prev, loading: true, error: undefined }));
+    try {
+      const res = await fetch('/api/neon/status');
+      const data = await res.json();
+      if (res.ok && data.connected) {
+        setNeonStatus({
+          loading: false,
+          connected: true,
+          database: data.database,
+          host: data.host,
+          tables: data.tables,
+          counts: data.counts,
+        });
+      } else {
+        setNeonStatus({
+          loading: false,
+          connected: false,
+          error: data.error || 'Failed to connect to Neon PostgreSQL database',
+        });
+      }
+    } catch (err: any) {
+      setNeonStatus({
+        loading: false,
+        connected: false,
+        error: err?.message || 'Network error pinging Neon status endpoint',
+      });
+    }
+  };
+
+  useEffect(() => {
+    checkNeonConnection();
+  }, []);
+
   useEffect(() => {
     if (systemSettings.institutionLogoUrl) {
       setLogoUrlInput(systemSettings.institutionLogoUrl);
@@ -1236,6 +1358,222 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               DB status: ACTIVE / SYNCHRONIZED
             </span>
+          </div>
+
+          {/* Neon PostgreSQL Live Connection Diagnostic Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 font-bold text-xl">
+                  🐘
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white tracking-tight">Neon PostgreSQL Database Connection</h3>
+                    {neonStatus.loading ? (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Checking...
+                      </span>
+                    ) : neonStatus.connected ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> LIVE CONNECTED
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-bold flex items-center gap-1">
+                        <XCircle className="w-3.5 h-3.5 text-rose-400" /> DISCONNECTED
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-indigo-200/80">
+                    Database Host: <code className="text-indigo-300 font-mono text-[11px]">ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech</code>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={syncAllDataToNeon}
+                  disabled={syncingNeon}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-emerald-400/30 active:scale-98"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingNeon ? 'animate-spin' : ''}`} />
+                  {syncingNeon ? 'Syncing Data...' : `Sync All Data (${auditLogs.length} Audit Logs) to Neon DB`}
+                </button>
+                <button
+                  type="button"
+                  onClick={checkNeonConnection}
+                  disabled={neonStatus.loading}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-indigo-400/30 active:scale-98"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${neonStatus.loading ? 'animate-spin' : ''}`} />
+                  Ping Connection
+                </button>
+              </div>
+            </div>
+
+            {/* Sync Feedback Message */}
+            {neonSyncMsg && (
+              <div className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 border ${
+                neonSyncMsg.type === 'success' 
+                  ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200' 
+                  : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
+              }`}>
+                <span>{neonSyncMsg.text}</span>
+                <button 
+                  onClick={() => setNeonSyncMsg(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Connection Details or Error Box */}
+            {neonStatus.connected ? (
+              <div className="space-y-4 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Database Name</span>
+                    <p className="text-xs font-mono text-emerald-400 font-bold">
+                      {neonStatus.database || 'bit_leave_portal'}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Audit Logs Count</span>
+                    <p className="text-xs font-mono text-emerald-300 font-bold">
+                      {neonStatus.counts?.auditLogs ?? 0} Audit Log Records
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Users Count</span>
+                    <p className="text-xs font-mono text-blue-300 font-bold">
+                      {neonStatus.counts?.users ?? 0} Users recorded
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Leave Requests</span>
+                    <p className="text-xs font-mono text-amber-300 font-bold">
+                      {neonStatus.counts?.leaveRequests ?? 0} Leave Applications
+                    </p>
+                  </div>
+                </div>
+
+                {/* Live Table & Row Inspector Section */}
+                <div className="p-4 rounded-xl bg-slate-850 border border-indigo-900/80 bg-slate-900/90 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">In-Portal Neon DB Table Explorer:</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs'].map((tbl) => (
+                          <button
+                            key={tbl}
+                            type="button"
+                            onClick={() => fetchInspectTable(tbl)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border ${
+                              selectedInspectTable === tbl
+                                ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm'
+                                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                            }`}
+                          >
+                            {tbl}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => fetchInspectTable(selectedInspectTable)}
+                      disabled={inspectLoading}
+                      className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-indigo-500/30"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${inspectLoading ? 'animate-spin' : ''}`} />
+                      Inspect {selectedInspectTable}
+                    </button>
+                  </div>
+
+                  {/* Inspector Results */}
+                  {inspectLoading ? (
+                    <div className="py-6 text-center text-xs text-indigo-300 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                      Loading table data from Neon PostgreSQL...
+                    </div>
+                  ) : inspectError ? (
+                    <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs">
+                      {inspectError}
+                    </div>
+                  ) : inspectData ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs text-indigo-200">
+                        <span>Table: <strong className="font-mono text-emerald-400">{selectedInspectTable}</strong></span>
+                        <span>Loaded Rows: <strong className="font-mono text-amber-300">{inspectData.totalRows}</strong></span>
+                      </div>
+
+                      {/* Columns Schema Bar */}
+                      <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto">
+                        <strong className="text-indigo-400 block mb-1 text-[10px] uppercase tracking-wider font-sans">Columns Schema:</strong>
+                        <div className="flex flex-wrap gap-2">
+                          {inspectData.columns.map((c) => (
+                            <span key={c.column_name} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                              {c.column_name}: <span className="text-indigo-400">{c.data_type}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Rows Data Preview Table */}
+                      <div className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950/90 font-mono text-[11px]">
+                        {inspectData.rows.length === 0 ? (
+                          <div className="p-4 text-center text-slate-400 text-xs font-sans">
+                            Table <code className="text-indigo-300 font-bold">{selectedInspectTable}</code> currently has 0 rows in Neon DB.
+                          </div>
+                        ) : (
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-800 bg-slate-900 text-indigo-300 sticky top-0">
+                                {inspectData.columns.map((col) => (
+                                  <th key={col.column_name} className="p-2 font-semibold whitespace-nowrap">
+                                    {col.column_name}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                              {inspectData.rows.map((row, idx) => (
+                                <tr key={row.id || idx} className="hover:bg-indigo-950/30 transition-colors">
+                                  {inspectData.columns.map((col) => {
+                                    const val = row[col.column_name];
+                                    const formattedVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'NULL');
+                                    return (
+                                      <td key={col.column_name} className="p-2 max-w-xs truncate text-ellipsis">
+                                        {formattedVal}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-3 text-center text-xs text-indigo-300/80 font-sans">
+                      Select a table above to inspect its live PostgreSQL schema and rows.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : neonStatus.error ? (
+              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span><strong>Neon Connection Issue:</strong> {neonStatus.error}</span>
+              </div>
+            ) : null}
           </div>
 
           {/* DB Stats Grid */}
