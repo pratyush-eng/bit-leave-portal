@@ -261,7 +261,7 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
     reason: 'Attending family wedding ceremony in native town.',
     contactAddress: '104 Green Park Avenue, New Delhi',
     contactPhone: '+91 98765 43210',
-    status: 'PENDING_HOD',
+    status: 'CANCELLED',
     appliedOn: '2026-07-29',
     classHandovers: [
       {
@@ -389,11 +389,10 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
     departmentName: 'Computer Science & Engineering',
     leaveType: 'CASUAL',
     startDate: '2026-05-12',
-    endDate: '2026-05-12',
-    totalDays: 1,
-    isHalfDay: true,
-    halfDaySession: 'SECOND_HALF',
-    reason: 'Vehicle repair and RTO documentation.',
+    endDate: '2026-05-15',
+    totalDays: 4,
+    isHalfDay: false,
+    reason: 'Personal affairs and RTO documentation.',
     status: 'APPROVED',
     appliedOn: '2026-05-11',
     hodApproval: {
@@ -408,7 +407,7 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
       actionByName: 'Dr. A. K. Kapoor',
       actionDate: '2026-05-12 09:00 AM',
       status: 'APPROVED',
-      comments: 'Half day Casual leave approved.'
+      comments: '4 days Casual leave approved.'
     }
   }
 ];

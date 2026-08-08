@@ -192,6 +192,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `ML-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
+    setEmailLogs(prev => [newLog, ...prev]);
+    saveDocToFirestore('emailLogs', newLog.id, newLog);
 
     // Asynchronously dispatch email via backend Express SMTP server
     if (systemSettings.emailSettings?.enabled !== false) {
@@ -318,7 +320,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           balances[typeKey] = { total: matchingPolicy?.annualQuota || 12, used: 0, pending: 0 };
         }
 
-        const days = Number(r.totalDays || 0);
+        const days = r.isHalfDay ? 0.5 : Number(r.totalDays || 1);
         if (r.status === 'APPROVED') {
           calculatedUsed[typeKey] = (calculatedUsed[typeKey] || 0) + days;
         } else if (r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR') {
@@ -335,7 +337,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         balances[typeKey] = {
           total: balances[typeKey].total,
-          used: Math.max(baseUsed, reqUsed),
+          used: reqUsed > 0 ? reqUsed : baseUsed,
           pending: reqPending
         };
       });
@@ -489,35 +491,35 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
-      if (mounted && items && items.length > 0) {
-        setLeaveRequests(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) {
+        setLeaveRequests(items);
       }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && items && items.length > 0) {
-        setAllUsers(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) {
+        setAllUsers(items);
       }
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
-      if (mounted && items && items.length > 0) setDepartments(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) setDepartments(items);
     });
 
     const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
-      if (mounted && items && items.length > 0) setLeavePolicies(prev => mergeById(items, prev, 'type'));
+      if (mounted && items) setLeavePolicies(items);
     });
 
     const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
-      if (mounted && items && items.length > 0) setNotifications(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) setNotifications(items);
     });
 
     const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
-      if (mounted && items && items.length > 0) setAuditLogs(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) setAuditLogs(items);
     });
 
     const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
-      if (mounted && items && items.length > 0) setEmailLogs(prev => mergeById(items, prev, 'id'));
+      if (mounted && items) setEmailLogs(items);
     });
 
     return () => {
@@ -605,6 +607,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     setAllUsers(prev => [...prev, newUser]);
+    saveDocToFirestore('users', newId, newUser);
 
     // Notify institutional admins
     const admins = allUsers.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
@@ -618,6 +621,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type: 'USER_REGISTRATION'
     }));
     setNotifications(prev => [...newNotifs, ...prev]);
+    newNotifs.forEach(n => saveDocToFirestore('notifications', n.id, n));
 
     addAuditLog({
       id: newId,
@@ -1013,15 +1017,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addAuditLog = (actor: User, action: string, details: string) => {
     const newLog: AuditLog = {
       id: `log_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      actorId: actor.id,
-      actorName: actor.name,
-      actorRole: actor.role,
+      actorId: actor?.id || 'sys',
+      actorName: actor?.name || 'System',
+      actorRole: actor?.role || 'SYSTEM',
       action,
       details,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       ipAddress: '172.16.' + Math.floor(Math.random() * 50 + 1) + '.' + Math.floor(Math.random() * 200 + 1)
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    saveDocToFirestore('auditLogs', newLog.id, newLog);
   };
 
   const addNotification = (userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {
@@ -1036,6 +1041,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       relatedLeaveId
     };
     setNotifications(prev => [newNotification, ...prev]);
+    saveDocToFirestore('notifications', newNotification.id, newNotification);
   };
 
   const applyForLeave = (data: {
@@ -1711,11 +1717,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const markNotificationRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications(prev => prev.map(n => {
+      if (n.id === id) {
+        const updated = { ...n, read: true };
+        saveDocToFirestore('notifications', id, updated);
+        return updated;
+      }
+      return n;
+    }));
   };
 
   const markAllNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => prev.map(n => {
+      const updated = { ...n, read: true };
+      saveDocToFirestore('notifications', n.id, updated);
+      return updated;
+    }));
   };
 
   const clearSanctionLogs = (): { success: boolean; message: string } => {
