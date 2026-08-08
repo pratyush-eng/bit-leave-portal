@@ -454,3 +454,158 @@ export function generateMySQLDump(data: {
   return sql;
 }
 
+/**
+ * Generates a full PostgreSQL / Vercel Postgres DDL & DML script containing schema + INSERT records.
+ */
+export function generateVercelPostgresDump(data: {
+  users: User[];
+  leaveRequests: LeaveRequest[];
+  departments: Department[];
+  leavePolicies: LeavePolicy[];
+  auditLogs: AuditLog[];
+}): string {
+  const escapeSql = (str: string | undefined | null) => {
+    if (!str) return "''";
+    return `'${String(str).replace(/'/g, "''").replace(/\\/g, "\\\\")}'`;
+  };
+
+  let sql = `-- ========================================================\n`;
+  sql += `-- BIT Mesra Leave Portal - Vercel Postgres / PostgreSQL Database Dump\n`;
+  sql += `-- Generated on: ${new Date().toISOString()}\n`;
+  sql += `-- Direct compatibility: Vercel Postgres, Neon, Supabase, AWS RDS PostgreSQL, Heroku Postgres\n`;
+  sql += `-- Instructions: Paste this entire script into Vercel Postgres SQL Editor or run:\n`;
+  sql += `-- psql "$POSTGRES_URL" -f vercel_postgres_dump.sql\n`;
+  sql += `-- ========================================================\n\n`;
+
+  // 1. Departments Table
+  sql += `-- 1. Departments Table\n`;
+  sql += `DROP TABLE IF EXISTS departments CASCADE;\n`;
+  sql += `CREATE TABLE departments (\n`;
+  sql += `  id VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  code VARCHAR(20) NOT NULL,\n`;
+  sql += `  name VARCHAR(255) NOT NULL,\n`;
+  sql += `  hod_id VARCHAR(50),\n`;
+  sql += `  hod_name VARCHAR(255),\n`;
+  sql += `  total_faculty INTEGER DEFAULT 0\n`;
+  sql += `);\n\n`;
+
+  if (data.departments && data.departments.length > 0) {
+    sql += `INSERT INTO departments (id, code, name, hod_id, hod_name, total_faculty) VALUES\n`;
+    sql += data.departments.map(d => 
+      `  (${escapeSql(d.id)}, ${escapeSql(d.code)}, ${escapeSql(d.name)}, ${escapeSql(d.hodId)}, ${escapeSql(d.hodName)}, ${d.totalFaculty || 0})`
+    ).join(',\n') + `;\n\n`;
+  }
+
+  // 2. Leave Policies Table
+  sql += `-- 2. Leave Policies Table\n`;
+  sql += `DROP TABLE IF EXISTS leave_policies CASCADE;\n`;
+  sql += `CREATE TABLE leave_policies (\n`;
+  sql += `  type VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  label VARCHAR(100) NOT NULL,\n`;
+  sql += `  annual_quota INTEGER NOT NULL DEFAULT 12,\n`;
+  sql += `  min_days_notice INTEGER DEFAULT 0,\n`;
+  sql += `  requires_document BOOLEAN DEFAULT FALSE,\n`;
+  sql += `  color VARCHAR(20) DEFAULT '#3F51B5',\n`;
+  sql += `  description TEXT\n`;
+  sql += `);\n\n`;
+
+  if (data.leavePolicies && data.leavePolicies.length > 0) {
+    sql += `INSERT INTO leave_policies (type, label, annual_quota, min_days_notice, requires_document, color, description) VALUES\n`;
+    sql += data.leavePolicies.map(p => 
+      `  (${escapeSql(p.type)}, ${escapeSql(p.label)}, ${p.annualQuota}, ${p.minDaysNotice}, ${p.requiresDocument ? 'TRUE' : 'FALSE'}, ${escapeSql(p.color)}, ${escapeSql(p.description)})`
+    ).join(',\n') + `;\n\n`;
+  }
+
+  // 3. Users Table
+  sql += `-- 3. Users Table\n`;
+  sql += `DROP TABLE IF EXISTS users CASCADE;\n`;
+  sql += `CREATE TABLE users (\n`;
+  sql += `  id VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  name VARCHAR(255) NOT NULL,\n`;
+  sql += `  email VARCHAR(255) NOT NULL UNIQUE,\n`;
+  sql += `  role VARCHAR(50) NOT NULL,\n`;
+  sql += `  designation VARCHAR(150),\n`;
+  sql += `  department_id VARCHAR(50),\n`;
+  sql += `  department_name VARCHAR(255),\n`;
+  sql += `  employee_code VARCHAR(50),\n`;
+  sql += `  joining_date VARCHAR(50),\n`;
+  sql += `  phone VARCHAR(50),\n`;
+  sql += `  avatar_url TEXT,\n`;
+  sql += `  account_status VARCHAR(50) DEFAULT 'ACTIVE',\n`;
+  sql += `  leave_balances JSONB DEFAULT '{}'::jsonb\n`;
+  sql += `);\n\n`;
+
+  if (data.users && data.users.length > 0) {
+    sql += `INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, leave_balances) VALUES\n`;
+    sql += data.users.map(u => {
+      const balancesJson = JSON.stringify(u.leaveBalances || {});
+      return `  (${escapeSql(u.id)}, ${escapeSql(u.name)}, ${escapeSql(u.email)}, ${escapeSql(u.role)}, ${escapeSql(u.designation)}, ${escapeSql(u.departmentId)}, ${escapeSql(u.departmentName)}, ${escapeSql(u.employeeCode)}, ${escapeSql(u.joiningDate)}, ${escapeSql(u.phone)}, ${escapeSql(u.avatarUrl)}, ${escapeSql(u.accountStatus || 'ACTIVE')}, ${escapeSql(balancesJson)}::jsonb)`;
+    }).join(',\n') + `;\n\n`;
+  }
+
+  // 4. Leave Requests Table
+  sql += `-- 4. Leave Requests Table\n`;
+  sql += `DROP TABLE IF EXISTS leave_requests CASCADE;\n`;
+  sql += `CREATE TABLE leave_requests (\n`;
+  sql += `  id VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  applicant_id VARCHAR(50) NOT NULL,\n`;
+  sql += `  applicant_name VARCHAR(255) NOT NULL,\n`;
+  sql += `  applicant_email VARCHAR(255),\n`;
+  sql += `  applicant_designation VARCHAR(150),\n`;
+  sql += `  applicant_employee_code VARCHAR(50),\n`;
+  sql += `  department_id VARCHAR(50),\n`;
+  sql += `  department_name VARCHAR(255),\n`;
+  sql += `  leave_type VARCHAR(50) NOT NULL,\n`;
+  sql += `  start_date VARCHAR(50) NOT NULL,\n`;
+  sql += `  end_date VARCHAR(50) NOT NULL,\n`;
+  sql += `  total_days INTEGER NOT NULL,\n`;
+  sql += `  reason TEXT,\n`;
+  sql += `  contact_address VARCHAR(255),\n`;
+  sql += `  contact_phone VARCHAR(50),\n`;
+  sql += `  document_url TEXT,\n`;
+  sql += `  status VARCHAR(50) NOT NULL,\n`;
+  sql += `  applied_on VARCHAR(50),\n`;
+  sql += `  hod_approval JSONB,\n`;
+  sql += `  registrar_approval JSONB,\n`;
+  sql += `  class_handovers JSONB\n`;
+  sql += `);\n\n`;
+
+  if (data.leaveRequests && data.leaveRequests.length > 0) {
+    sql += `INSERT INTO leave_requests (id, applicant_id, applicant_name, applicant_email, applicant_designation, applicant_employee_code, department_id, department_name, leave_type, start_date, end_date, total_days, reason, contact_address, contact_phone, document_url, status, applied_on, hod_approval, registrar_approval, class_handovers) VALUES\n`;
+    sql += data.leaveRequests.map(r => {
+      const hodJson = r.hodApproval ? JSON.stringify(r.hodApproval) : null;
+      const hodVal = hodJson ? `${escapeSql(hodJson)}::jsonb` : 'NULL';
+      const regJson = r.registrarApproval ? JSON.stringify(r.registrarApproval) : null;
+      const regVal = regJson ? `${escapeSql(regJson)}::jsonb` : 'NULL';
+      const handoversJson = r.classHandovers ? JSON.stringify(r.classHandovers) : null;
+      const handoversVal = handoversJson ? `${escapeSql(handoversJson)}::jsonb` : 'NULL';
+
+      return `  (${escapeSql(r.id)}, ${escapeSql(r.applicantId)}, ${escapeSql(r.applicantName)}, ${escapeSql(r.applicantEmail)}, ${escapeSql(r.applicantDesignation)}, ${escapeSql(r.applicantEmployeeCode)}, ${escapeSql(r.departmentId)}, ${escapeSql(r.departmentName)}, ${escapeSql(r.leaveType)}, ${escapeSql(r.startDate)}, ${escapeSql(r.endDate)}, ${r.totalDays}, ${escapeSql(r.reason)}, ${escapeSql(r.contactAddress)}, ${escapeSql(r.contactPhone)}, ${escapeSql(r.documentUrl)}, ${escapeSql(r.status)}, ${escapeSql(r.appliedOn)}, ${hodVal}, ${regVal}, ${handoversVal})`;
+    }).join(',\n') + `;\n\n`;
+  }
+
+  // 5. Audit Logs Table
+  sql += `-- 5. Audit Logs Table\n`;
+  sql += `DROP TABLE IF EXISTS audit_logs CASCADE;\n`;
+  sql += `CREATE TABLE audit_logs (\n`;
+  sql += `  id VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  timestamp VARCHAR(50) NOT NULL,\n`;
+  sql += `  actor_id VARCHAR(50),\n`;
+  sql += `  actor_name VARCHAR(255),\n`;
+  sql += `  actor_role VARCHAR(50),\n`;
+  sql += `  action VARCHAR(255) NOT NULL,\n`;
+  sql += `  details TEXT,\n`;
+  sql += `  ip_address VARCHAR(50)\n`;
+  sql += `);\n\n`;
+
+  if (data.auditLogs && data.auditLogs.length > 0) {
+    sql += `INSERT INTO audit_logs (id, timestamp, actor_id, actor_name, actor_role, action, details, ip_address) VALUES\n`;
+    sql += data.auditLogs.map(a => 
+      `  (${escapeSql(a.id)}, ${escapeSql(a.timestamp)}, ${escapeSql(a.actorId)}, ${escapeSql(a.actorName)}, ${escapeSql(a.actorRole)}, ${escapeSql(a.action)}, ${escapeSql(a.details)}, ${escapeSql(a.ipAddress)})`
+    ).join(',\n') + `;\n\n`;
+  }
+
+  return sql;
+}
+
+

@@ -1019,7 +1019,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `log_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       actorId: actor?.id || 'sys',
       actorName: actor?.name || 'System',
-      actorRole: actor?.role || 'SYSTEM',
+      actorRole: actor?.role || 'SUPER_ADMIN',
       action,
       details,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),

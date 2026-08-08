@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
-import { generateMySQLDump } from '../../lib/firestoreSync';
+import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSync';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
 import { 
@@ -381,6 +381,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     }
   };
 
+  const handleExportVercelPostgresDump = () => {
+    try {
+      const sqlContent = generateVercelPostgresDump({
+        users: allUsers || [],
+        leaveRequests: leaveRequests || [],
+        departments: departments || [],
+        leavePolicies: leavePolicies || [],
+        auditLogs: auditLogs || []
+      });
+
+      const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bit_leave_portal_vercel_postgres_${new Date().toISOString().split('T')[0]}.sql`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Error exporting Vercel Postgres dump:', err);
+      alert('Error exporting PostgreSQL script: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
   const handleCopyDb = () => {
     const snapshot = dbJsonString || exportDbJson();
     navigator.clipboard.writeText(snapshot);
@@ -542,6 +567,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportVercelPostgresDump}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-xs border border-blue-500 shadow-sm transition-all active:scale-95 flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
+            title="Download complete Vercel Postgres / PostgreSQL DDL & DML script"
+          >
+            <Database className="w-3.5 h-3.5 text-white" />
+            Vercel Postgres (.sql)
+          </button>
+
           <button
             onClick={handleExportMySQLDump}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-xs border border-emerald-500 shadow-sm transition-all active:scale-95 flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
@@ -1241,6 +1275,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleExportVercelPostgresDump}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Export complete relational Vercel Postgres / PostgreSQL DDL & DML script (.sql)"
+                >
+                  <Database className="w-3.5 h-3.5 text-white" />
+                  Vercel Postgres (.sql)
+                </button>
+                <button
+                  type="button"
                   onClick={handleExportMySQLDump}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                   title="Export complete relational MySQL database DDL & DML script (.sql)"
@@ -1308,6 +1351,65 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <Upload className="w-4 h-4" />
                 Restore DB From JSON Snapshot
               </button>
+            </div>
+          </div>
+
+          {/* Vercel Postgres Migration Guide Card */}
+          <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl p-6 text-white border border-slate-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold text-lg">
+                  🐘
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white tracking-tight">
+                    Vercel Postgres & PostgreSQL Database Migration Guide
+                  </h4>
+                  <p className="text-xs text-indigo-200/80">
+                    Step-by-step procedure to migrate Firebase Firestore data to Vercel Postgres or PostgreSQL database
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportVercelPostgresDump}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-2 cursor-pointer border border-blue-400/40"
+              >
+                <Database className="w-4 h-4 text-white" />
+                Download Vercel Postgres SQL (.sql)
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[11px]">1</span>
+                  Export SQL Dump
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Click the <strong>Vercel Postgres (.sql)</strong> button above to download the complete schema (DDL) and all current records (DML) formatted with PostgreSQL JSONB columns.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[11px]">2</span>
+                  Create Vercel Postgres DB
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Go to your <strong>Vercel Dashboard</strong> &rarr; <strong>Storage</strong> &rarr; Create a <strong>Postgres</strong> database (Neon). Note your <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300 text-[10px]">POSTGRES_URL</code> environment variable.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[11px]">3</span>
+                  Execute Query / Import
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Open the <strong>Query Console</strong> in Vercel Storage, paste the downloaded <code className="bg-slate-900 px-1 py-0.5 rounded text-emerald-300 text-[10px]">.sql</code> script, and click <strong>Run Query</strong>, or run <code className="bg-slate-900 px-1 py-0.5 rounded text-emerald-300 text-[10px]">psql $POSTGRES_URL -f dump.sql</code>.
+                </p>
+              </div>
             </div>
           </div>
         </div>
