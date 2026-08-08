@@ -474,13 +474,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let mounted = true;
     loadOrSeedFirestoreData().then((data) => {
       if (!mounted) return;
-      if (data.users?.length) setAllUsers(prev => mergeById(data.users, prev, 'id'));
-      if (data.leaveRequests?.length) setLeaveRequests(prev => mergeById(data.leaveRequests, prev, 'id'));
-      if (data.departments?.length) setDepartments(prev => mergeById(data.departments, prev, 'id'));
-      if (data.leavePolicies?.length) setLeavePolicies(prev => mergeById(data.leavePolicies, prev, 'type'));
-      if (data.notifications?.length) setNotifications(prev => mergeById(data.notifications, prev, 'id'));
-      if (data.auditLogs?.length) setAuditLogs(prev => mergeById(data.auditLogs, prev, 'id'));
-      if (data.emailLogs?.length) setEmailLogs(prev => mergeById(data.emailLogs, prev, 'id'));
+      if (data.users) setAllUsers(data.users);
+      if (data.leaveRequests) setLeaveRequests(data.leaveRequests);
+      if (data.departments) setDepartments(data.departments);
+      if (data.leavePolicies) setLeavePolicies(data.leavePolicies);
+      if (data.notifications) setNotifications(data.notifications);
+      if (data.auditLogs) setAuditLogs(data.auditLogs);
+      if (data.emailLogs) setEmailLogs(data.emailLogs);
       if (data.systemSettings) setSystemSettings(data.systemSettings);
     });
 

@@ -75,12 +75,12 @@ export async function loadOrSeedFirestoreData(): Promise<{
       }
 
       return {
-        users: users.length ? users : MOCK_USERS,
-        leaveRequests: leaveRequests.length ? leaveRequests : INITIAL_LEAVE_REQUESTS,
+        users: users,
+        leaveRequests: leaveRequests,
         departments: departments.length ? departments : INITIAL_DEPARTMENTS,
         leavePolicies: leavePolicies.length ? leavePolicies : INITIAL_LEAVE_POLICIES,
-        notifications: notifications.length ? notifications : INITIAL_NOTIFICATIONS,
-        auditLogs: auditLogs.length ? auditLogs : INITIAL_AUDIT_LOGS,
+        notifications: notifications,
+        auditLogs: auditLogs,
         emailLogs: emailLogs,
         systemSettings,
       };
