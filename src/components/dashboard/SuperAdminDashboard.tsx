@@ -524,7 +524,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           className="px-4 py-2 bg-rose-700/80 hover:bg-rose-800 text-white rounded font-medium text-xs border border-rose-600 shadow-sm transition-all active:scale-95 flex items-center gap-2 shrink-0 uppercase tracking-wide cursor-pointer"
         >
           <RefreshCw className="w-4 h-4 text-white" />
-          Factory Reset DB
+          Reset System Data
         </button>
       </div>
 
@@ -1239,7 +1239,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               className="w-full font-mono text-[11px] p-4 bg-slate-900 text-indigo-200 rounded-xl border border-slate-700 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
             />
 
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Reset institutional database to default sample state? All recent modifications will be cleared and replaced with default initial records.')) {
+                    resetData();
+                    setImportStatusMsg('Success: System data reset to default initial state!');
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer shadow-sm active:scale-98"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset System Data (Factory Reset)
+              </button>
+
               <button
                 type="button"
                 onClick={handleImportDb}
