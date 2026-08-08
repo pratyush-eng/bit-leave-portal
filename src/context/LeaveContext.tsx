@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection } from '../lib/firestoreSync';
 import { 
   User, 
@@ -265,7 +265,89 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts([]);
   };
 
-  const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
+  // Dynamically reconcile leave balances for all users based on active leave requests and leave policies
+  const effectiveAllUsers = useMemo(() => {
+    return allUsers.map(u => {
+      const balances: Record<string, { total: number; used: number; pending: number }> = {};
+
+      // 1. Initialize with quotas from policies or user's custom quota
+      leavePolicies.forEach(pol => {
+        const existingBal = u.leaveBalances?.[pol.type];
+        const totalQuota = existingBal && typeof existingBal.total === 'number' && existingBal.total > 0
+          ? existingBal.total 
+          : pol.annualQuota;
+
+        const baseUsed = existingBal && typeof existingBal.used === 'number' ? existingBal.used : 0;
+
+        balances[pol.type] = {
+          total: totalQuota,
+          used: baseUsed,
+          pending: 0
+        };
+      });
+
+      // 2. Preserve any extra keys on u.leaveBalances
+      if (u.leaveBalances) {
+        Object.keys(u.leaveBalances).forEach(typeKey => {
+          if (!balances[typeKey]) {
+            const existingBal = u.leaveBalances[typeKey];
+            balances[typeKey] = {
+              total: existingBal?.total ?? 0,
+              used: existingBal?.used ?? 0,
+              pending: 0
+            };
+          }
+        });
+      }
+
+      // 3. Track calculated used and pending totals directly from leaveRequests
+      const calculatedUsed: Record<string, number> = {};
+      const calculatedPending: Record<string, number> = {};
+
+      leaveRequests.forEach(r => {
+        const matchesUser =
+          (!!r.applicantId && r.applicantId === u.id) ||
+          (!!r.applicantEmail && !!u.email && r.applicantEmail.toLowerCase().trim() === u.email.toLowerCase().trim()) ||
+          (!!r.applicantEmployeeCode && !!u.employeeCode && r.applicantEmployeeCode.trim() === u.employeeCode.trim());
+
+        if (!matchesUser) return;
+
+        const typeKey = r.leaveType;
+        if (!balances[typeKey]) {
+          const matchingPolicy = leavePolicies.find(p => p.type === typeKey);
+          balances[typeKey] = { total: matchingPolicy?.annualQuota || 12, used: 0, pending: 0 };
+        }
+
+        const days = Number(r.totalDays || 0);
+        if (r.status === 'APPROVED') {
+          calculatedUsed[typeKey] = (calculatedUsed[typeKey] || 0) + days;
+        } else if (r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR') {
+          calculatedPending[typeKey] = (calculatedPending[typeKey] || 0) + days;
+        }
+      });
+
+      // Combine calculated totals with baseline balances
+      Object.keys(balances).forEach(typeKey => {
+        const reqUsed = calculatedUsed[typeKey] || 0;
+        const reqPending = calculatedPending[typeKey] || 0;
+        const existingBal = u.leaveBalances?.[typeKey];
+        const baseUsed = existingBal && typeof existingBal.used === 'number' ? existingBal.used : 0;
+
+        balances[typeKey] = {
+          total: balances[typeKey].total,
+          used: Math.max(baseUsed, reqUsed),
+          pending: reqPending
+        };
+      });
+
+      return {
+        ...u,
+        leaveBalances: balances as any
+      };
+    });
+  }, [allUsers, leaveRequests, leavePolicies]);
+
+  const currentUser = effectiveAllUsers.find(u => u.id === currentUserId) || effectiveAllUsers[0];
 
   // Track status transitions for active user leave applications
   const prevStatusesRef = React.useRef<Record<string, string>>({});
@@ -1686,7 +1768,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <LeaveContext.Provider
       value={{
         currentUser,
-        allUsers,
+        allUsers: effectiveAllUsers,
         departments,
         leavePolicies,
         leaveRequests,
