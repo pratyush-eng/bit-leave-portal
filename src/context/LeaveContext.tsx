@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection } from '../lib/firestoreSync';
+import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
 import { 
   User, 
   LeaveRequest, 
@@ -1776,6 +1776,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNotifications(INITIAL_NOTIFICATIONS);
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setLeavePolicies(INITIAL_LEAVE_POLICIES);
+
+    resetFirestoreData().catch(err => console.warn('Error resetting Firestore:', err));
   };
 
   const userNotifications = notifications.filter(n => n.userId === currentUser.id);

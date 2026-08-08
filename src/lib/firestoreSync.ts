@@ -176,6 +176,29 @@ export async function deleteDocFromFirestore(colName: string, id: string) {
   }
 }
 
+export async function resetFirestoreData() {
+  if (isQuotaExceeded) return;
+  try {
+    const collectionsToClear = ['users', 'leaveRequests', 'departments', 'leavePolicies', 'notifications', 'auditLogs', 'emailLogs'];
+    for (const col of collectionsToClear) {
+      const snap = await getDocs(collection(db, col));
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+    await seedCollection('users', MOCK_USERS, 'id');
+    await seedCollection('leaveRequests', INITIAL_LEAVE_REQUESTS, 'id');
+    await seedCollection('departments', INITIAL_DEPARTMENTS, 'id');
+    await seedCollection('leavePolicies', INITIAL_LEAVE_POLICIES, 'type');
+    await seedCollection('notifications', INITIAL_NOTIFICATIONS, 'id');
+    await seedCollection('auditLogs', INITIAL_AUDIT_LOGS, 'id');
+  } catch (err) {
+    console.warn('Error resetting Firestore database:', err);
+  }
+}
+
 /**
  * Generates a full MySQL relational database DDL & DML script containing schema + INSERT records.
  */
