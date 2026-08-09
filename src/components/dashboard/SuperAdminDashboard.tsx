@@ -624,11 +624,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     let result = auditLogs.filter(l => {
       if (!q) return true;
       return (
-        l.action.toLowerCase().includes(q) ||
-        l.actorName.toLowerCase().includes(q) ||
-        l.actorRole.toLowerCase().includes(q) ||
-        l.details.toLowerCase().includes(q) ||
-        l.timestamp.toLowerCase().includes(q) ||
+        (l.action || '').toLowerCase().includes(q) ||
+        (l.actorName || '').toLowerCase().includes(q) ||
+        (l.actorRole || '').toLowerCase().includes(q) ||
+        (l.details || '').toLowerCase().includes(q) ||
+        (l.timestamp || '').toLowerCase().includes(q) ||
         (l.ipAddress && l.ipAddress.toLowerCase().includes(q))
       );
     });
@@ -2600,10 +2600,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     .filter(log => {
                       if (!emailLogSearch) return true;
                       const q = emailLogSearch.toLowerCase();
-                      return log.recipientEmail.toLowerCase().includes(q) ||
-                             log.recipientName.toLowerCase().includes(q) ||
-                             log.subject.toLowerCase().includes(q) ||
-                             log.triggerEvent.toLowerCase().includes(q);
+                      return (log.recipientEmail || '').toLowerCase().includes(q) ||
+                             (log.recipientName || '').toLowerCase().includes(q) ||
+                             (log.subject || '').toLowerCase().includes(q) ||
+                             (log.triggerEvent || '').toLowerCase().includes(q);
                     })
                     .map((log) => {
                       const getEventBadge = (evt: string) => {

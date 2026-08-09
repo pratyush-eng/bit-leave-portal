@@ -439,6 +439,27 @@ async function startServer() {
     }
   });
 
+  // API Route: Delete record from Neon DB
+  app.post("/api/neon/delete", async (req, res) => {
+    try {
+      const { table, id } = req.body || {};
+      const sql = neon(NEON_DB_URL);
+      await ensureNeonTables(sql);
+
+      if (table === 'users' && id) await sql`DELETE FROM users WHERE id = ${id}`;
+      else if (table === 'leaveRequests' && id) await sql`DELETE FROM leave_requests WHERE id = ${id}`;
+      else if (table === 'departments' && id) await sql`DELETE FROM departments WHERE id = ${id}`;
+      else if (table === 'leavePolicies' && id) await sql`DELETE FROM leave_policies WHERE type = ${id}`;
+      else if (table === 'auditLogs' && id) await sql`DELETE FROM audit_logs WHERE id = ${id}`;
+      else if (table === 'clearAllRequests') await sql`DELETE FROM leave_requests`;
+
+      return res.json({ success: true, message: `Record deleted from ${table}` });
+    } catch (err: any) {
+      console.error("[Neon Delete Error]", err);
+      return res.status(500).json({ success: false, error: err?.message });
+    }
+  });
+
   // API Route: Fetch all data from Neon DB
   app.get("/api/neon/data", async (req, res) => {
     try {

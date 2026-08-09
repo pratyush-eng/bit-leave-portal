@@ -355,10 +355,10 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
                       if (!deptLeaveSearch.trim()) return true;
                       const q = deptLeaveSearch.toLowerCase();
                       return (
-                        r.id.toLowerCase().includes(q) ||
-                        r.applicantName.toLowerCase().includes(q) ||
-                        r.leaveType.toLowerCase().includes(q) ||
-                        r.status.toLowerCase().includes(q)
+                        (r.id || '').toLowerCase().includes(q) ||
+                        (r.applicantName || '').toLowerCase().includes(q) ||
+                        (r.leaveType || '').toLowerCase().includes(q) ||
+                        (r.status || '').toLowerCase().includes(q)
                       );
                     })
                     .map((r) => (

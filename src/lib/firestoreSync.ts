@@ -79,17 +79,34 @@ async function getOrSeedCollection<T>(
   defaultItems: T[], 
   idField: string = 'id'
 ): Promise<T[]> {
+  const isInitializedKey = `${storageKey}_is_initialized_v2`;
+
   try {
     const snap = await getDocs(collection(db, colName));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => d.data() as T);
-      if (items.length > 0) return items;
+    const docsWithoutMeta = snap.docs.filter(d => d.id !== '_meta_init');
+    const hasInitDoc = snap.docs.some(d => d.id === '_meta_init');
+    const localInitialized = localStorage.getItem(isInitializedKey) === 'true';
+
+    if (hasInitDoc || localInitialized) {
+      localStorage.setItem(isInitializedKey, 'true');
+      // Collection was already initialized in the past.
+      // Return whatever records currently exist in the database (including empty array [] if all were deleted).
+      // DO NOT restore default initial records!
+      return docsWithoutMeta.map(d => d.data() as T);
+    }
+
+    if (docsWithoutMeta.length > 0) {
+      localStorage.setItem(isInitializedKey, 'true');
+      try {
+        await setDoc(doc(db, colName, '_meta_init'), { initialized: true, timestamp: new Date().toISOString() });
+      } catch (_e) {}
+      return docsWithoutMeta.map(d => d.data() as T);
     }
   } catch (err) {
     console.warn(`Error fetching ${colName} from Firestore:`, err);
   }
 
-  // Collection is empty or failed to load in Firestore. Check localStorage fallback.
+  // Collection is empty AND has never been initialized. Check localStorage fallback.
   let localItems: T[] = [];
   try {
     const saved = localStorage.getItem(storageKey);
@@ -104,8 +121,15 @@ async function getOrSeedCollection<T>(
   }
 
   const itemsToSeed = localItems.length > 0 ? localItems : defaultItems;
-  if (itemsToSeed.length > 0) {
-    await seedCollection(colName, itemsToSeed, idField);
+
+  try {
+    localStorage.setItem(isInitializedKey, 'true');
+    await setDoc(doc(db, colName, '_meta_init'), { initialized: true, timestamp: new Date().toISOString() });
+    if (itemsToSeed.length > 0) {
+      await seedCollection(colName, itemsToSeed, idField);
+    }
+  } catch (e) {
+    console.warn(`Error setting initial seed marker for ${colName}:`, e);
   }
 
   return itemsToSeed;
@@ -134,14 +158,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
     }
 
     const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', MOCK_USERS, 'id');
-    const rawRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
-    const idsToRemove = ['LV-2026-100', 'LV-2026-101', 'LV-2026-103'];
-    const leaveRequests = rawRequests.filter(r => !idsToRemove.includes(r.id));
-    
-    // Purge target IDs from Firestore if present
-    for (const targetId of idsToRemove) {
-      deleteDocFromFirestore('leaveRequests', targetId).catch(() => {});
-    }
+    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
     const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
     const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
     const notifications = await getOrSeedCollection<Notification>('notifications', 'academia_leave_notifications_v1', INITIAL_NOTIFICATIONS, 'id');

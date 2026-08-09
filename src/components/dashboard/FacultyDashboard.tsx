@@ -99,13 +99,13 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <MaterialChip label={pol.label.split(' ')[0]} variant="leaveType" leaveType={pol.type} />
+                    <MaterialChip label={(pol?.label || pol?.type || 'LEAVE').split(' ')[0]} variant="leaveType" leaveType={pol.type} />
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       {remaining} Available
                     </span>
                   </div>
 
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{pol.label}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{pol?.label || pol?.type}</p>
                   <p className="text-3xl font-light text-[#3F51B5] mt-1">{remaining}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">Used: {bal.used} / Quota: {bal.total} Days</p>
                 </div>

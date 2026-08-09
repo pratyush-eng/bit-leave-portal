@@ -248,6 +248,31 @@ export async function inspectNeonTable(tableName: string) {
 }
 
 /**
+ * Delete a record from Neon DB
+ */
+export async function deleteNeonDoc(table: string, id: string) {
+  const backendData = await safeJsonFetch('/api/neon/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table, id })
+  });
+
+  if (backendData && backendData.success) {
+    return backendData;
+  }
+
+  try {
+    await ensureClientTables();
+    if (table === 'users' && id) await sqlClient`DELETE FROM users WHERE id = ${id}`;
+    else if (table === 'leaveRequests' && id) await sqlClient`DELETE FROM leave_requests WHERE id = ${id}`;
+    else if (table === 'departments' && id) await sqlClient`DELETE FROM departments WHERE id = ${id}`;
+    else if (table === 'leavePolicies' && id) await sqlClient`DELETE FROM leave_policies WHERE type = ${id}`;
+    else if (table === 'auditLogs' && id) await sqlClient`DELETE FROM audit_logs WHERE id = ${id}`;
+    else if (table === 'clearAllRequests') await sqlClient`DELETE FROM leave_requests`;
+  } catch (_e) {}
+}
+
+/**
  * Sync portal data to Neon DB
  */
 export async function syncDataToNeon(dataPayload: {

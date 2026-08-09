@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
-import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData } from '../lib/neonClient';
+import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -613,7 +613,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               });
             });
           }
-          if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
+          if (Array.isArray(neonData.leaveRequests)) {
             const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
             setLeaveRequests(normalized);
           }
@@ -636,17 +636,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const firestoreData = await loadOrSeedFirestoreData();
         if (!mounted) return;
         if (firestoreData) {
-          if (firestoreData.users) setAllUsers(prev => prev.length > 0 ? prev : firestoreData.users);
+          if (firestoreData.users && firestoreData.users.length > 0) setAllUsers(firestoreData.users);
           if (firestoreData.leaveRequests) {
-            setLeaveRequests(prev => {
-              if (prev.length > 0) return prev;
-              return normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments);
-            });
+            setLeaveRequests(normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments));
           }
-          if (firestoreData.departments) setDepartments(prev => prev.length > 0 ? prev : firestoreData.departments);
-          if (firestoreData.leavePolicies) setLeavePolicies(prev => prev.length > 0 ? prev : firestoreData.leavePolicies);
+          if (firestoreData.departments && firestoreData.departments.length > 0) setDepartments(firestoreData.departments);
+          if (firestoreData.leavePolicies && firestoreData.leavePolicies.length > 0) setLeavePolicies(firestoreData.leavePolicies);
           if (firestoreData.notifications) setNotifications(firestoreData.notifications);
-          if (firestoreData.auditLogs) setAuditLogs(prev => prev.length > 0 ? prev : firestoreData.auditLogs);
+          if (firestoreData.auditLogs) setAuditLogs(firestoreData.auditLogs);
           if (firestoreData.emailLogs) setEmailLogs(firestoreData.emailLogs);
           if (firestoreData.systemSettings) setSystemSettings(firestoreData.systemSettings);
         }
@@ -1209,6 +1206,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.filter(u => u.id !== userId));
     deleteDocFromFirestore('users', userId);
+    deleteNeonDoc('users', userId).catch(() => {});
     addAuditLog(currentUser, 'USER_DELETED', `Deleted user account for ${target.name} (${target.email}, ${target.role}).`);
 
     return { success: true, message: `Successfully deleted account for ${target.name} (${target.email}).` };
@@ -1981,6 +1979,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     leaveRequests.forEach(req => {
       deleteDocFromFirestore('leaveRequests', req.id);
     });
+    deleteNeonDoc('clearAllRequests', '').catch(() => {});
 
     setLeaveRequests([]);
     localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
