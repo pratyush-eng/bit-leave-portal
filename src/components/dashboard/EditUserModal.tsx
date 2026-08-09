@@ -98,6 +98,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
             <h3 className="text-lg font-bold mt-1">Modify Registered User</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >

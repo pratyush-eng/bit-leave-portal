@@ -591,6 +591,37 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(map.values());
   }
 
+  function isDeepEqual(obj1: any, obj2: any): boolean {
+    if (obj1 === obj2) return true;
+    if (obj1 === null || obj1 === undefined || obj2 === null || obj2 === undefined) {
+      return obj1 === obj2;
+    }
+    if (typeof obj1 !== typeof obj2) return false;
+    if (typeof obj1 !== 'object') return obj1 === obj2;
+
+    if (Array.isArray(obj1) !== Array.isArray(obj2)) return false;
+
+    if (Array.isArray(obj1)) {
+      if (obj1.length !== obj2.length) return false;
+      for (let i = 0; i < obj1.length; i++) {
+        if (!isDeepEqual(obj1[i], obj2[i])) return false;
+      }
+      return true;
+    }
+
+    const keys1 = Object.keys(obj1).filter(k => obj1[k] !== undefined);
+    const keys2 = Object.keys(obj2).filter(k => obj2[k] !== undefined);
+
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+      if (!Object.prototype.hasOwnProperty.call(obj2, key)) return false;
+      if (!isDeepEqual(obj1[key], obj2[key])) return false;
+    }
+
+    return true;
+  }
+
   // Load initial data directly from Cloud PostgreSQL (Neon DB) & subscribe to real-time sync
   useEffect(() => {
     let mounted = true;
@@ -611,23 +642,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   : (existing?.password || nu.password || 'password123');
                 return { ...nu, password };
               });
-              return JSON.stringify(nextUsers) === JSON.stringify(prev) ? prev : nextUsers;
+              return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
             });
           }
           if (Array.isArray(neonData.leaveRequests)) {
             setLeaveRequests(prev => {
               const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
-              return JSON.stringify(normalized) === JSON.stringify(prev) ? prev : normalized;
+              return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
           if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
-            setDepartments(prev => JSON.stringify(neonData.departments) === JSON.stringify(prev) ? prev : neonData.departments);
+            setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
           }
           if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
-            setLeavePolicies(prev => JSON.stringify(neonData.leavePolicies) === JSON.stringify(prev) ? prev : neonData.leavePolicies);
+            setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
           }
           if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
-            setAuditLogs(prev => JSON.stringify(neonData.auditLogs) === JSON.stringify(prev) ? prev : neonData.auditLogs);
+            setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
           }
         }
       } catch (err) {
@@ -640,31 +671,31 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted) return;
         if (firestoreData) {
           if (firestoreData.users && firestoreData.users.length > 0) {
-            setAllUsers(prev => JSON.stringify(firestoreData.users) === JSON.stringify(prev) ? prev : firestoreData.users);
+            setAllUsers(prev => isDeepEqual(firestoreData.users, prev) ? prev : firestoreData.users);
           }
           if (firestoreData.leaveRequests) {
             setLeaveRequests(prev => {
               const normalized = normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments);
-              return JSON.stringify(normalized) === JSON.stringify(prev) ? prev : normalized;
+              return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
           if (firestoreData.departments && firestoreData.departments.length > 0) {
-            setDepartments(prev => JSON.stringify(firestoreData.departments) === JSON.stringify(prev) ? prev : firestoreData.departments);
+            setDepartments(prev => isDeepEqual(firestoreData.departments, prev) ? prev : firestoreData.departments);
           }
           if (firestoreData.leavePolicies && firestoreData.leavePolicies.length > 0) {
-            setLeavePolicies(prev => JSON.stringify(firestoreData.leavePolicies) === JSON.stringify(prev) ? prev : firestoreData.leavePolicies);
+            setLeavePolicies(prev => isDeepEqual(firestoreData.leavePolicies, prev) ? prev : firestoreData.leavePolicies);
           }
           if (firestoreData.notifications) {
-            setNotifications(prev => JSON.stringify(firestoreData.notifications) === JSON.stringify(prev) ? prev : firestoreData.notifications);
+            setNotifications(prev => isDeepEqual(firestoreData.notifications, prev) ? prev : firestoreData.notifications);
           }
           if (firestoreData.auditLogs) {
-            setAuditLogs(prev => JSON.stringify(firestoreData.auditLogs) === JSON.stringify(prev) ? prev : firestoreData.auditLogs);
+            setAuditLogs(prev => isDeepEqual(firestoreData.auditLogs, prev) ? prev : firestoreData.auditLogs);
           }
           if (firestoreData.emailLogs) {
-            setEmailLogs(prev => JSON.stringify(firestoreData.emailLogs) === JSON.stringify(prev) ? prev : firestoreData.emailLogs);
+            setEmailLogs(prev => isDeepEqual(firestoreData.emailLogs, prev) ? prev : firestoreData.emailLogs);
           }
           if (firestoreData.systemSettings) {
-            setSystemSettings(prev => JSON.stringify(firestoreData.systemSettings) === JSON.stringify(prev) ? prev : firestoreData.systemSettings);
+            setSystemSettings(prev => isDeepEqual(firestoreData.systemSettings, prev) ? prev : firestoreData.systemSettings);
           }
         }
       } catch (_e) {}
@@ -686,30 +717,30 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 : (existing?.password || nu.password || 'password123');
               return { ...nu, password };
             });
-            return JSON.stringify(nextUsers) === JSON.stringify(prev) ? prev : nextUsers;
+            return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
           });
         }
         if (Array.isArray(neonData.leaveRequests)) {
           setLeaveRequests(prev => {
             const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
-            return JSON.stringify(normalized) === JSON.stringify(prev) ? prev : normalized;
+            return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
         if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
-          setDepartments(prev => JSON.stringify(neonData.departments) === JSON.stringify(prev) ? prev : neonData.departments);
+          setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
         }
         if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
-          setLeavePolicies(prev => JSON.stringify(neonData.leavePolicies) === JSON.stringify(prev) ? prev : neonData.leavePolicies);
+          setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
         }
         if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
-          setAuditLogs(prev => JSON.stringify(neonData.auditLogs) === JSON.stringify(prev) ? prev : neonData.auditLogs);
+          setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
         }
       }).catch(_err => {});
     }, 15000);
 
     const unsubscribeSettings = subscribeToSystemSettings((updatedSettings) => {
       if (mounted && updatedSettings) {
-        setSystemSettings(prev => JSON.stringify(updatedSettings) === JSON.stringify(prev) ? prev : updatedSettings);
+        setSystemSettings(prev => isDeepEqual(updatedSettings, prev) ? prev : updatedSettings);
       }
     });
 
@@ -718,44 +749,44 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setLeaveRequests(prev => {
           const normalizedRemote = normalizeLeaveRequests(items, allUsers, departments);
           const merged = mergeById(normalizedRemote, prev);
-          return JSON.stringify(merged) === JSON.stringify(prev) ? prev : merged;
+          return isDeepEqual(merged, prev) ? prev : merged;
         });
       }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
       if (mounted && items && items.length > 0) {
-        setAllUsers(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setAllUsers(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
       if (mounted && items && items.length > 0) {
-        setDepartments(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setDepartments(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
       if (mounted && items && items.length > 0) {
-        setLeavePolicies(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setLeavePolicies(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
       if (mounted && items) {
-        setNotifications(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setNotifications(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
       if (mounted && items) {
-        setAuditLogs(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setAuditLogs(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
       if (mounted && items) {
-        setEmailLogs(prev => JSON.stringify(items) === JSON.stringify(prev) ? prev : items);
+        setEmailLogs(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
