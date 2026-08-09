@@ -602,7 +602,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (neonData) {
           if (Array.isArray(neonData.users) && neonData.users.length > 0) {
-            setAllUsers(neonData.users);
+            setAllUsers((prev: User[]) => {
+              const prevMap = new Map<string, User>(prev.map((u: User) => [u.id, u]));
+              return neonData.users.map((nu: any) => {
+                const existing = prevMap.get(nu.id);
+                const password = (nu.password && nu.password !== 'password123') 
+                  ? nu.password 
+                  : (existing?.password || nu.password || 'password123');
+                return { ...nu, password };
+              });
+            });
           }
           if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
             const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
@@ -651,7 +660,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fetchNeonData().then(neonData => {
         if (!mounted || !neonData) return;
         if (Array.isArray(neonData.users) && neonData.users.length > 0) {
-          setAllUsers(neonData.users);
+          setAllUsers((prev: User[]) => {
+            const prevMap = new Map<string, User>(prev.map((u: User) => [u.id, u]));
+            return neonData.users.map((nu: any) => {
+              const existing = prevMap.get(nu.id);
+              const password = (nu.password && nu.password !== 'password123') 
+                ? nu.password 
+                : (existing?.password || nu.password || 'password123');
+              return { ...nu, password };
+            });
+          });
         }
         if (Array.isArray(neonData.leaveRequests)) {
           const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
@@ -769,7 +787,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (password && password !== expectedPassword) {
       return { 
         success: false, 
-        message: 'Incorrect password entered. (Demo default password is "password123").' 
+        message: 'Incorrect password entered. Please check your new password and try again.' 
       };
     }
     setCurrentUserId(matched.id);
@@ -950,6 +968,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === activeUser.id ? updatedUser : u));
     saveDocToFirestore('users', activeUser.id, updatedUser);
+    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
     addAuditLog(activeUser, 'PASSWORD_CHANGED', `Changed security login password for ${activeUser.name} (${activeUser.email}).`);
 
     addToast({
@@ -976,6 +995,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToFirestore('users', userId, updatedUser);
+    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'ADMIN_RESET_PASSWORD', `Admin reset password for user ${target.name} (${target.email}, ${target.role}).`);
 
     addToast({
@@ -1156,6 +1176,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setAllUsers(prev => prev.map(u => u.id === matchedUser!.id ? updatedUser : u));
       saveDocToFirestore('users', matchedUser.id, updatedUser);
+      syncDataToNeon({ users: [updatedUser] }).catch(() => {});
       addAuditLog(matchedUser, 'SELF_PASSWORD_RESET', `User ${matchedUser.name} (${matchedUser.email}) reset account password via 6-digit email security code.`);
 
       try {

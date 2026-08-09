@@ -134,7 +134,14 @@ export async function loadOrSeedFirestoreData(): Promise<{
     }
 
     const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', MOCK_USERS, 'id');
-    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
+    const rawRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
+    const idsToRemove = ['LV-2026-100', 'LV-2026-101', 'LV-2026-103'];
+    const leaveRequests = rawRequests.filter(r => !idsToRemove.includes(r.id));
+    
+    // Purge target IDs from Firestore if present
+    for (const targetId of idsToRemove) {
+      deleteDocFromFirestore('leaveRequests', targetId).catch(() => {});
+    }
     const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
     const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
     const notifications = await getOrSeedCollection<Notification>('notifications', 'academia_leave_notifications_v1', INITIAL_NOTIFICATIONS, 'id');

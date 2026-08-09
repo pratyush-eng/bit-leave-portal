@@ -21,9 +21,13 @@ async function ensureClientTables() {
         phone TEXT,
         avatar_url TEXT,
         account_status TEXT,
+        password TEXT,
         leave_balances JSONB
       )
     `;
+    try {
+      await sqlClient`ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;`;
+    } catch (_pErr) {}
     await sqlClient`
       CREATE TABLE IF NOT EXISTS leave_requests (
         id TEXT PRIMARY KEY,
@@ -303,7 +307,7 @@ export async function syncDataToNeon(dataPayload: {
     for (const u of users) {
       if (!u || !u.id) continue;
       await sqlClient`
-        INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, leave_balances)
+        INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, password, leave_balances)
         VALUES (
           ${u.id},
           ${u.name || ''},
@@ -317,6 +321,7 @@ export async function syncDataToNeon(dataPayload: {
           ${u.phone || null},
           ${u.avatarUrl || null},
           ${u.accountStatus || 'ACTIVE'},
+          ${u.password || 'password123'},
           ${JSON.stringify(u.leaveBalances || {})}
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -331,6 +336,7 @@ export async function syncDataToNeon(dataPayload: {
           phone = EXCLUDED.phone,
           avatar_url = EXCLUDED.avatar_url,
           account_status = EXCLUDED.account_status,
+          password = EXCLUDED.password,
           leave_balances = EXCLUDED.leave_balances
       `;
       usersSynced++;
@@ -529,6 +535,7 @@ export async function fetchNeonData() {
       phone: u.phone,
       avatarUrl: u.avatar_url,
       accountStatus: u.account_status,
+      password: u.password || 'password123',
       leaveBalances: typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {})
     }));
 

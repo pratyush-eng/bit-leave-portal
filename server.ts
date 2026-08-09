@@ -22,9 +22,14 @@ async function ensureNeonTables(sql: any) {
         phone TEXT,
         avatar_url TEXT,
         account_status TEXT,
+        password TEXT,
         leave_balances JSONB
       )
     `;
+
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;`;
+    } catch (_pErr) {}
 
     await sql`
       CREATE TABLE IF NOT EXISTS leave_requests (
@@ -104,6 +109,13 @@ async function ensureNeonTables(sql: any) {
         ip_address TEXT
       )
     `;
+
+    // Remove specific leave requests requested by user
+    try {
+      await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103');`;
+    } catch (_e) {
+      console.warn("[Delete Requests Error]", _e);
+    }
   } catch (err) {
     console.warn("[Ensure Neon Tables Warning]", err);
   }
@@ -231,7 +243,7 @@ async function startServer() {
       for (const u of users) {
         if (!u || !u.id) continue;
         await sql`
-          INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, leave_balances)
+          INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, password, leave_balances)
           VALUES (
             ${u.id},
             ${u.name || ''},
@@ -245,6 +257,7 @@ async function startServer() {
             ${u.phone || null},
             ${u.avatarUrl || null},
             ${u.accountStatus || 'ACTIVE'},
+            ${u.password || 'password123'},
             ${JSON.stringify(u.leaveBalances || {})}
           )
           ON CONFLICT (id) DO UPDATE SET
@@ -259,6 +272,7 @@ async function startServer() {
             phone = EXCLUDED.phone,
             avatar_url = EXCLUDED.avatar_url,
             account_status = EXCLUDED.account_status,
+            password = EXCLUDED.password,
             leave_balances = EXCLUDED.leave_balances
         `;
         usersSynced++;
@@ -450,6 +464,7 @@ async function startServer() {
         phone: u.phone,
         avatarUrl: u.avatar_url,
         accountStatus: u.account_status,
+        password: u.password || 'password123',
         leaveBalances: typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {})
       }));
 

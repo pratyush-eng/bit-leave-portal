@@ -283,34 +283,6 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
     ]
   },
   {
-    id: 'LV-2026-103',
-    applicantId: 'usr_6',
-    applicantName: 'Dr. Ananya Sen',
-    applicantEmail: 'ananya.sen@institution.edu',
-    applicantEmployeeCode: 'FAC-2021-088',
-    applicantDesignation: 'Assistant Professor',
-    applicantRole: 'FACULTY',
-    departmentId: 'ECE',
-    departmentName: 'Electronics & Communication',
-    leaveType: 'DUTY',
-    startDate: '2026-08-10',
-    endDate: '2026-08-12',
-    totalDays: 3,
-    isHalfDay: false,
-    reason: 'Presenting research paper at IEEE International Conference on VLSI Design in Bengaluru.',
-    contactPhone: '+91 91234 56789',
-    documentUrl: 'https://example.com/docs/ieee_acceptance_letter.pdf',
-    status: 'PENDING_REGISTRAR',
-    appliedOn: '2026-07-28',
-    hodApproval: {
-      actionBy: 'usr_8',
-      actionByName: 'Dr. Ramesh Iyer (ECE HOD)',
-      actionDate: '2026-07-29 11:30 AM',
-      status: 'RECOMMENDED',
-      comments: 'Recommended. Paper presentation enhances department research output. Alternate class arrangement verified.'
-    }
-  },
-  {
     id: 'LV-2026-102',
     applicantId: 'usr_7',
     applicantName: 'Mr. Suresh Patil',
@@ -342,72 +314,6 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
       actionDate: '2026-07-20 09:45 AM',
       status: 'APPROVED',
       comments: 'Sanctioned under Sick Leave rules.'
-    }
-  },
-  {
-    id: 'LV-2026-101',
-    applicantId: 'usr_1',
-    applicantName: 'Prof. Rajesh Kumar',
-    applicantEmail: 'rajesh.kumar@institution.edu',
-    applicantEmployeeCode: 'FAC-2018-042',
-    applicantDesignation: 'Associate Professor',
-    applicantRole: 'FACULTY',
-    departmentId: 'CSE',
-    departmentName: 'Computer Science & Engineering',
-    leaveType: 'EARNED',
-    startDate: '2026-06-15',
-    endDate: '2026-06-19',
-    totalDays: 5,
-    isHalfDay: false,
-    reason: 'Annual summer vacation and family visit.',
-    status: 'APPROVED',
-    appliedOn: '2026-06-01',
-    hodApproval: {
-      actionBy: 'usr_2',
-      actionByName: 'Dr. Sunita Verma (CSE HOD)',
-      actionDate: '2026-06-02 10:00 AM',
-      status: 'RECOMMENDED',
-      comments: 'Recommended. Summer semester classes concluded.'
-    },
-    registrarApproval: {
-      actionBy: 'usr_3',
-      actionByName: 'Dr. A. K. Kapoor (Registrar)',
-      actionDate: '2026-06-03 04:20 PM',
-      status: 'APPROVED',
-      comments: 'Sanctioned 5 days Earned Leave.'
-    }
-  },
-  {
-    id: 'LV-2026-100',
-    applicantId: 'usr_1',
-    applicantName: 'Prof. Rajesh Kumar',
-    applicantEmail: 'rajesh.kumar@institution.edu',
-    applicantEmployeeCode: 'FAC-2018-042',
-    applicantDesignation: 'Associate Professor',
-    applicantRole: 'FACULTY',
-    departmentId: 'CSE',
-    departmentName: 'Computer Science & Engineering',
-    leaveType: 'CASUAL',
-    startDate: '2026-05-12',
-    endDate: '2026-05-15',
-    totalDays: 4,
-    isHalfDay: false,
-    reason: 'Personal affairs and RTO documentation.',
-    status: 'APPROVED',
-    appliedOn: '2026-05-11',
-    hodApproval: {
-      actionBy: 'usr_2',
-      actionByName: 'Dr. Sunita Verma',
-      actionDate: '2026-05-11 05:00 PM',
-      status: 'RECOMMENDED',
-      comments: 'Recommended.'
-    },
-    registrarApproval: {
-      actionBy: 'usr_3',
-      actionByName: 'Dr. A. K. Kapoor',
-      actionDate: '2026-05-12 09:00 AM',
-      status: 'APPROVED',
-      comments: '4 days Casual leave approved.'
     }
   }
 ];
