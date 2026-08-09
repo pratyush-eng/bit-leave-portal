@@ -497,3 +497,99 @@ export async function sendAuditLogToNeon(log: any) {
     return { success: false, error: err?.message };
   }
 }
+
+/**
+ * Fetch all records directly from Cloud PostgreSQL (Neon DB)
+ */
+export async function fetchNeonData() {
+  const backendData = await safeJsonFetch('/api/neon/data');
+  if (backendData && Array.isArray(backendData.users) && backendData.users.length > 0) {
+    return backendData;
+  }
+
+  // Fallback direct browser query over HTTPS
+  try {
+    await ensureClientTables();
+    const rawUsers = await sqlClient`SELECT * FROM users`;
+    const rawRequests = await sqlClient`SELECT * FROM leave_requests`;
+    const rawDepartments = await sqlClient`SELECT * FROM departments`;
+    const rawPolicies = await sqlClient`SELECT * FROM leave_policies`;
+    const rawAuditLogs = await sqlClient`SELECT * FROM audit_logs`;
+
+    const users = rawUsers.map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      designation: u.designation,
+      departmentId: u.department_id,
+      departmentName: u.department_name,
+      employeeCode: u.employee_code,
+      joiningDate: u.joining_date,
+      phone: u.phone,
+      avatarUrl: u.avatar_url,
+      accountStatus: u.account_status,
+      leaveBalances: typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {})
+    }));
+
+    const leaveRequests = rawRequests.map((r: any) => ({
+      id: r.id,
+      applicantId: r.applicant_id,
+      applicantName: r.applicant_name,
+      applicantEmail: r.applicant_email,
+      applicantDesignation: r.applicant_designation,
+      applicantEmployeeCode: r.applicant_employee_code,
+      departmentId: r.department_id,
+      departmentName: r.department_name,
+      leaveType: r.leave_type,
+      startDate: r.start_date,
+      endDate: r.end_date,
+      totalDays: r.total_days,
+      reason: r.reason,
+      contactAddress: r.contact_address,
+      contactPhone: r.contact_phone,
+      documentUrl: r.document_url,
+      status: r.status,
+      appliedOn: r.applied_on,
+      hodApproval: typeof r.hod_approval === 'string' ? JSON.parse(r.hod_approval) : r.hod_approval,
+      registrarApproval: typeof r.registrar_approval === 'string' ? JSON.parse(r.registrar_approval) : r.registrar_approval,
+      classHandovers: typeof r.class_handovers === 'string' ? JSON.parse(r.class_handovers) : r.class_handovers
+    }));
+
+    const departments = rawDepartments.map((d: any) => ({
+      id: d.id,
+      code: d.code,
+      name: d.name,
+      hodId: d.hod_id,
+      hodName: d.hod_name,
+      totalFaculty: d.total_faculty
+    }));
+
+    const leavePolicies = rawPolicies.map((p: any) => ({
+      type: p.type,
+      label: p.label,
+      annualQuota: p.annual_quota,
+      minDaysNotice: p.min_days_notice,
+      requiresDocument: p.requires_document,
+      color: p.color,
+      description: p.description
+    }));
+
+    const auditLogs = rawAuditLogs.map((a: any) => ({
+      id: a.id,
+      timestamp: a.timestamp,
+      actorId: a.actor_id,
+      actorName: a.actor_name,
+      actorRole: a.actor_role,
+      action: a.action,
+      details: a.details,
+      ipAddress: a.ip_address
+    }));
+
+    return { users, leaveRequests, departments, leavePolicies, auditLogs };
+  } catch (err) {
+    console.warn('[Fetch Neon Data Error]', err);
+    return null;
+  }
+}
+

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
-import { sendAuditLogToNeon, syncDataToNeon } from '../lib/neonClient';
+import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -591,25 +591,83 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(map.values());
   }
 
-  // Load or seed initial data from Firebase Firestore on boot & subscribe to real-time central database updates across all browsers
+  // Load initial data directly from Cloud PostgreSQL (Neon DB) & subscribe to real-time sync
   useEffect(() => {
     let mounted = true;
-    loadOrSeedFirestoreData().then((data) => {
-      if (!mounted) return;
-      if (data.users) setAllUsers(data.users);
-      if (data.leaveRequests) {
-        setLeaveRequests(prev => {
-          const normalizedRemote = normalizeLeaveRequests(data.leaveRequests, data.users || allUsers, data.departments || departments);
-          return mergeById(normalizedRemote, prev);
-        });
+
+    const loadFromCloudPg = async () => {
+      try {
+        const neonData = await fetchNeonData();
+        if (!mounted) return;
+
+        if (neonData) {
+          if (Array.isArray(neonData.users) && neonData.users.length > 0) {
+            setAllUsers(neonData.users);
+          }
+          if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
+            const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
+            setLeaveRequests(normalized);
+          }
+          if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
+            setDepartments(neonData.departments);
+          }
+          if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
+            setLeavePolicies(neonData.leavePolicies);
+          }
+          if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
+            setAuditLogs(neonData.auditLogs);
+          }
+        }
+      } catch (err) {
+        console.warn("[Cloud PostgreSQL Direct Load Error]", err);
       }
-      if (data.departments) setDepartments(data.departments);
-      if (data.leavePolicies) setLeavePolicies(data.leavePolicies);
-      if (data.notifications) setNotifications(data.notifications);
-      if (data.auditLogs) setAuditLogs(data.auditLogs);
-      if (data.emailLogs) setEmailLogs(data.emailLogs);
-      if (data.systemSettings) setSystemSettings(data.systemSettings);
-    });
+
+      // Fallback/secondary sync with Firestore if Cloud PostgreSQL is initializing
+      try {
+        const firestoreData = await loadOrSeedFirestoreData();
+        if (!mounted) return;
+        if (firestoreData) {
+          if (firestoreData.users) setAllUsers(prev => prev.length > 0 ? prev : firestoreData.users);
+          if (firestoreData.leaveRequests) {
+            setLeaveRequests(prev => {
+              if (prev.length > 0) return prev;
+              return normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments);
+            });
+          }
+          if (firestoreData.departments) setDepartments(prev => prev.length > 0 ? prev : firestoreData.departments);
+          if (firestoreData.leavePolicies) setLeavePolicies(prev => prev.length > 0 ? prev : firestoreData.leavePolicies);
+          if (firestoreData.notifications) setNotifications(firestoreData.notifications);
+          if (firestoreData.auditLogs) setAuditLogs(prev => prev.length > 0 ? prev : firestoreData.auditLogs);
+          if (firestoreData.emailLogs) setEmailLogs(firestoreData.emailLogs);
+          if (firestoreData.systemSettings) setSystemSettings(firestoreData.systemSettings);
+        }
+      } catch (_e) {}
+    };
+
+    loadFromCloudPg();
+
+    // Poll Cloud PostgreSQL every 10 seconds for real-time direct database updates
+    const pgPollInterval = setInterval(() => {
+      fetchNeonData().then(neonData => {
+        if (!mounted || !neonData) return;
+        if (Array.isArray(neonData.users) && neonData.users.length > 0) {
+          setAllUsers(neonData.users);
+        }
+        if (Array.isArray(neonData.leaveRequests)) {
+          const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
+          setLeaveRequests(normalized);
+        }
+        if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
+          setDepartments(neonData.departments);
+        }
+        if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
+          setLeavePolicies(neonData.leavePolicies);
+        }
+        if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
+          setAuditLogs(neonData.auditLogs);
+        }
+      }).catch(_err => {});
+    }, 10000);
 
     const unsubscribeSettings = subscribeToSystemSettings((updatedSettings) => {
       if (mounted && updatedSettings) {
@@ -654,6 +712,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       mounted = false;
+      clearInterval(pgPollInterval);
       if (unsubscribeSettings) unsubscribeSettings();
       if (unsubscribeRequests) unsubscribeRequests();
       if (unsubscribeUsers) unsubscribeUsers();
