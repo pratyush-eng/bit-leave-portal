@@ -21,39 +21,87 @@ import {
   Building2,
   Lock,
   Trash2,
-  ShieldAlert
+  ShieldAlert,
+  UserCheck,
+  User as UserIcon
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { currentUser, leaveRequests, departments, leavePolicies, clearSanctionLogs, systemSettings } = useLeave();
+  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, systemSettings } = useLeave();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isRegistrar = currentUser?.role === 'REGISTRAR';
+  const isHod = currentUser?.role === 'HOD';
   const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
-  const isDeptRestricted = isDeptAdmin || (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'REGISTRAR');
+  const isFacultyOrStaff = currentUser?.role === 'FACULTY' || currentUser?.role === 'STAFF';
+  const isDeptRestricted = isDeptAdmin || isHod;
+  
   const userDeptId = currentUser?.departmentId;
   const userDeptObj = departments.find(d => d.id === userDeptId);
 
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
+  const [staffFilter, setStaffFilter] = useState<string>('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>('ALL');
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isDeptRestricted && userDeptId) {
+    if ((isDeptRestricted || isFacultyOrStaff) && userDeptId) {
       setDepartmentFilter(userDeptId);
     }
-  }, [isDeptRestricted, userDeptId]);
+  }, [isDeptRestricted, isFacultyOrStaff, userDeptId]);
 
-  const effectiveDeptFilter = (isDeptRestricted && userDeptId) ? userDeptId : departmentFilter;
+  const effectiveDeptFilter = (isDeptRestricted || isFacultyOrStaff) && userDeptId ? userDeptId : departmentFilter;
+  const effectiveStaffFilter = isFacultyOrStaff ? currentUser.id : staffFilter;
+
+  // Selected target staff/faculty user
+  const selectedStaffUser = effectiveStaffFilter === 'ALL' 
+    ? null 
+    : (allUsers.find(u => u.id === effectiveStaffFilter) || (isFacultyOrStaff ? currentUser : null));
+
+  // Staff/Faculty matching logic
+  const matchesStaff = (r: any) => {
+    if (effectiveStaffFilter === 'ALL') return true;
+    if (!r) return false;
+
+    if (selectedStaffUser) {
+      const cleanReqEmail = (r.applicantEmail || '').toLowerCase().trim();
+      const cleanUserEmail = (selectedStaffUser.email || '').toLowerCase().trim();
+      const cleanReqCode = (r.applicantEmployeeCode || '').toLowerCase().trim();
+      const cleanUserCode = (selectedStaffUser.employeeCode || '').toLowerCase().trim();
+      const cleanReqName = (r.applicantName || '').toLowerCase().trim();
+      const cleanUserName = (selectedStaffUser.name || '').toLowerCase().trim();
+
+      return (
+        (r.applicantId && r.applicantId === selectedStaffUser.id) ||
+        (cleanReqEmail && cleanUserEmail && cleanReqEmail === cleanUserEmail) ||
+        (cleanReqCode && cleanUserCode && cleanReqCode === cleanUserCode) ||
+        (cleanReqName && cleanUserName && cleanReqName === cleanUserName)
+      );
+    }
+
+    return r.applicantId === effectiveStaffFilter;
+  };
 
   // Requests scoped by department selection / restriction
-  const scopedRequests = leaveRequests.filter(r => {
+  const deptScopedRequests = leaveRequests.filter(r => {
     if (effectiveDeptFilter !== 'ALL' && r.departmentId !== effectiveDeptFilter) return false;
     return true;
   });
 
-  // Filtered requests (department + leave type)
+  // Requests scoped staff/faculty-wise
+  const scopedRequests = deptScopedRequests.filter(matchesStaff);
+
+  // Filtered requests (department + staff/faculty + leave type)
   const filteredRequests = scopedRequests.filter(r => {
     if (leaveTypeFilter !== 'ALL' && r.leaveType !== leaveTypeFilter) return false;
+    return true;
+  });
+
+  // Eligible Staff / Faculty members for dropdown filter
+  const eligibleStaffUsers = allUsers.filter(u => {
+    if (effectiveDeptFilter !== 'ALL') {
+      return u.departmentId === effectiveDeptFilter || (userDeptObj && u.departmentId === userDeptObj.code);
+    }
     return true;
   });
 
@@ -63,7 +111,7 @@ export const AnalyticsReports: React.FC = () => {
     : departments.filter(d => d.id === effectiveDeptFilter);
 
   const deptData = displayedDepts.map(d => {
-    const dReqs = leaveRequests.filter(r => r.departmentId === d.id);
+    const dReqs = scopedRequests.filter(r => r.departmentId === d.id);
     const approved = dReqs.filter(r => r.status === 'APPROVED').length;
     const pending = dReqs.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR').length;
     const totalDays = dReqs.filter(r => r.status === 'APPROVED').reduce((acc, r) => acc + r.totalDays, 0);
@@ -157,16 +205,23 @@ export const AnalyticsReports: React.FC = () => {
             Analytical Leave Summary & Historical Reports
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isDeptRestricted 
-              ? `Department analytics & reports restricted to ${userDeptObj ? userDeptObj.name : userDeptId}` 
-              : 'Institutional metrics, department absence trends, and exportable data logs'}
+            {isFacultyOrStaff
+              ? `Personal leave analytics & sanction logs for ${currentUser.name}`
+              : isDeptRestricted 
+                ? `Department analytics & reports restricted to ${userDeptObj ? userDeptObj.name : userDeptId}` 
+                : 'Institutional metrics, department absence trends, and exportable data logs'}
           </p>
-          {isDeptRestricted && (
+          {isFacultyOrStaff ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-full text-xs font-semibold mt-2">
+              <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+              Faculty / Staff Scope: <strong className="text-indigo-950">{currentUser.name} ({currentUser.employeeCode || 'Self'})</strong>
+            </div>
+          ) : isDeptRestricted ? (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-full text-xs font-semibold mt-2">
               <Lock className="w-3.5 h-3.5 text-indigo-600" />
               Department Restricted View: <strong className="text-indigo-950">{userDeptObj ? userDeptObj.name : userDeptId} ({userDeptObj?.code || userDeptId})</strong>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 no-print">
@@ -321,7 +376,7 @@ export const AnalyticsReports: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 no-print">
             <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
               <span className="text-slate-400">Dept:</span>
-              {isDeptRestricted ? (
+              {(isDeptRestricted || isFacultyOrStaff) ? (
                 <span className="font-bold text-indigo-900 flex items-center gap-1">
                   <Lock className="w-3 h-3 text-indigo-600" />
                   {userDeptObj ? `${userDeptObj.name} (${userDeptObj.code})` : userDeptId}
@@ -329,7 +384,10 @@ export const AnalyticsReports: React.FC = () => {
               ) : (
                 <select
                   value={effectiveDeptFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  onChange={(e) => {
+                    setDepartmentFilter(e.target.value);
+                    setStaffFilter('ALL');
+                  }}
                   className="font-semibold text-slate-800 bg-transparent focus:outline-none"
                 >
                   <option value="ALL">All Departments</option>
@@ -339,6 +397,30 @@ export const AnalyticsReports: React.FC = () => {
                 </select>
               )}
             </div>
+
+            {/* Staff / Faculty Wise Filter */}
+            {isFacultyOrStaff ? (
+              <div className="flex items-center gap-1.5 bg-[#3F51B5]/10 border border-[#3F51B5]/20 px-3 py-1.5 rounded-xl text-xs text-[#3F51B5] font-bold">
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Scope: {currentUser.name} ({currentUser.employeeCode || 'Faculty/Staff'})</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
+                <span className="text-slate-400 font-medium">Faculty/Staff:</span>
+                <select
+                  value={staffFilter}
+                  onChange={(e) => setStaffFilter(e.target.value)}
+                  className="font-semibold text-slate-800 bg-transparent focus:outline-none max-w-[180px] truncate"
+                >
+                  <option value="ALL">All Faculty & Staff</option>
+                  {eligibleStaffUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.employeeCode || u.designation || u.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs">
               <span className="text-slate-400">Type:</span>
