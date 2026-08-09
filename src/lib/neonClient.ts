@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 export const NEON_DB_URL = "postgresql://neondb_owner:npg_2nbd1fBtRchx@ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech/bit_leave_portal?sslmode=require";
 
 // Direct client instance for fallback when backend /api routes are unavailable (e.g., GitHub Pages)
-const sqlClient = neon(NEON_DB_URL);
+const sqlClient = neon(NEON_DB_URL, { disableWarningInBrowsers: true });
 
 async function ensureClientTables() {
   try {
@@ -118,18 +118,30 @@ async function ensureClientTables() {
   }
 }
 
+let backendApiSupported: boolean | null = null;
+
 /**
  * Safely parse response if JSON, returning null if HTML (e.g. 404 page on GitHub Pages)
  */
 async function safeJsonFetch(url: string, options?: RequestInit) {
+  if (backendApiSupported === false) {
+    return null;
+  }
   try {
     const res = await fetch(url, options);
+    if (!res.ok) {
+      if (res.status === 404) {
+        backendApiSupported = false;
+      }
+      return null;
+    }
     const contentType = res.headers.get('content-type');
-    if (res.ok && contentType && contentType.includes('application/json')) {
+    if (contentType && contentType.includes('application/json')) {
+      backendApiSupported = true;
       return await res.json();
     }
   } catch {
-    // Network or API unavailable
+    backendApiSupported = false;
   }
   return null;
 }

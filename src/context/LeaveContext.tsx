@@ -703,7 +703,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     loadFromCloudPg();
 
-    // Poll Cloud PostgreSQL asynchronously every 15 seconds for real-time updates without forcing re-renders if unchanged
+    // Poll Cloud PostgreSQL asynchronously every 4 seconds for real-time updates without forcing re-renders if unchanged
     const pgPollInterval = setInterval(() => {
       fetchNeonData().then(neonData => {
         if (!mounted || !neonData) return;
@@ -736,7 +736,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
         }
       }).catch(_err => {});
-    }, 15000);
+    }, 4000);
 
     const unsubscribeSettings = subscribeToSystemSettings((updatedSettings) => {
       if (mounted && updatedSettings) {
@@ -843,7 +843,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return () => clearTimeout(timer);
     }
-  }, [auditLogs.length, allUsers.length, leaveRequests.length]);
+  }, [auditLogs, allUsers, leaveRequests, departments, leavePolicies]);
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const matched = allUsers.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
