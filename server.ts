@@ -110,6 +110,18 @@ async function ensureNeonTables(sql: any) {
       )
     `;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS leave_balances (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        leave_type TEXT NOT NULL,
+        total_quota NUMERIC DEFAULT 0,
+        used_days NUMERIC DEFAULT 0,
+        pending_days NUMERIC DEFAULT 0,
+        updated_at TEXT
+      )
+    `;
+
     // Remove specific leave requests requested by user
     try {
       await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103');`;
@@ -156,6 +168,7 @@ async function startServer() {
       let requestCount = 0;
       let deptCount = 0;
       let auditLogCount = 0;
+      let balanceCount = 0;
 
       if (tableNames.includes("users")) {
         const users = await sql`SELECT COUNT(*)::int as count FROM users`;
@@ -177,6 +190,11 @@ async function startServer() {
         auditLogCount = logs[0]?.count || 0;
       }
 
+      if (tableNames.includes("leave_balances")) {
+        const bals = await sql`SELECT COUNT(*)::int as count FROM leave_balances`;
+        balanceCount = bals[0]?.count || 0;
+      }
+
       return res.json({
         connected: true,
         database: "bit_leave_portal",
@@ -186,7 +204,8 @@ async function startServer() {
           users: userCount,
           leaveRequests: requestCount,
           departments: deptCount,
-          auditLogs: auditLogCount
+          auditLogs: auditLogCount,
+          leaveBalances: balanceCount
         }
       });
     } catch (err: any) {
@@ -204,13 +223,14 @@ async function startServer() {
       const sql = neon(NEON_DB_URL);
       await ensureNeonTables(sql);
 
-      const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [] } = req.body || {};
+      const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [] } = req.body || {};
 
       let usersSynced = 0;
       let requestsSynced = 0;
       let deptsSynced = 0;
       let policiesSynced = 0;
       let auditLogsSynced = 0;
+      let balancesSynced = 0;
 
       // 1. Sync Audit Logs
       for (const a of auditLogs) {
@@ -391,6 +411,49 @@ async function startServer() {
         policiesSynced++;
       }
 
+      // 6. Sync Leave Balances Table
+      let effectiveBalances = leaveBalances;
+      if (!Array.isArray(effectiveBalances) || effectiveBalances.length === 0) {
+        effectiveBalances = [];
+        users.forEach((u: any) => {
+          if (u.leaveBalances && typeof u.leaveBalances === 'object') {
+            Object.entries(u.leaveBalances).forEach(([type, bal]: [string, any]) => {
+              effectiveBalances.push({
+                id: `${u.id}_${type}`,
+                userId: u.id,
+                leaveType: type,
+                totalQuota: Number(bal?.total || 0),
+                usedDays: Number(bal?.used || 0),
+                pendingDays: Number(bal?.pending || 0),
+                updatedAt: new Date().toISOString()
+              });
+            });
+          }
+        });
+      }
+
+      for (const b of effectiveBalances) {
+        if (!b || !b.id) continue;
+        await sql`
+          INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at)
+          VALUES (
+            ${b.id},
+            ${b.userId || b.user_id},
+            ${b.leaveType || b.leave_type},
+            ${Number(b.totalQuota ?? b.total_quota) || 0},
+            ${Number(b.usedDays ?? b.used_days) || 0},
+            ${Number(b.pendingDays ?? b.pending_days) || 0},
+            ${b.updatedAt || b.updated_at || new Date().toISOString()}
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            total_quota = EXCLUDED.total_quota,
+            used_days = EXCLUDED.used_days,
+            pending_days = EXCLUDED.pending_days,
+            updated_at = EXCLUDED.updated_at
+        `;
+        balancesSynced++;
+      }
+
       return res.json({
         success: true,
         message: "Successfully synchronized portal data into Neon PostgreSQL",
@@ -399,7 +462,8 @@ async function startServer() {
           users: usersSynced,
           leaveRequests: requestsSynced,
           departments: deptsSynced,
-          leavePolicies: policiesSynced
+          leavePolicies: policiesSynced,
+          leaveBalances: balancesSynced
         }
       });
     } catch (err: any) {
@@ -462,6 +526,7 @@ async function startServer() {
       else if (table === 'departments' && id) await sql`DELETE FROM departments WHERE id = ${id}`;
       else if (table === 'leavePolicies' && id) await sql`DELETE FROM leave_policies WHERE type = ${id}`;
       else if (table === 'auditLogs' && id) await sql`DELETE FROM audit_logs WHERE id = ${id}`;
+      else if (table === 'leaveBalances' && id) await sql`DELETE FROM leave_balances WHERE id = ${id}`;
       else if (table === 'clearAllRequests') await sql`DELETE FROM leave_requests`;
 
       return res.json({ success: true, message: `Record deleted from ${table}` });
@@ -481,24 +546,58 @@ async function startServer() {
       const rawDepartments = await sql`SELECT * FROM departments`;
       const rawPolicies = await sql`SELECT * FROM leave_policies`;
       const rawAuditLogs = await sql`SELECT * FROM audit_logs`;
+      let rawBalances: any[] = [];
+      try {
+        rawBalances = await sql`SELECT * FROM leave_balances`;
+      } catch (_bErr) {}
+
+      // Build a map of leave_balances by user_id
+      const userBalancesMap: Record<string, Record<string, { total: number; used: number; pending: number }>> = {};
+      const leaveBalancesList: any[] = [];
+
+      rawBalances.forEach((b: any) => {
+        const uId = b.user_id;
+        const lType = b.leave_type;
+        if (!userBalancesMap[uId]) userBalancesMap[uId] = {};
+        userBalancesMap[uId][lType] = {
+          total: Number(b.total_quota) || 0,
+          used: Number(b.used_days) || 0,
+          pending: Number(b.pending_days) || 0
+        };
+        leaveBalancesList.push({
+          id: b.id,
+          userId: uId,
+          leaveType: lType,
+          totalQuota: Number(b.total_quota) || 0,
+          usedDays: Number(b.used_days) || 0,
+          pendingDays: Number(b.pending_days) || 0,
+          updatedAt: b.updated_at
+        });
+      });
 
       // Map DB snake_case columns back to frontend camelCase
-      const users = rawUsers.map((u: any) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        designation: u.designation,
-        departmentId: u.department_id,
-        departmentName: u.department_name,
-        employeeCode: u.employee_code,
-        joiningDate: u.joining_date,
-        phone: u.phone,
-        avatarUrl: u.avatar_url,
-        accountStatus: u.account_status,
-        password: u.password || 'password123',
-        leaveBalances: typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {})
-      }));
+      const users = rawUsers.map((u: any) => {
+        const baseBalances = typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {});
+        const tableBalances = userBalancesMap[u.id];
+        const mergedBalances = { ...baseBalances, ...tableBalances };
+
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          designation: u.designation,
+          departmentId: u.department_id,
+          departmentName: u.department_name,
+          employeeCode: u.employee_code,
+          joiningDate: u.joining_date,
+          phone: u.phone,
+          avatarUrl: u.avatar_url,
+          accountStatus: u.account_status,
+          password: u.password || 'password123',
+          leaveBalances: mergedBalances
+        };
+      });
 
       const leaveRequests = rawRequests.map((r: any) => ({
         id: r.id,
@@ -561,7 +660,8 @@ async function startServer() {
           leaveRequests,
           departments,
           leavePolicies,
-          auditLogs
+          auditLogs,
+          leaveBalances: leaveBalancesList
         }
       });
     } catch (err: any) {

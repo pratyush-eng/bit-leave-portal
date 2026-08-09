@@ -773,20 +773,38 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Auto-sync portal data (including all audit logs, users, leave requests) to Neon PostgreSQL DB
+  // Auto-sync portal data (including all audit logs, users, leave requests, leave balances) to Neon PostgreSQL DB
   useEffect(() => {
-    if (auditLogs.length > 0) {
+    if (allUsers.length > 0 || auditLogs.length > 0) {
       const timer = setTimeout(() => {
+        const leaveBalancesToSync: any[] = [];
+        allUsers.forEach(u => {
+          if (u.leaveBalances) {
+            Object.entries(u.leaveBalances).forEach(([type, bal]: [string, any]) => {
+              leaveBalancesToSync.push({
+                id: `${u.id}_${type}`,
+                userId: u.id,
+                leaveType: type,
+                totalQuota: Number(bal?.total || 0),
+                usedDays: Number(bal?.used || 0),
+                pendingDays: Number(bal?.pending || 0),
+                updatedAt: new Date().toISOString()
+              });
+            });
+          }
+        });
+
         syncDataToNeon({
           users: allUsers,
           leaveRequests,
           departments,
           leavePolicies,
-          auditLogs
+          auditLogs,
+          leaveBalances: leaveBalancesToSync
         })
         .then(data => {
           if (data && data.success) {
-            console.log(`[Neon DB Sync Success] Synced ${data.counts?.auditLogs} audit logs into Neon PostgreSQL.`);
+            console.log(`[Neon DB Sync Success] Synced ${data.counts?.leaveBalances || 0} leave balances into Neon PostgreSQL.`);
           }
         })
         .catch(err => console.warn('[Neon Auto Sync Warning]', err));
@@ -1844,6 +1862,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
     if (updatedUser) {
       saveDocToFirestore('users', userId, updatedUser);
+      const pendingDays = (updatedUser as User).leaveBalances[leaveType]?.pending || 0;
+      syncDataToNeon({
+        leaveBalances: [{
+          id: `${userId}_${leaveType}`,
+          userId,
+          leaveType,
+          totalQuota: total,
+          usedDays: used,
+          pendingDays,
+          updatedAt: new Date().toISOString()
+        }]
+      }).catch(err => console.warn('[Neon Direct Balance Sync Warning]', err));
     }
     addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${userId} (Total: ${total}, Used: ${used}).`);
   };

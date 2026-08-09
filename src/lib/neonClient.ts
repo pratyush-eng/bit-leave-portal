@@ -102,6 +102,17 @@ async function ensureClientTables() {
         ip_address TEXT
       )
     `;
+    await sqlClient`
+      CREATE TABLE IF NOT EXISTS leave_balances (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        leave_type TEXT NOT NULL,
+        total_quota NUMERIC DEFAULT 0,
+        used_days NUMERIC DEFAULT 0,
+        pending_days NUMERIC DEFAULT 0,
+        updated_at TEXT
+      )
+    `;
   } catch (err) {
     console.warn('[Neon Client Ensure Tables]', err);
   }
@@ -146,6 +157,7 @@ export async function getNeonStatus() {
     let requestCount = 0;
     let deptCount = 0;
     let auditLogCount = 0;
+    let balanceCount = 0;
 
     if (tables.includes('users')) {
       const u = await sqlClient`SELECT COUNT(*)::int as count FROM users`;
@@ -163,6 +175,10 @@ export async function getNeonStatus() {
       const l = await sqlClient`SELECT COUNT(*)::int as count FROM audit_logs`;
       auditLogCount = l[0]?.count || 0;
     }
+    if (tables.includes('leave_balances')) {
+      const b = await sqlClient`SELECT COUNT(*)::int as count FROM leave_balances`;
+      balanceCount = b[0]?.count || 0;
+    }
 
     return {
       connected: true,
@@ -174,6 +190,7 @@ export async function getNeonStatus() {
         leaveRequests: requestCount,
         departments: deptCount,
         auditLogs: auditLogCount,
+        leaveBalances: balanceCount,
       },
       mode: 'direct_browser',
     };
@@ -229,6 +246,8 @@ export async function inspectNeonTable(tableName: string) {
       rows = await sqlClient`SELECT * FROM leave_policies LIMIT 100`;
     } else if (tableName === 'audit_logs') {
       rows = await sqlClient`SELECT * FROM audit_logs LIMIT 100`;
+    } else if (tableName === 'leave_balances') {
+      rows = await sqlClient`SELECT * FROM leave_balances LIMIT 100`;
     }
 
     return {
@@ -268,6 +287,7 @@ export async function deleteNeonDoc(table: string, id: string) {
     else if (table === 'departments' && id) await sqlClient`DELETE FROM departments WHERE id = ${id}`;
     else if (table === 'leavePolicies' && id) await sqlClient`DELETE FROM leave_policies WHERE type = ${id}`;
     else if (table === 'auditLogs' && id) await sqlClient`DELETE FROM audit_logs WHERE id = ${id}`;
+    else if (table === 'leaveBalances' && id) await sqlClient`DELETE FROM leave_balances WHERE id = ${id}`;
     else if (table === 'clearAllRequests') await sqlClient`DELETE FROM leave_requests`;
   } catch (_e) {}
 }
@@ -281,6 +301,7 @@ export async function syncDataToNeon(dataPayload: {
   departments?: any[];
   leavePolicies?: any[];
   auditLogs?: any[];
+  leaveBalances?: any[];
 }) {
   const backendData = await safeJsonFetch('/api/neon/sync', {
     method: 'POST',
@@ -295,13 +316,14 @@ export async function syncDataToNeon(dataPayload: {
   // Direct Client Sync Fallback
   try {
     await ensureClientTables();
-    const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [] } = dataPayload;
+    const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [] } = dataPayload;
 
     let auditLogsSynced = 0;
     let usersSynced = 0;
     let requestsSynced = 0;
     let deptsSynced = 0;
     let policiesSynced = 0;
+    let balancesSynced = 0;
 
     for (const a of auditLogs) {
       if (!a || !a.id) continue;
@@ -476,6 +498,48 @@ export async function syncDataToNeon(dataPayload: {
       policiesSynced++;
     }
 
+    let effectiveBalances = leaveBalances;
+    if (!Array.isArray(effectiveBalances) || effectiveBalances.length === 0) {
+      effectiveBalances = [];
+      users.forEach((u: any) => {
+        if (u.leaveBalances && typeof u.leaveBalances === 'object') {
+          Object.entries(u.leaveBalances).forEach(([type, bal]: [string, any]) => {
+            effectiveBalances.push({
+              id: `${u.id}_${type}`,
+              userId: u.id,
+              leaveType: type,
+              totalQuota: Number(bal?.total || 0),
+              usedDays: Number(bal?.used || 0),
+              pendingDays: Number(bal?.pending || 0),
+              updatedAt: new Date().toISOString()
+            });
+          });
+        }
+      });
+    }
+
+    for (const b of effectiveBalances) {
+      if (!b || !b.id) continue;
+      await sqlClient`
+        INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at)
+        VALUES (
+          ${b.id},
+          ${b.userId || b.user_id},
+          ${b.leaveType || b.leave_type},
+          ${Number(b.totalQuota ?? b.total_quota) || 0},
+          ${Number(b.usedDays ?? b.used_days) || 0},
+          ${Number(b.pendingDays ?? b.pending_days) || 0},
+          ${b.updatedAt || b.updated_at || new Date().toISOString()}
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          total_quota = EXCLUDED.total_quota,
+          used_days = EXCLUDED.used_days,
+          pending_days = EXCLUDED.pending_days,
+          updated_at = EXCLUDED.updated_at
+      `;
+      balancesSynced++;
+    }
+
     return {
       success: true,
       message: 'Successfully synchronized portal data directly into Neon PostgreSQL.',
@@ -485,6 +549,7 @@ export async function syncDataToNeon(dataPayload: {
         leaveRequests: requestsSynced,
         departments: deptsSynced,
         leavePolicies: policiesSynced,
+        leaveBalances: balancesSynced,
       },
     };
   } catch (err: any) {
@@ -557,23 +622,56 @@ export async function fetchNeonData() {
     const rawDepartments = await sqlClient`SELECT * FROM departments`;
     const rawPolicies = await sqlClient`SELECT * FROM leave_policies`;
     const rawAuditLogs = await sqlClient`SELECT * FROM audit_logs`;
+    let rawBalances: any[] = [];
+    try {
+      rawBalances = await sqlClient`SELECT * FROM leave_balances`;
+    } catch (_bErr) {}
 
-    const users = rawUsers.map((u: any) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      designation: u.designation,
-      departmentId: u.department_id,
-      departmentName: u.department_name,
-      employeeCode: u.employee_code,
-      joiningDate: u.joining_date,
-      phone: u.phone,
-      avatarUrl: u.avatar_url,
-      accountStatus: u.account_status,
-      password: u.password || 'password123',
-      leaveBalances: typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {})
-    }));
+    const userBalancesMap: Record<string, Record<string, { total: number; used: number; pending: number }>> = {};
+    const leaveBalancesList: any[] = [];
+
+    rawBalances.forEach((b: any) => {
+      const uId = b.user_id;
+      const lType = b.leave_type;
+      if (!userBalancesMap[uId]) userBalancesMap[uId] = {};
+      userBalancesMap[uId][lType] = {
+        total: Number(b.total_quota) || 0,
+        used: Number(b.used_days) || 0,
+        pending: Number(b.pending_days) || 0
+      };
+      leaveBalancesList.push({
+        id: b.id,
+        userId: uId,
+        leaveType: lType,
+        totalQuota: Number(b.total_quota) || 0,
+        usedDays: Number(b.used_days) || 0,
+        pendingDays: Number(b.pending_days) || 0,
+        updatedAt: b.updated_at
+      });
+    });
+
+    const users = rawUsers.map((u: any) => {
+      const baseBalances = typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {});
+      const tableBalances = userBalancesMap[u.id];
+      const mergedBalances = { ...baseBalances, ...tableBalances };
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        designation: u.designation,
+        departmentId: u.department_id,
+        departmentName: u.department_name,
+        employeeCode: u.employee_code,
+        joiningDate: u.joining_date,
+        phone: u.phone,
+        avatarUrl: u.avatar_url,
+        accountStatus: u.account_status,
+        password: u.password || 'password123',
+        leaveBalances: mergedBalances
+      };
+    });
 
     const leaveRequests = rawRequests.map((r: any) => ({
       id: r.id,
@@ -629,7 +727,7 @@ export async function fetchNeonData() {
       ipAddress: a.ip_address
     }));
 
-    return { users, leaveRequests, departments, leavePolicies, auditLogs };
+    return { users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances: leaveBalancesList };
   } catch (err) {
     console.warn('[Fetch Neon Data Error]', err);
     return null;

@@ -983,8 +983,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                         {isEditingThis ? (
                           <input
                             type="number"
-                            value={editTotalQuota}
-                            onChange={(e) => setEditTotalQuota(Number(e.target.value))}
+                            value={isNaN(editTotalQuota) ? '' : editTotalQuota}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              setEditTotalQuota(isNaN(val) ? 0 : val);
+                            }}
                             className="w-16 px-2 py-1 bg-white border rounded text-xs"
                           />
                         ) : (
@@ -996,8 +999,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                         {isEditingThis ? (
                           <input
                             type="number"
-                            value={editUsedDays}
-                            onChange={(e) => setEditUsedDays(Number(e.target.value))}
+                            value={isNaN(editUsedDays) ? '' : editUsedDays}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              setEditUsedDays(isNaN(val) ? 0 : val);
+                            }}
                             className="w-16 px-2 py-1 bg-white border rounded text-xs"
                           />
                         ) : (

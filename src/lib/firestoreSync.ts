@@ -476,6 +476,33 @@ export function generateMySQLDump(data: {
     ).join(',\n') + `;\n\n`;
   }
 
+  // 6. Leave Balances Table
+  sql += `-- 6. Leave Balances Table\n`;
+  sql += `DROP TABLE IF EXISTS leave_balances;\n`;
+  sql += `CREATE TABLE leave_balances (\n`;
+  sql += `  id VARCHAR(100) PRIMARY KEY,\n`;
+  sql += `  user_id VARCHAR(50) NOT NULL,\n`;
+  sql += `  leave_type VARCHAR(50) NOT NULL,\n`;
+  sql += `  total_quota DECIMAL(10,2) DEFAULT 0,\n`;
+  sql += `  used_days DECIMAL(10,2) DEFAULT 0,\n`;
+  sql += `  pending_days DECIMAL(10,2) DEFAULT 0,\n`;
+  sql += `  updated_at VARCHAR(50)\n`;
+  sql += `) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n`;
+
+  const balanceRows: string[] = [];
+  data.users.forEach(u => {
+    if (u.leaveBalances) {
+      Object.entries(u.leaveBalances).forEach(([type, b]) => {
+        balanceRows.push(`  (${escapeSql(`${u.id}_${type}`)}, ${escapeSql(u.id)}, ${escapeSql(type)}, ${b?.total || 0}, ${b?.used || 0}, ${b?.pending || 0}, ${escapeSql(new Date().toISOString())})`);
+      });
+    }
+  });
+
+  if (balanceRows.length > 0) {
+    sql += `INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at) VALUES\n`;
+    sql += balanceRows.join(',\n') + `;\n\n`;
+  }
+
   return sql;
 }
 
@@ -629,6 +656,33 @@ export function generateVercelPostgresDump(data: {
     sql += data.auditLogs.map(a => 
       `  (${escapeSql(a.id)}, ${escapeSql(a.timestamp)}, ${escapeSql(a.actorId)}, ${escapeSql(a.actorName)}, ${escapeSql(a.actorRole)}, ${escapeSql(a.action)}, ${escapeSql(a.details)}, ${escapeSql(a.ipAddress)})`
     ).join(',\n') + `;\n\n`;
+  }
+
+  // 6. Leave Balances Table
+  sql += `-- 6. Leave Balances Table\n`;
+  sql += `DROP TABLE IF EXISTS leave_balances CASCADE;\n`;
+  sql += `CREATE TABLE leave_balances (\n`;
+  sql += `  id VARCHAR(100) PRIMARY KEY,\n`;
+  sql += `  user_id VARCHAR(50) NOT NULL,\n`;
+  sql += `  leave_type VARCHAR(50) NOT NULL,\n`;
+  sql += `  total_quota NUMERIC DEFAULT 0,\n`;
+  sql += `  used_days NUMERIC DEFAULT 0,\n`;
+  sql += `  pending_days NUMERIC DEFAULT 0,\n`;
+  sql += `  updated_at VARCHAR(50)\n`;
+  sql += `);\n\n`;
+
+  const pgBalanceRows: string[] = [];
+  data.users.forEach(u => {
+    if (u.leaveBalances) {
+      Object.entries(u.leaveBalances).forEach(([type, b]) => {
+        pgBalanceRows.push(`  (${escapeSql(`${u.id}_${type}`)}, ${escapeSql(u.id)}, ${escapeSql(type)}, ${b?.total || 0}, ${b?.used || 0}, ${b?.pending || 0}, ${escapeSql(new Date().toISOString())})`);
+      });
+    }
+  });
+
+  if (pgBalanceRows.length > 0) {
+    sql += `INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at) VALUES\n`;
+    sql += pgBalanceRows.join(',\n') + `;\n\n`;
   }
 
   return sql;

@@ -92,9 +92,11 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             const total = Number(bal?.total ?? pol.annualQuota) || 0;
             const used = Number(bal?.used) || 0;
             const pending = Number(bal?.pending) || 0;
-            const remaining = Math.max(0, total - used - pending);
+            const calcRemaining = total - used - pending;
+            const remaining = isNaN(calcRemaining) ? 0 : Math.max(0, calcRemaining);
             const percentUsed = total > 0 ? Math.min(100, Math.max(0, Math.round(((used + pending) / total) * 100))) : 0;
-            const cardKey = pol?.type ? `${pol.type}-${idx}` : `pol-${idx}`;
+            const safePercentUsed = isNaN(percentUsed) ? 0 : percentUsed;
+            const cardKey = `pol-card-${pol?.type || 'type'}-${idx}`;
 
             return (
               <div 
@@ -120,7 +122,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                     <div 
                       className="h-full rounded-full transition-all duration-300" 
                       style={{ 
-                        width: `${percentUsed}%`, 
+                        width: `${safePercentUsed}%`, 
                         backgroundColor: '#3F51B5' 
                       }} 
                     />
@@ -148,7 +150,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
           <div className="space-y-4">
             {activeRequests.map((req, idx) => (
               <div 
-                key={req?.id ? `${req.id}-${idx}` : `act-${idx}`}
+                key={`faculty-act-req-${req?.id || 'id'}-${idx}`}
                 onClick={() => onSelectLeaveRequest(req.id)}
                 className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs hover:border-slate-300 transition-all cursor-pointer group"
               >
@@ -204,7 +206,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {myRequests.map((r, idx) => (
                   <tr 
-                    key={r?.id ? `${r.id}-${idx}` : `hist-${idx}`} 
+                    key={`faculty-hist-req-${r?.id || 'id'}-${idx}`} 
                     onClick={() => onSelectLeaveRequest(r.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >
