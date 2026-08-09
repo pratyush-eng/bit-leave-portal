@@ -330,13 +330,14 @@ export async function syncDataToNeon(dataPayload: {
     }
 
     for (const u of users) {
-      if (!u || !u.id) continue;
+      if (!u || !u.email) continue;
+      const cleanEmail = String(u.email).trim().toLowerCase();
       await sqlClient`
         INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, password, leave_balances)
         VALUES (
-          ${u.id},
+          ${u.id || 'USER-' + Date.now()},
           ${u.name || ''},
-          ${u.email || ''},
+          ${cleanEmail},
           ${u.role || 'FACULTY'},
           ${u.designation || null},
           ${u.departmentId || null},
@@ -349,9 +350,9 @@ export async function syncDataToNeon(dataPayload: {
           ${u.password || 'password123'},
           ${JSON.stringify(u.leaveBalances || {})}
         )
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (email) DO UPDATE SET
+          id = EXCLUDED.id,
           name = EXCLUDED.name,
-          email = EXCLUDED.email,
           role = EXCLUDED.role,
           designation = EXCLUDED.designation,
           department_id = EXCLUDED.department_id,
@@ -369,27 +370,37 @@ export async function syncDataToNeon(dataPayload: {
 
     for (const r of leaveRequests) {
       if (!r || !r.id) continue;
+      const applicantId = r.applicantId || r.applicant_id || r.applicantEmail || r.applicant_email || 'UNKNOWN_APPLICANT';
+      const applicantName = r.applicantName || r.applicant_name || 'Unknown Applicant';
+      const applicantEmail = r.applicantEmail || r.applicant_email || 'unknown@bitmesra.ac.in';
+      const departmentId = r.departmentId || r.department_id || 'GENERAL';
+      const departmentName = r.departmentName || r.department_name || 'General';
+      const leaveType = r.leaveType || r.leave_type || 'CASUAL';
+      const startDate = r.startDate || r.start_date || new Date().toISOString().split('T')[0];
+      const endDate = r.endDate || r.end_date || new Date().toISOString().split('T')[0];
+      const appliedOn = r.appliedOn || r.applied_on || new Date().toISOString().split('T')[0];
+
       await sqlClient`
         INSERT INTO leave_requests (id, applicant_id, applicant_name, applicant_email, applicant_designation, applicant_employee_code, department_id, department_name, leave_type, start_date, end_date, total_days, reason, contact_address, contact_phone, document_url, status, applied_on, hod_approval, registrar_approval, class_handovers)
         VALUES (
           ${r.id},
-          ${r.applicantId || r.applicant_id || null},
-          ${r.applicantName || r.applicant_name || null},
-          ${r.applicantEmail || r.applicant_email || null},
+          ${applicantId},
+          ${applicantName},
+          ${applicantEmail},
           ${r.applicantDesignation || r.applicant_designation || null},
           ${r.applicantEmployeeCode || r.applicant_employee_code || null},
-          ${r.departmentId || r.department_id || null},
-          ${r.departmentName || r.department_name || null},
-          ${r.leaveType || r.leave_type || null},
-          ${r.startDate || r.start_date || null},
-          ${r.endDate || r.end_date || null},
+          ${departmentId},
+          ${departmentName},
+          ${leaveType},
+          ${startDate},
+          ${endDate},
           ${r.totalDays ?? r.total_days ?? 1},
-          ${r.reason || null},
+          ${r.reason || ''},
           ${r.contactAddress || r.contact_address || null},
           ${r.contactPhone || r.contact_phone || null},
           ${r.documentUrl || r.document_url || null},
           ${r.status || 'PENDING_HOD'},
-          ${r.appliedOn || r.applied_on || null},
+          ${appliedOn},
           ${JSON.stringify(r.hodApproval || r.hod_approval || null)},
           ${JSON.stringify(r.registrarApproval || r.registrar_approval || null)},
           ${JSON.stringify(r.classHandovers || r.class_handovers || null)}

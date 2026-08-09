@@ -87,14 +87,18 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {leavePolicies.map((pol) => {
-            const bal = currentUser.leaveBalances[pol.type] || { total: pol.annualQuota, used: 0, pending: 0 };
-            const remaining = bal.total - bal.used - bal.pending;
-            const percentUsed = Math.min(100, Math.round(((bal.used + bal.pending) / bal.total) * 100));
+          {leavePolicies.map((pol, idx) => {
+            const bal = currentUser?.leaveBalances?.[pol.type] || { total: pol.annualQuota, used: 0, pending: 0 };
+            const total = Number(bal?.total ?? pol.annualQuota) || 0;
+            const used = Number(bal?.used) || 0;
+            const pending = Number(bal?.pending) || 0;
+            const remaining = Math.max(0, total - used - pending);
+            const percentUsed = total > 0 ? Math.min(100, Math.max(0, Math.round(((used + pending) / total) * 100))) : 0;
+            const cardKey = pol?.type ? `${pol.type}-${idx}` : `pol-${idx}`;
 
             return (
               <div 
-                key={pol.type}
+                key={cardKey}
                 className="bg-white p-5 rounded-xl shadow-xs border border-slate-100 flex flex-col justify-between hover:border-slate-300 transition-all"
               >
                 <div>
@@ -107,7 +111,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{pol?.label || pol?.type}</p>
                   <p className="text-3xl font-light text-[#3F51B5] mt-1">{remaining}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Used: {bal.used} / Quota: {bal.total} Days</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Used: {used} / Quota: {total} Days</p>
                 </div>
 
                 {/* Editorial Thin Progress Bar */}
@@ -121,9 +125,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                       }} 
                     />
                   </div>
-                  {bal.pending > 0 && (
+                  {pending > 0 && (
                     <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wide mt-1.5 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {bal.pending} Pending Approval
+                      <Clock className="w-3 h-3" /> {pending} Pending Approval
                     </p>
                   )}
                 </div>
@@ -142,9 +146,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
           </h3>
 
           <div className="space-y-4">
-            {activeRequests.map((req) => (
+            {activeRequests.map((req, idx) => (
               <div 
-                key={req.id}
+                key={req?.id ? `${req.id}-${idx}` : `act-${idx}`}
                 onClick={() => onSelectLeaveRequest(req.id)}
                 className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs hover:border-slate-300 transition-all cursor-pointer group"
               >
@@ -198,9 +202,9 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                {myRequests.map((r) => (
+                {myRequests.map((r, idx) => (
                   <tr 
-                    key={r.id} 
+                    key={r?.id ? `${r.id}-${idx}` : `hist-${idx}`} 
                     onClick={() => onSelectLeaveRequest(r.id)}
                     className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >

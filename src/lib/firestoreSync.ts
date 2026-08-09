@@ -120,19 +120,19 @@ async function getOrSeedCollection<T>(
     console.warn(`Error parsing localStorage for ${storageKey}:`, e);
   }
 
-  const itemsToSeed = localItems.length > 0 ? localItems : defaultItems;
-
+  // IF user has saved local items from previous edits, we seed those.
+  // BUT IF itemsToSeed comes from defaultItems (local default), NEVER sync or seed them to cloud!
   try {
     localStorage.setItem(isInitializedKey, 'true');
     await setDoc(doc(db, colName, '_meta_init'), { initialized: true, timestamp: new Date().toISOString() });
-    if (itemsToSeed.length > 0) {
-      await seedCollection(colName, itemsToSeed, idField);
+    if (localItems.length > 0) {
+      await seedCollection(colName, localItems, idField);
     }
   } catch (e) {
     console.warn(`Error setting initial seed marker for ${colName}:`, e);
   }
 
-  return itemsToSeed;
+  return localItems.length > 0 ? localItems : defaultItems;
 }
 
 export async function loadOrSeedFirestoreData(): Promise<{
@@ -450,7 +450,8 @@ export function generateMySQLDump(data: {
       const handoversJson = r.classHandovers ? JSON.stringify(r.classHandovers) : 'NULL';
       const handoversVal = handoversJson === 'NULL' ? 'NULL' : escapeSql(handoversJson);
 
-      return `  (${escapeSql(r.id)}, ${escapeSql(r.applicantId)}, ${escapeSql(r.applicantName)}, ${escapeSql(r.applicantEmail)}, ${escapeSql(r.applicantDesignation)}, ${escapeSql(r.applicantEmployeeCode)}, ${escapeSql(r.departmentId)}, ${escapeSql(r.departmentName)}, ${escapeSql(r.leaveType)}, ${escapeSql(r.startDate)}, ${escapeSql(r.endDate)}, ${r.totalDays}, ${escapeSql(r.reason)}, ${escapeSql(r.contactAddress)}, ${escapeSql(r.contactPhone)}, ${escapeSql(r.documentUrl)}, ${escapeSql(r.status)}, ${escapeSql(r.appliedOn)}, ${hodVal}, ${regVal}, ${handoversVal})`;
+      const appIdent = r.applicantId || r.applicantEmail || 'UNKNOWN';
+      return `  (${escapeSql(r.id)}, ${escapeSql(appIdent)}, ${escapeSql(r.applicantName)}, ${escapeSql(r.applicantEmail)}, ${escapeSql(r.applicantDesignation)}, ${escapeSql(r.applicantEmployeeCode)}, ${escapeSql(r.departmentId)}, ${escapeSql(r.departmentName)}, ${escapeSql(r.leaveType)}, ${escapeSql(r.startDate)}, ${escapeSql(r.endDate)}, ${r.totalDays}, ${escapeSql(r.reason)}, ${escapeSql(r.contactAddress)}, ${escapeSql(r.contactPhone)}, ${escapeSql(r.documentUrl)}, ${escapeSql(r.status)}, ${escapeSql(r.appliedOn)}, ${hodVal}, ${regVal}, ${handoversVal})`;
     }).join(',\n') + `;\n\n`;
   }
 
@@ -604,7 +605,8 @@ export function generateVercelPostgresDump(data: {
       const handoversJson = r.classHandovers ? JSON.stringify(r.classHandovers) : null;
       const handoversVal = handoversJson ? `${escapeSql(handoversJson)}::jsonb` : 'NULL';
 
-      return `  (${escapeSql(r.id)}, ${escapeSql(r.applicantId)}, ${escapeSql(r.applicantName)}, ${escapeSql(r.applicantEmail)}, ${escapeSql(r.applicantDesignation)}, ${escapeSql(r.applicantEmployeeCode)}, ${escapeSql(r.departmentId)}, ${escapeSql(r.departmentName)}, ${escapeSql(r.leaveType)}, ${escapeSql(r.startDate)}, ${escapeSql(r.endDate)}, ${r.totalDays}, ${escapeSql(r.reason)}, ${escapeSql(r.contactAddress)}, ${escapeSql(r.contactPhone)}, ${escapeSql(r.documentUrl)}, ${escapeSql(r.status)}, ${escapeSql(r.appliedOn)}, ${hodVal}, ${regVal}, ${handoversVal})`;
+      const appIdent = r.applicantId || r.applicantEmail || 'UNKNOWN';
+      return `  (${escapeSql(r.id)}, ${escapeSql(appIdent)}, ${escapeSql(r.applicantName)}, ${escapeSql(r.applicantEmail)}, ${escapeSql(r.applicantDesignation)}, ${escapeSql(r.applicantEmployeeCode)}, ${escapeSql(r.departmentId)}, ${escapeSql(r.departmentName)}, ${escapeSql(r.leaveType)}, ${escapeSql(r.startDate)}, ${escapeSql(r.endDate)}, ${r.totalDays}, ${escapeSql(r.reason)}, ${escapeSql(r.contactAddress)}, ${escapeSql(r.contactPhone)}, ${escapeSql(r.documentUrl)}, ${escapeSql(r.status)}, ${escapeSql(r.appliedOn)}, ${hodVal}, ${regVal}, ${handoversVal})`;
     }).join(',\n') + `;\n\n`;
   }
 
