@@ -27,12 +27,23 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 }) => {
   const { currentUser, leaveRequests, leavePolicies } = useLeave();
 
-  // Faculty/Staff member's own requests
-  const myRequests = leaveRequests.filter(r => 
-    r.applicantId === currentUser.id ||
-    (!!r.applicantEmail && !!currentUser.email && r.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
-    (!!r.applicantEmployeeCode && !!currentUser.employeeCode && r.applicantEmployeeCode === currentUser.employeeCode)
-  );
+  // Faculty/Staff member's own requests (with robust trimmed & case-insensitive matching)
+  const myRequests = leaveRequests.filter(r => {
+    if (!r) return false;
+    const cleanReqEmail = (r.applicantEmail || '').toLowerCase().trim();
+    const cleanUserEmail = (currentUser.email || '').toLowerCase().trim();
+    const cleanReqCode = (r.applicantEmployeeCode || '').toLowerCase().trim();
+    const cleanUserCode = (currentUser.employeeCode || '').toLowerCase().trim();
+    const cleanReqName = (r.applicantName || '').toLowerCase().trim();
+    const cleanUserName = (currentUser.name || '').toLowerCase().trim();
+
+    return (
+      (r.applicantId && r.applicantId === currentUser.id) ||
+      (cleanReqEmail && cleanUserEmail && cleanReqEmail === cleanUserEmail) ||
+      (cleanReqCode && cleanUserCode && cleanReqCode === cleanUserCode) ||
+      (cleanReqName && cleanUserName && cleanReqName === cleanUserName)
+    );
+  });
   const activeRequests = myRequests.filter(r => r.status === 'PENDING_HOD' || r.status === 'PENDING_REGISTRAR');
   const recentHistory = myRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED' || r.status === 'CANCELLED');
 

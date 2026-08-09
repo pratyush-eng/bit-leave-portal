@@ -10,6 +10,7 @@ import {
   Department, 
   Role, 
   LeaveType,
+  LeaveStatus,
   GranularPermission,
   ToastNotification,
   SystemSettings,
@@ -444,6 +445,126 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  // Canonical Normalization Helper for Leave Requests to fix camelCase / snake_case sync & missing applicant fields
+  const normalizeLeaveRequest = (raw: any, usersList: User[] = allUsers, deptsList: Department[] = departments): LeaveRequest => {
+    if (!raw || typeof raw !== 'object') return raw;
+
+    const id = String(raw.id || raw.leave_id || raw.key || `LV-${Date.now()}`);
+    let applicantId = String(raw.applicantId || raw.applicant_id || raw.userId || raw.user_id || '').trim();
+    let applicantName = String(raw.applicantName || raw.applicant_name || raw.userName || '').trim();
+    let applicantEmail = String(raw.applicantEmail || raw.applicant_email || raw.email || '').trim();
+    let applicantEmployeeCode = String(raw.applicantEmployeeCode || raw.applicant_employee_code || raw.employeeCode || '').trim();
+    let applicantDesignation = String(raw.applicantDesignation || raw.applicant_designation || raw.designation || 'Faculty Member').trim();
+    let applicantRole = (raw.applicantRole || raw.applicant_role || 'FACULTY') as Role;
+
+    let departmentId = String(raw.departmentId || raw.department_id || raw.deptId || '').trim();
+    let departmentName = String(raw.departmentName || raw.department_name || raw.deptName || '').trim();
+
+    // Cross-match with user directory if any primary field is missing
+    const matchedUser = (usersList && usersList.length > 0) ? usersList.find(u => 
+      (applicantId && u.id === applicantId) ||
+      (applicantEmail && u.email && u.email.toLowerCase().trim() === applicantEmail.toLowerCase().trim()) ||
+      (applicantEmployeeCode && u.employeeCode && u.employeeCode.trim() === applicantEmployeeCode.trim()) ||
+      (applicantName && u.name && u.name.toLowerCase().trim() === applicantName.toLowerCase().trim())
+    ) : undefined;
+
+    if (matchedUser) {
+      if (!applicantId) applicantId = matchedUser.id;
+      if (!applicantName) applicantName = matchedUser.name;
+      if (!applicantEmail) applicantEmail = matchedUser.email;
+      if (!applicantEmployeeCode && matchedUser.employeeCode) applicantEmployeeCode = matchedUser.employeeCode;
+      if (!applicantDesignation && matchedUser.designation) applicantDesignation = matchedUser.designation;
+      if (matchedUser.role) applicantRole = matchedUser.role;
+      if (!departmentId && matchedUser.departmentId) departmentId = matchedUser.departmentId;
+      if (!departmentName && matchedUser.departmentName) departmentName = matchedUser.departmentName;
+    }
+
+    // Standardize department info with department directory
+    const matchedDept = (deptsList && deptsList.length > 0) ? deptsList.find(d => 
+      (departmentId && d.id.toLowerCase() === departmentId.toLowerCase()) ||
+      (departmentId && d.code.toLowerCase() === departmentId.toLowerCase()) ||
+      (departmentName && d.name.toLowerCase() === departmentName.toLowerCase())
+    ) : undefined;
+
+    if (matchedDept) {
+      departmentId = matchedDept.id;
+      departmentName = matchedDept.name;
+    }
+
+    const leaveType = String(raw.leaveType || raw.leave_type || raw.type || 'CASUAL').toUpperCase().trim();
+    const startDate = String(raw.startDate || raw.start_date || '').trim();
+    const endDate = String(raw.endDate || raw.end_date || '').trim();
+    const totalDays = Number(raw.totalDays ?? raw.total_days ?? 1);
+    const isHalfDay = Boolean(raw.isHalfDay ?? raw.is_half_day ?? false);
+    const halfDaySession = raw.halfDaySession || raw.half_day_session || undefined;
+
+    const reason = String(raw.reason || '').trim();
+    const contactAddress = String(raw.contactAddress || raw.contact_address || '').trim();
+    const contactPhone = String(raw.contactPhone || raw.contact_phone || '').trim();
+    const documentUrl = String(raw.documentUrl || raw.document_url || '').trim();
+
+    let status: LeaveStatus = 'PENDING_HOD';
+    const rawStatus = String(raw.status || '').toUpperCase().trim();
+    if (['PENDING_HOD', 'PENDING_REGISTRAR', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(rawStatus)) {
+      status = rawStatus as LeaveStatus;
+    } else if (rawStatus === 'PENDING') {
+      status = 'PENDING_HOD';
+    } else if (rawStatus === 'RECOMMENDED') {
+      status = 'PENDING_REGISTRAR';
+    } else if (rawStatus === 'SANCTIONED') {
+      status = 'APPROVED';
+    }
+
+    const appliedOn = String(raw.appliedOn || raw.applied_on || new Date().toISOString().split('T')[0]).trim();
+
+    let hodApproval = raw.hodApproval || raw.hod_approval;
+    if (typeof hodApproval === 'string') {
+      try { hodApproval = JSON.parse(hodApproval); } catch { hodApproval = undefined; }
+    }
+
+    let registrarApproval = raw.registrarApproval || raw.registrar_approval;
+    if (typeof registrarApproval === 'string') {
+      try { registrarApproval = JSON.parse(registrarApproval); } catch { registrarApproval = undefined; }
+    }
+
+    let classHandovers = raw.classHandovers || raw.class_handovers;
+    if (typeof classHandovers === 'string') {
+      try { classHandovers = JSON.parse(classHandovers); } catch { classHandovers = []; }
+    }
+
+    return {
+      id,
+      applicantId,
+      applicantName,
+      applicantEmail,
+      applicantEmployeeCode,
+      applicantDesignation,
+      applicantRole,
+      departmentId: departmentId || 'CSE',
+      departmentName: departmentName || 'Computer Science & Engineering',
+      leaveType,
+      startDate,
+      endDate,
+      totalDays: isNaN(totalDays) || totalDays < 0.5 ? 1 : totalDays,
+      isHalfDay,
+      halfDaySession,
+      reason,
+      contactAddress,
+      contactPhone,
+      documentUrl,
+      classHandovers: Array.isArray(classHandovers) ? classHandovers : [],
+      status,
+      appliedOn,
+      hodApproval,
+      registrarApproval,
+    };
+  };
+
+  const normalizeLeaveRequests = (list: any[], usersList: User[] = allUsers, deptsList: Department[] = departments): LeaveRequest[] => {
+    if (!Array.isArray(list)) return [];
+    return list.map(item => normalizeLeaveRequest(item, usersList, deptsList));
+  };
+
   // Helper to merge incoming central database records with existing local state by unique identifier
   function mergeById<T extends Record<string, any>>(
     remoteItems: T[], 
@@ -476,7 +597,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadOrSeedFirestoreData().then((data) => {
       if (!mounted) return;
       if (data.users) setAllUsers(data.users);
-      if (data.leaveRequests) setLeaveRequests(data.leaveRequests);
+      if (data.leaveRequests) {
+        setLeaveRequests(prev => {
+          const normalizedRemote = normalizeLeaveRequests(data.leaveRequests, data.users || allUsers, data.departments || departments);
+          return mergeById(normalizedRemote, prev);
+        });
+      }
       if (data.departments) setDepartments(data.departments);
       if (data.leavePolicies) setLeavePolicies(data.leavePolicies);
       if (data.notifications) setNotifications(data.notifications);
@@ -493,7 +619,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
       if (mounted && items && items.length > 0) {
-        setLeaveRequests(items);
+        setLeaveRequests(prev => {
+          const normalizedRemote = normalizeLeaveRequests(items, allUsers, departments);
+          return mergeById(normalizedRemote, prev);
+        });
       }
     });
 
@@ -1085,7 +1214,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     classHandovers?: any[];
   }): LeaveRequest => {
     const newId = `LV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-    const newRequest: LeaveRequest = {
+    const rawRequest: LeaveRequest = {
       id: newId,
       applicantId: currentUser.id,
       applicantName: currentUser.name,
@@ -1093,8 +1222,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       applicantEmployeeCode: currentUser.employeeCode,
       applicantDesignation: currentUser.designation,
       applicantRole: currentUser.role,
-      departmentId: currentUser.departmentId,
-      departmentName: currentUser.departmentName,
+      departmentId: currentUser.departmentId || 'CSE',
+      departmentName: currentUser.departmentName || 'Computer Science & Engineering',
       leaveType: data.leaveType,
       startDate: data.startDate,
       endDate: data.endDate,
@@ -1109,6 +1238,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status: 'PENDING_HOD',
       appliedOn: new Date().toISOString().split('T')[0],
     };
+
+    const newRequest = normalizeLeaveRequest(rawRequest, allUsers, departments);
 
     setLeaveRequests(prev => [newRequest, ...prev]);
 

@@ -72,13 +72,19 @@ async function ensureClientTables() {
     `;
 
     try {
+      await sqlClient`ALTER TABLE leave_policies ADD COLUMN IF NOT EXISTS requires_document BOOLEAN DEFAULT false;`;
       await sqlClient`
         ALTER TABLE leave_policies 
         ALTER COLUMN requires_document TYPE BOOLEAN 
         USING (CASE WHEN requires_document::text IN ('1', 'true', 't', 'TRUE') THEN true ELSE false END);
       `;
     } catch (_e) {
-      // Column is already boolean or newly created
+      try {
+        await sqlClient`ALTER TABLE leave_policies DROP COLUMN IF EXISTS requires_document CASCADE;`;
+        await sqlClient`ALTER TABLE leave_policies ADD COLUMN requires_document BOOLEAN DEFAULT false;`;
+      } catch (_err) {
+        console.warn("[Migration Leave Policies Error]", _err);
+      }
     }
     await sqlClient`
       CREATE TABLE IF NOT EXISTS audit_logs (
@@ -336,26 +342,26 @@ export async function syncDataToNeon(dataPayload: {
         INSERT INTO leave_requests (id, applicant_id, applicant_name, applicant_email, applicant_designation, applicant_employee_code, department_id, department_name, leave_type, start_date, end_date, total_days, reason, contact_address, contact_phone, document_url, status, applied_on, hod_approval, registrar_approval, class_handovers)
         VALUES (
           ${r.id},
-          ${r.applicantId || null},
-          ${r.applicantName || null},
-          ${r.applicantEmail || null},
-          ${r.applicantDesignation || null},
-          ${r.applicantEmployeeCode || null},
-          ${r.departmentId || null},
-          ${r.departmentName || null},
-          ${r.leaveType || null},
-          ${r.startDate || null},
-          ${r.endDate || null},
-          ${r.totalDays || 1},
+          ${r.applicantId || r.applicant_id || null},
+          ${r.applicantName || r.applicant_name || null},
+          ${r.applicantEmail || r.applicant_email || null},
+          ${r.applicantDesignation || r.applicant_designation || null},
+          ${r.applicantEmployeeCode || r.applicant_employee_code || null},
+          ${r.departmentId || r.department_id || null},
+          ${r.departmentName || r.department_name || null},
+          ${r.leaveType || r.leave_type || null},
+          ${r.startDate || r.start_date || null},
+          ${r.endDate || r.end_date || null},
+          ${r.totalDays ?? r.total_days ?? 1},
           ${r.reason || null},
-          ${r.contactAddress || null},
-          ${r.contactPhone || null},
-          ${r.documentUrl || null},
+          ${r.contactAddress || r.contact_address || null},
+          ${r.contactPhone || r.contact_phone || null},
+          ${r.documentUrl || r.document_url || null},
           ${r.status || 'PENDING_HOD'},
-          ${r.appliedOn || null},
-          ${JSON.stringify(r.hodApproval || null)},
-          ${JSON.stringify(r.registrarApproval || null)},
-          ${JSON.stringify(r.classHandovers || null)}
+          ${r.appliedOn || r.applied_on || null},
+          ${JSON.stringify(r.hodApproval || r.hod_approval || null)},
+          ${JSON.stringify(r.registrarApproval || r.registrar_approval || null)},
+          ${JSON.stringify(r.classHandovers || r.class_handovers || null)}
         )
         ON CONFLICT (id) DO UPDATE SET
           applicant_id = EXCLUDED.applicant_id,
