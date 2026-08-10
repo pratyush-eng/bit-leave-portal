@@ -541,14 +541,14 @@ async function startServer() {
     try {
       const sql = neon(NEON_DB_URL);
 
-      const rawUsers = await sql`SELECT * FROM users`;
-      const rawRequests = await sql`SELECT * FROM leave_requests`;
-      const rawDepartments = await sql`SELECT * FROM departments`;
-      const rawPolicies = await sql`SELECT * FROM leave_policies`;
-      const rawAuditLogs = await sql`SELECT * FROM audit_logs`;
+      const rawUsers = await sql`SELECT * FROM users ORDER BY id ASC`;
+      const rawRequests = await sql`SELECT * FROM leave_requests ORDER BY applied_on DESC, id DESC`;
+      const rawDepartments = await sql`SELECT * FROM departments ORDER BY id ASC`;
+      const rawPolicies = await sql`SELECT * FROM leave_policies ORDER BY type ASC`;
+      const rawAuditLogs = await sql`SELECT * FROM audit_logs ORDER BY timestamp DESC, id DESC`;
       let rawBalances: any[] = [];
       try {
-        rawBalances = await sql`SELECT * FROM leave_balances`;
+        rawBalances = await sql`SELECT * FROM leave_balances ORDER BY id ASC`;
       } catch (_bErr) {}
 
       // Build a map of leave_balances by user_id

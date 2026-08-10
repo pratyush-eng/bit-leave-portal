@@ -120,60 +120,107 @@ const STORAGE_KEYS = {
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    const parsed = saved ? JSON.parse(saved) : {};
-    return {
-      enableDemoAccounts: parsed.enableDemoAccounts ?? true,
-      enableRoleSwitcher: parsed.enableRoleSwitcher ?? true,
-      enableSelfRegistration: parsed.enableSelfRegistration ?? true,
-      institutionName: parsed.institutionName || 'BIT Leave Portal',
-      institutionLogoUrl: parsed.institutionLogoUrl || '',
-      emailSettings: parsed.emailSettings || DEFAULT_EMAIL_SETTINGS
-    };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const parsed = saved ? JSON.parse(saved) : {};
+      return {
+        enableDemoAccounts: parsed.enableDemoAccounts ?? true,
+        enableRoleSwitcher: parsed.enableRoleSwitcher ?? true,
+        enableSelfRegistration: parsed.enableSelfRegistration ?? true,
+        institutionName: parsed.institutionName || 'BIT Leave Portal',
+        institutionLogoUrl: parsed.institutionLogoUrl || '',
+        emailSettings: parsed.emailSettings || DEFAULT_EMAIL_SETTINGS
+      };
+    } catch {
+      return {
+        enableDemoAccounts: true,
+        enableRoleSwitcher: true,
+        enableSelfRegistration: true,
+        institutionName: 'BIT Leave Portal',
+        institutionLogoUrl: '',
+        emailSettings: DEFAULT_EMAIL_SETTINGS
+      };
+    }
   });
 
   const [allUsers, setAllUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    return saved ? JSON.parse(saved) : MOCK_USERS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.USERS);
+      return saved ? JSON.parse(saved) : MOCK_USERS;
+    } catch {
+      return MOCK_USERS;
+    }
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_1';
+    try {
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_1';
+    } catch {
+      return 'usr_1';
+    }
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
-    return saved !== null ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
   });
 
   const [departments, setDepartments] = useState<Department[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
+      return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
+    } catch {
+      return INITIAL_DEPARTMENTS;
+    }
   });
 
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REQUESTS);
-    return saved ? JSON.parse(saved) : INITIAL_LEAVE_REQUESTS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.REQUESTS);
+      return saved ? JSON.parse(saved) : INITIAL_LEAVE_REQUESTS;
+    } catch {
+      return INITIAL_LEAVE_REQUESTS;
+    }
   });
 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+      return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    } catch {
+      return INITIAL_NOTIFICATIONS;
+    }
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LOGS);
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.LOGS);
+      return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    } catch {
+      return INITIAL_AUDIT_LOGS;
+    }
   });
 
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EMAIL_LOGS);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.EMAIL_LOGS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.POLICIES);
-    return saved ? JSON.parse(saved) : INITIAL_LEAVE_POLICIES;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POLICIES);
+      return saved ? JSON.parse(saved) : INITIAL_LEAVE_POLICIES;
+    } catch {
+      return INITIAL_LEAVE_POLICIES;
+    }
   });
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -603,6 +650,21 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (Array.isArray(obj1)) {
       if (obj1.length !== obj2.length) return false;
+
+      // Order-independent comparison if array elements have recognizable identity keys (id, type, or email)
+      const getKey = (item: any) => (item && typeof item === 'object') ? (item.id || item.type || item.email || null) : null;
+      const hasKeys1 = obj1.length > 0 && obj1.every(item => getKey(item) !== null);
+      const hasKeys2 = obj2.length > 0 && obj2.every(item => getKey(item) !== null);
+
+      if (hasKeys1 && hasKeys2) {
+        const sorted1 = [...obj1].sort((a, b) => String(getKey(a)).localeCompare(String(getKey(b))));
+        const sorted2 = [...obj2].sort((a, b) => String(getKey(a)).localeCompare(String(getKey(b))));
+        for (let i = 0; i < sorted1.length; i++) {
+          if (!isDeepEqual(sorted1[i], sorted2[i])) return false;
+        }
+        return true;
+      }
+
       for (let i = 0; i < obj1.length; i++) {
         if (!isDeepEqual(obj1[i], obj2[i])) return false;
       }
@@ -642,6 +704,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   : (existing?.password || nu.password || 'password123');
                 return { ...nu, password };
               });
+              nextUsers.sort((a, b) => a.id.localeCompare(b.id));
               return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
             });
           }
@@ -703,7 +766,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     loadFromCloudPg();
 
-    // Poll Cloud PostgreSQL asynchronously every 4 seconds for real-time updates without forcing re-renders if unchanged
+    // Poll Cloud PostgreSQL asynchronously every 10 seconds for real-time background sync without forcing re-renders if unchanged
     const pgPollInterval = setInterval(() => {
       fetchNeonData().then(neonData => {
         if (!mounted || !neonData) return;
@@ -717,6 +780,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 : (existing?.password || nu.password || 'password123');
               return { ...nu, password };
             });
+            // Stable sort by ID so UI order remains completely steady
+            nextUsers.sort((a, b) => a.id.localeCompare(b.id));
             return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
           });
         }
@@ -803,6 +868,65 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (unsubscribeEmailLogs) unsubscribeEmailLogs();
     };
   }, []);
+
+  // Listen for window 'storage' events for instant multi-tab sync without page refreshes
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (!e.key || e.newValue === null) return;
+      try {
+        if (e.key === STORAGE_KEYS.REQUESTS) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setLeaveRequests(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.USERS) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setAllUsers(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.NOTIFICATIONS) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setNotifications(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.LOGS) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setAuditLogs(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.POLICIES) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setLeavePolicies(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.DEPARTMENTS) {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setDepartments(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.SETTINGS) {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && typeof parsed === 'object') {
+            setSystemSettings(prev => isDeepEqual(parsed, prev) ? prev : parsed);
+          }
+        } else if (e.key === STORAGE_KEYS.CURRENT_USER_ID) {
+          if (e.newValue && e.newValue !== currentUserId) {
+            setCurrentUserId(e.newValue);
+          }
+        } else if (e.key === STORAGE_KEYS.AUTH) {
+          const parsed = JSON.parse(e.newValue);
+          if (typeof parsed === 'boolean' && parsed !== isAuthenticated) {
+            setIsAuthenticated(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('[Storage Sync Warning]', err);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => window.removeEventListener('storage', handleStorageEvent);
+  }, [currentUserId, isAuthenticated]);
 
   // Auto-sync portal data (including all audit logs, users, leave requests, leave balances) to Neon PostgreSQL DB
   useEffect(() => {

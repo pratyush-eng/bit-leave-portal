@@ -629,14 +629,14 @@ export async function fetchNeonData() {
   // Fallback direct browser query over HTTPS
   try {
     await ensureClientTables();
-    const rawUsers = await sqlClient`SELECT * FROM users`;
-    const rawRequests = await sqlClient`SELECT * FROM leave_requests`;
-    const rawDepartments = await sqlClient`SELECT * FROM departments`;
-    const rawPolicies = await sqlClient`SELECT * FROM leave_policies`;
-    const rawAuditLogs = await sqlClient`SELECT * FROM audit_logs`;
+    const rawUsers = await sqlClient`SELECT * FROM users ORDER BY id ASC`;
+    const rawRequests = await sqlClient`SELECT * FROM leave_requests ORDER BY applied_on DESC, id DESC`;
+    const rawDepartments = await sqlClient`SELECT * FROM departments ORDER BY id ASC`;
+    const rawPolicies = await sqlClient`SELECT * FROM leave_policies ORDER BY type ASC`;
+    const rawAuditLogs = await sqlClient`SELECT * FROM audit_logs ORDER BY timestamp DESC, id DESC`;
     let rawBalances: any[] = [];
     try {
-      rawBalances = await sqlClient`SELECT * FROM leave_balances`;
+      rawBalances = await sqlClient`SELECT * FROM leave_balances ORDER BY id ASC`;
     } catch (_bErr) {}
 
     const userBalancesMap: Record<string, Record<string, { total: number; used: number; pending: number }>> = {};
