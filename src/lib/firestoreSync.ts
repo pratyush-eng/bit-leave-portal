@@ -77,62 +77,35 @@ async function getOrSeedCollection<T>(
   colName: string, 
   storageKey: string, 
   defaultItems: T[], 
-  idField: string = 'id'
+  _idField: string = 'id'
 ): Promise<T[]> {
   const isInitializedKey = `${storageKey}_is_initialized_v2`;
 
   try {
     const snap = await getDocs(collection(db, colName));
     const docsWithoutMeta = snap.docs.filter(d => d.id !== '_meta_init');
-    const hasInitDoc = snap.docs.some(d => d.id === '_meta_init');
-    const localInitialized = localStorage.getItem(isInitializedKey) === 'true';
-
-    if (hasInitDoc || localInitialized) {
-      localStorage.setItem(isInitializedKey, 'true');
-      // Collection was already initialized in the past.
-      // Return whatever records currently exist in the database (including empty array [] if all were deleted).
-      // DO NOT restore default initial records!
-      return docsWithoutMeta.map(d => d.data() as T);
-    }
-
-    if (docsWithoutMeta.length > 0) {
-      localStorage.setItem(isInitializedKey, 'true');
-      try {
-        await setDoc(doc(db, colName, '_meta_init'), { initialized: true, timestamp: new Date().toISOString() });
-      } catch (_e) {}
-      return docsWithoutMeta.map(d => d.data() as T);
-    }
+    localStorage.setItem(isInitializedKey, 'true');
+    // Always return whatever records currently exist in the database (including empty array [] if all were deleted).
+    // NEVER auto-seed or restore default initial mock records to the live database!
+    return docsWithoutMeta.map(d => d.data() as T);
   } catch (err) {
     console.warn(`Error fetching ${colName} from Firestore:`, err);
   }
 
-  // Collection is empty AND has never been initialized. Check localStorage fallback.
-  let localItems: T[] = [];
+  // Fallback to localStorage or defaultItems ONLY if Firestore query itself threw a network error
   try {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        localItems = parsed;
+      if (Array.isArray(parsed)) {
+        return parsed;
       }
     }
   } catch (e) {
     console.warn(`Error parsing localStorage for ${storageKey}:`, e);
   }
 
-  // IF user has saved local items from previous edits, we seed those.
-  // BUT IF itemsToSeed comes from defaultItems (local default), NEVER sync or seed them to cloud!
-  try {
-    localStorage.setItem(isInitializedKey, 'true');
-    await setDoc(doc(db, colName, '_meta_init'), { initialized: true, timestamp: new Date().toISOString() });
-    if (localItems.length > 0) {
-      await seedCollection(colName, localItems, idField);
-    }
-  } catch (e) {
-    console.warn(`Error setting initial seed marker for ${colName}:`, e);
-  }
-
-  return localItems.length > 0 ? localItems : defaultItems;
+  return defaultItems;
 }
 
 export async function loadOrSeedFirestoreData(): Promise<{
@@ -186,12 +159,12 @@ export async function loadOrSeedFirestoreData(): Promise<{
     };
   } catch (error) {
     console.error('Firestore sync failed, falling back to local storage/mock data:', error);
-    let localRequests = INITIAL_LEAVE_REQUESTS;
+    let localRequests: LeaveRequest[] = [];
     try {
       const saved = localStorage.getItem('academia_leave_requests_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) localRequests = parsed;
+        if (Array.isArray(parsed)) localRequests = parsed;
       }
     } catch (_) {}
 
@@ -237,26 +210,9 @@ export function subscribeToCollection<T>(colName: string, callback: (items: T[])
 
 let isQuotaExceeded = false;
 
-async function seedCollection(colName: string, items: any[], idField: string) {
-  if (isQuotaExceeded) return;
-  notifySyncStart(`Seeding database collection (${colName})...`, 'INSERT');
-  try {
-    const batch = writeBatch(db);
-    items.forEach((item) => {
-      const docRef = doc(db, colName, String(item[idField]));
-      batch.set(docRef, item);
-    });
-    await batch.commit();
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
-      isQuotaExceeded = true;
-      console.warn(`Firestore quota limit reached during seedCollection (${colName}). Falling back to local storage.`);
-    } else {
-      console.error(`Failed seeding ${colName}:`, err);
-    }
-  } finally {
-    notifySyncEnd();
-  }
+async function seedCollection(_colName: string, _items: any[], _idField: string) {
+  // Completely disabled auto-insertion and auto-seeding script across the portal
+  return;
 }
 
 export async function saveDocToFirestore(colName: string, id: string, data: any, isNewRecord: boolean = false) {
@@ -337,12 +293,6 @@ export async function resetFirestoreData() {
         await batch.commit();
       }
     }
-    await seedCollection('users', MOCK_USERS, 'id');
-    await seedCollection('leaveRequests', INITIAL_LEAVE_REQUESTS, 'id');
-    await seedCollection('departments', INITIAL_DEPARTMENTS, 'id');
-    await seedCollection('leavePolicies', INITIAL_LEAVE_POLICIES, 'type');
-    await seedCollection('notifications', INITIAL_NOTIFICATIONS, 'id');
-    await seedCollection('auditLogs', INITIAL_AUDIT_LOGS, 'id');
   } catch (err) {
     console.warn('Error resetting Firestore database:', err);
   } finally {
