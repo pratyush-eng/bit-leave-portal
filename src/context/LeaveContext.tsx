@@ -217,7 +217,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-      const initial = saved ? JSON.parse(saved) : MOCK_USERS;
+      const initial = saved ? JSON.parse(saved) : [];
       const savedDelIds = (() => {
         try {
           const s = localStorage.getItem(DELETED_USER_IDS_KEY);
@@ -232,7 +232,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })();
       return sanitizeAndDeduplicateUsers(initial, savedDelIds, savedDelEmails);
     } catch {
-      return MOCK_USERS;
+      return [];
     }
   });
 
@@ -548,7 +548,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return fallbackSessionUser;
     }
 
-    return effectiveAllUsers[0] || MOCK_USERS[0];
+    return effectiveAllUsers[0] || null;
   }, [effectiveAllUsers, allUsers, currentUserId, currentUserEmail, isAuthenticated]);
 
   // Track status transitions for active user leave applications
@@ -680,7 +680,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Cross-match with user directory if any primary field is missing or name was missing
-    const combinedUsers = (usersList && usersList.length > 0) ? usersList : MOCK_USERS;
+    const combinedUsers = usersList || [];
     const matchedUser = combinedUsers.find(u => 
       (applicantId && u.id === applicantId) ||
       (applicantEmail && u.email && u.email.toLowerCase().trim() === applicantEmail.toLowerCase().trim()) ||
@@ -1389,7 +1389,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { success: false, message: 'Institutional email address is required.' };
       }
 
-      const safeUsers = Array.isArray(allUsers) && allUsers.length > 0 ? allUsers : MOCK_USERS;
+      const safeUsers = Array.isArray(allUsers) ? allUsers : [];
 
       let matchedUser = safeUsers.find(u => {
         if (!u || !u.email) return false;
@@ -2443,7 +2443,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setDeletedUserIds(new Set());
     setDeletedUserEmails(new Set());
-    setAllUsers(MOCK_USERS);
+    setAllUsers([]);
     setCurrentUserId('usr_1');
     setIsAuthenticated(false);
     setDepartments(INITIAL_DEPARTMENTS);

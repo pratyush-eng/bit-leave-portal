@@ -130,7 +130,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
       console.warn('Could not load global settings from Firestore:', sErr);
     }
 
-    const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', MOCK_USERS, 'id');
+    const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', [], 'id');
     const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
     const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
     const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
@@ -169,7 +169,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
     } catch (_) {}
 
     return {
-      users: MOCK_USERS,
+      users: [],
       leaveRequests: localRequests,
       departments: INITIAL_DEPARTMENTS,
       leavePolicies: INITIAL_LEAVE_POLICIES,

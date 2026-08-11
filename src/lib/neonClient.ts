@@ -281,11 +281,11 @@ export async function inspectNeonTable(tableName: string) {
 /**
  * Delete a record from Neon DB
  */
-export async function deleteNeonDoc(table: string, id: string, email?: string) {
+export async function deleteNeonDoc(table: string, id: string, email?: string, ids?: string[], emails?: string[]) {
   const backendData = await safeJsonFetch('/api/neon/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ table, id, email })
+    body: JSON.stringify({ table, id, email, ids, emails })
   });
 
   if (backendData && backendData.success) {
@@ -294,16 +294,21 @@ export async function deleteNeonDoc(table: string, id: string, email?: string) {
 
   try {
     await ensureClientTables();
-    if (table === 'users') {
+    if (table === 'users' || table === 'users_batch') {
       const cleanEmail = email ? email.trim().toLowerCase() : '';
       const cleanId = id ? id.trim() : '';
+      let count = 0;
       if (cleanId && cleanEmail) {
-        await sqlClient`DELETE FROM users WHERE id = ${cleanId} OR LOWER(email) = ${cleanEmail}`;
+        const rows = await sqlClient`DELETE FROM users WHERE id = ${cleanId} OR LOWER(email) = ${cleanEmail} RETURNING id`;
+        count = rows.length;
       } else if (cleanId) {
-        await sqlClient`DELETE FROM users WHERE id = ${cleanId}`;
+        const rows = await sqlClient`DELETE FROM users WHERE id = ${cleanId} RETURNING id`;
+        count = rows.length;
       } else if (cleanEmail) {
-        await sqlClient`DELETE FROM users WHERE LOWER(email) = ${cleanEmail}`;
+        const rows = await sqlClient`DELETE FROM users WHERE LOWER(email) = ${cleanEmail} RETURNING id`;
+        count = rows.length;
       }
+      return { success: true, deletedCount: count };
     }
     else if (table === 'leaveRequests' && id) await sqlClient`DELETE FROM leave_requests WHERE id = ${id}`;
     else if (table === 'departments' && id) await sqlClient`DELETE FROM departments WHERE id = ${id}`;
@@ -311,7 +316,10 @@ export async function deleteNeonDoc(table: string, id: string, email?: string) {
     else if (table === 'auditLogs' && id) await sqlClient`DELETE FROM audit_logs WHERE id = ${id}`;
     else if (table === 'leaveBalances' && id) await sqlClient`DELETE FROM leave_balances WHERE id = ${id}`;
     else if (table === 'clearAllRequests') await sqlClient`DELETE FROM leave_requests`;
-  } catch (_e) {}
+    return { success: true };
+  } catch (_e) {
+    return { success: false, error: String(_e) };
+  }
 }
 
 /**

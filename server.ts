@@ -263,6 +263,10 @@ async function startServer() {
       for (const u of users) {
         if (!u || !u.email) continue;
         const cleanEmail = String(u.email).trim().toLowerCase();
+        const uId = String(u.id || '');
+        if (['usr_3', 'usr_4', 'usr_5', 'usr_6', 'usr_7'].includes(uId)) {
+          console.warn(`[Neon Sync Audit] Request to sync user record ${uId} (${cleanEmail}). Executing PostgreSQL upsert.`);
+        }
         await sql`
           INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, password, leave_balances)
           VALUES (
@@ -520,32 +524,126 @@ async function startServer() {
   // API Route: Delete record from Neon DB
   app.post("/api/neon/delete", async (req, res) => {
     try {
-      const { table, id, email } = req.body || {};
+      const { table, id, email, ids, emails } = req.body || {};
       const sql = neon(NEON_DB_URL);
       await ensureNeonTables(sql);
 
-      if (table === 'users') {
-        const cleanEmail = email ? String(email).trim().toLowerCase() : '';
-        const cleanId = id ? String(id).trim() : '';
-        if (cleanId && cleanEmail) {
-          await sql`DELETE FROM users WHERE id = ${cleanId} OR LOWER(email) = ${cleanEmail}`;
-        } else if (cleanId) {
-          await sql`DELETE FROM users WHERE id = ${cleanId}`;
-        } else if (cleanEmail) {
-          await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail}`;
-        }
-      }
-      else if (table === 'leaveRequests' && id) await sql`DELETE FROM leave_requests WHERE id = ${id}`;
-      else if (table === 'departments' && id) await sql`DELETE FROM departments WHERE id = ${id}`;
-      else if (table === 'leavePolicies' && id) await sql`DELETE FROM leave_policies WHERE type = ${id}`;
-      else if (table === 'auditLogs' && id) await sql`DELETE FROM audit_logs WHERE id = ${id}`;
-      else if (table === 'leaveBalances' && id) await sql`DELETE FROM leave_balances WHERE id = ${id}`;
-      else if (table === 'clearAllRequests') await sql`DELETE FROM leave_requests`;
+      if (table === 'users' || table === 'users_batch') {
+        const idList: string[] = Array.isArray(ids)
+          ? ids.map((i: any) => String(i).trim()).filter(Boolean)
+          : (id ? [String(id).trim()] : []);
+        const emailList: string[] = Array.isArray(emails)
+          ? emails.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)
+          : (email ? [String(email).trim().toLowerCase()] : []);
 
-      return res.json({ success: true, message: `Record deleted from ${table}` });
+        console.log(`[Neon Delete] DELETE users requested. User IDs received: [${idList.join(', ')}], Emails: [${emailList.join(', ')}]`);
+
+        let deletedCount = 0;
+        if (idList.length > 0) {
+          for (const cleanId of idList) {
+            const resRows = await sql`DELETE FROM users WHERE id = ${cleanId} RETURNING id;`;
+            deletedCount += resRows.length;
+          }
+        }
+        if (emailList.length > 0) {
+          for (const cleanEmail of emailList) {
+            const resRows = await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail} RETURNING id;`;
+            deletedCount += resRows.length;
+          }
+        }
+
+        console.log(`[Neon Delete] Database operation successful. Deleted records count: ${deletedCount}`);
+
+        return res.json({
+          success: true,
+          deletedCount,
+          message: `Successfully deleted ${deletedCount} record(s) from users table.`
+        });
+      }
+      else if (table === 'leaveRequests' && id) {
+        const resRows = await sql`DELETE FROM leave_requests WHERE id = ${id} RETURNING id;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_requests` });
+      }
+      else if (table === 'departments' && id) {
+        const resRows = await sql`DELETE FROM departments WHERE id = ${id} RETURNING id;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from departments` });
+      }
+      else if (table === 'leavePolicies' && id) {
+        const resRows = await sql`DELETE FROM leave_policies WHERE type = ${id} RETURNING type;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_policies` });
+      }
+      else if (table === 'auditLogs' && id) {
+        const resRows = await sql`DELETE FROM audit_logs WHERE id = ${id} RETURNING id;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from audit_logs` });
+      }
+      else if (table === 'leaveBalances' && id) {
+        const resRows = await sql`DELETE FROM leave_balances WHERE id = ${id} RETURNING id;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_balances` });
+      }
+      else if (table === 'clearAllRequests') {
+        const resRows = await sql`DELETE FROM leave_requests RETURNING id;`;
+        return res.json({ success: true, deletedCount: resRows.length, message: `All leave requests cleared` });
+      }
+
+      return res.status(400).json({ success: false, error: "Invalid table or missing parameters." });
     } catch (err: any) {
       console.error("[Neon Delete Error]", err);
-      return res.status(500).json({ success: false, error: err?.message });
+      return res.status(500).json({ success: false, error: err?.message || "PostgreSQL deletion failed." });
+    }
+  });
+
+  // Dedicated API Route: Delete user records directly
+  app.all(["/api/users/delete", "/api/users"], async (req, res) => {
+    if (req.method !== 'POST' && req.method !== 'DELETE') {
+      return res.status(405).json({ success: false, error: "Method not allowed. Use POST or DELETE." });
+    }
+    try {
+      const payload = { ...req.query, ...req.body };
+      const { id, email, userIds, ids, emails } = payload;
+
+      const idList: string[] = Array.isArray(userIds)
+        ? userIds.map((i: any) => String(i).trim()).filter(Boolean)
+        : Array.isArray(ids)
+        ? ids.map((i: any) => String(i).trim()).filter(Boolean)
+        : (id ? [String(id).trim()] : []);
+
+      const emailList: string[] = Array.isArray(emails)
+        ? emails.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)
+        : (email ? [String(email).trim().toLowerCase()] : []);
+
+      if (idList.length === 0 && emailList.length === 0) {
+        return res.status(400).json({ success: false, error: "No user IDs or emails provided for deletion." });
+      }
+
+      console.log(`[API /api/users/delete] DELETE users requested. User IDs received: [${idList.join(', ')}], Emails: [${emailList.join(', ')}]`);
+
+      const sql = neon(NEON_DB_URL);
+      await ensureNeonTables(sql);
+
+      let deletedCount = 0;
+      if (idList.length > 0) {
+        for (const cleanId of idList) {
+          const resRows = await sql`DELETE FROM users WHERE id = ${cleanId} RETURNING id;`;
+          deletedCount += resRows.length;
+        }
+      }
+      if (emailList.length > 0) {
+        for (const cleanEmail of emailList) {
+          const resRows = await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail} RETURNING id;`;
+          deletedCount += resRows.length;
+        }
+      }
+
+      console.log(`[API /api/users/delete] Database operation successful. Deleted records count: ${deletedCount}`);
+
+      return res.json({
+        success: true,
+        deletedCount,
+        message: `Successfully deleted ${deletedCount} record(s) from users table.`
+      });
+    } catch (err: any) {
+      console.error("[API /api/users/delete Error]", err);
+      return res.status(500).json({ success: false, error: err?.message || "PostgreSQL deletion failed." });
     }
   });
 
