@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, purgeUnknownLeaveRequests, systemSettings } = useLeave();
+  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, purgeUnknownLeaveRequests, deleteLeaveRequest, systemSettings } = useLeave();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isRegistrar = currentUser?.role === 'REGISTRAR';
@@ -44,6 +44,7 @@ export const AnalyticsReports: React.FC = () => {
   const [staffFilter, setStaffFilter] = useState<string>('ALL');
   const [leaveTypeFilter, setLeaveTypeFilter] = useState<string>('ALL');
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
+  const [deletingRequest, setDeletingRequest] = useState<LeaveRequest | null>(null);
 
   useEffect(() => {
     if ((isDeptRestricted || isFacultyOrStaff) && userDeptId) {
@@ -494,12 +495,15 @@ export const AnalyticsReports: React.FC = () => {
                 <th className="px-4 py-3">Days</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Applied On</th>
+                {(isSuperAdmin || isDeptAdmin) && (
+                  <th className="px-4 py-3 text-right no-print">Action</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
+                  <td colSpan={(isSuperAdmin || isDeptAdmin) ? 9 : 8} className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
                     No leave record logs found for this department or filter criteria.
                   </td>
                 </tr>
@@ -518,6 +522,19 @@ export const AnalyticsReports: React.FC = () => {
                       <MaterialChip label={r.status} variant="status" status={r.status} />
                     </td>
                     <td className="px-4 py-3 text-slate-500">{r.appliedOn}</td>
+                    {(isSuperAdmin || isDeptAdmin) && (
+                      <td className="px-4 py-3 text-right no-print">
+                        <button
+                          type="button"
+                          onClick={() => setDeletingRequest(r)}
+                          className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-600 hover:text-white rounded-lg transition-all flex items-center gap-1 border border-rose-200 cursor-pointer ml-auto"
+                          title={`Delete Leave Request ${r.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -525,6 +542,52 @@ export const AnalyticsReports: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Delete Individual Leave Request Confirmation Modal */}
+      {deletingRequest && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 no-print">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-200">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Delete Leave Request?</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Are you sure you want to permanently delete leave request <strong className="text-slate-900">{deletingRequest.id}</strong> applied by <strong className="text-slate-900">{resolveApplicantName(deletingRequest)}</strong>?
+                </p>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 space-y-1 mt-2">
+                  <p><strong>Type:</strong> {deletingRequest.leaveType} ({deletingRequest.totalDays} {deletingRequest.totalDays === 1 ? 'day' : 'days'})</p>
+                  <p><strong>Duration:</strong> {deletingRequest.startDate} to {deletingRequest.endDate}</p>
+                  <p><strong>Department:</strong> {deletingRequest.departmentName}</p>
+                  <p><strong>Status:</strong> {deletingRequest.status}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingRequest(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteLeaveRequest(deletingRequest.id);
+                  setDeletingRequest(null);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clear Sanction Logs Confirmation Modal for Super Admin */}
       {showClearModal && isSuperAdmin && (
