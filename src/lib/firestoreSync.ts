@@ -224,7 +224,7 @@ export function subscribeToSystemSettings(callback: (settings: SystemSettings) =
 export function subscribeToCollection<T>(colName: string, callback: (items: T[]) => void) {
   try {
     return onSnapshot(collection(db, colName), (snapshot) => {
-      const items = snapshot.docs.map(d => d.data() as T);
+      const items = snapshot.docs.filter(d => d.id !== '_meta_init').map(d => d.data() as T);
       callback(items);
     }, (err) => {
       console.warn(`Realtime subscription error for ${colName}:`, err);

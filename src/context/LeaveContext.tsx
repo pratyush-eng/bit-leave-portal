@@ -894,10 +894,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted) return;
 
         if (neonData) {
-          if (Array.isArray(neonData.users) && neonData.users.length > 0) {
+          if (Array.isArray(neonData.users)) {
             setAllUsers((prev: User[]) => {
-              const combined = sanitizeAndDeduplicateUsers([...neonData.users, ...prev], deletedUserIds, deletedUserEmails);
-              return isDeepEqual(combined, prev) ? prev : combined;
+              const sanitized = sanitizeAndDeduplicateUsers(neonData.users, deletedUserIds, deletedUserEmails);
+              return isDeepEqual(sanitized, prev) ? prev : sanitized;
             });
           }
           if (Array.isArray(neonData.leaveRequests)) {
@@ -906,13 +906,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
-          if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
+          if (Array.isArray(neonData.departments)) {
             setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
           }
-          if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
+          if (Array.isArray(neonData.leavePolicies)) {
             setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
           }
-          if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
+          if (Array.isArray(neonData.auditLogs)) {
             setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
           }
         }
@@ -925,31 +925,31 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const firestoreData = await loadOrSeedFirestoreData();
         if (!mounted) return;
         if (firestoreData) {
-          if (firestoreData.users && firestoreData.users.length > 0) {
+          if (Array.isArray(firestoreData.users)) {
             setAllUsers((prev: User[]) => {
-              const combined = sanitizeAndDeduplicateUsers([...firestoreData.users, ...prev], deletedUserIds, deletedUserEmails);
-              return isDeepEqual(combined, prev) ? prev : combined;
+              const sanitized = sanitizeAndDeduplicateUsers(firestoreData.users, deletedUserIds, deletedUserEmails);
+              return isDeepEqual(sanitized, prev) ? prev : sanitized;
             });
           }
-          if (firestoreData.leaveRequests) {
+          if (Array.isArray(firestoreData.leaveRequests)) {
             setLeaveRequests(prev => {
               const normalized = normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments);
               return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
-          if (firestoreData.departments && firestoreData.departments.length > 0) {
+          if (Array.isArray(firestoreData.departments)) {
             setDepartments(prev => isDeepEqual(firestoreData.departments, prev) ? prev : firestoreData.departments);
           }
-          if (firestoreData.leavePolicies && firestoreData.leavePolicies.length > 0) {
+          if (Array.isArray(firestoreData.leavePolicies)) {
             setLeavePolicies(prev => isDeepEqual(firestoreData.leavePolicies, prev) ? prev : firestoreData.leavePolicies);
           }
-          if (firestoreData.notifications) {
+          if (Array.isArray(firestoreData.notifications)) {
             setNotifications(prev => isDeepEqual(firestoreData.notifications, prev) ? prev : firestoreData.notifications);
           }
-          if (firestoreData.auditLogs) {
+          if (Array.isArray(firestoreData.auditLogs)) {
             setAuditLogs(prev => isDeepEqual(firestoreData.auditLogs, prev) ? prev : firestoreData.auditLogs);
           }
-          if (firestoreData.emailLogs) {
+          if (Array.isArray(firestoreData.emailLogs)) {
             setEmailLogs(prev => isDeepEqual(firestoreData.emailLogs, prev) ? prev : firestoreData.emailLogs);
           }
           if (firestoreData.systemSettings) {
@@ -961,14 +961,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     loadFromCloudPg();
 
-    // Poll Cloud PostgreSQL asynchronously every 10 seconds for real-time background sync without forcing re-renders if unchanged
+    // Poll Cloud PostgreSQL asynchronously every 4 seconds for real-time background sync without forcing re-renders if unchanged
     const pgPollInterval = setInterval(() => {
       fetchNeonData().then(neonData => {
         if (!mounted || !neonData) return;
-        if (Array.isArray(neonData.users) && neonData.users.length > 0) {
+        if (Array.isArray(neonData.users)) {
           setAllUsers((prev: User[]) => {
-            const combined = sanitizeAndDeduplicateUsers([...neonData.users, ...prev], deletedUserIds, deletedUserEmails);
-            return isDeepEqual(combined, prev) ? prev : combined;
+            const sanitized = sanitizeAndDeduplicateUsers(neonData.users, deletedUserIds, deletedUserEmails);
+            return isDeepEqual(sanitized, prev) ? prev : sanitized;
           });
         }
         if (Array.isArray(neonData.leaveRequests)) {
@@ -977,13 +977,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
-        if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
+        if (Array.isArray(neonData.departments)) {
           setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
         }
-        if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
+        if (Array.isArray(neonData.leavePolicies)) {
           setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
         }
-        if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
+        if (Array.isArray(neonData.auditLogs)) {
           setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
         }
       }).catch(_err => {});
@@ -996,50 +996,49 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
-      if (mounted && items && items.length > 0) {
+      if (mounted && Array.isArray(items)) {
         setLeaveRequests(prev => {
           const normalizedRemote = normalizeLeaveRequests(items, allUsers, departments);
-          const merged = mergeById(normalizedRemote, prev);
-          return isDeepEqual(merged, prev) ? prev : merged;
+          return isDeepEqual(normalizedRemote, prev) ? prev : normalizedRemote;
         });
       }
     });
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && items && items.length > 0) {
+      if (mounted && Array.isArray(items)) {
         setAllUsers((prev: User[]) => {
-          const combined = sanitizeAndDeduplicateUsers([...items, ...prev], deletedUserIds, deletedUserEmails);
-          return isDeepEqual(combined, prev) ? prev : combined;
+          const sanitized = sanitizeAndDeduplicateUsers(items, deletedUserIds, deletedUserEmails);
+          return isDeepEqual(sanitized, prev) ? prev : sanitized;
         });
       }
     });
 
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
-      if (mounted && items && items.length > 0) {
+      if (mounted && Array.isArray(items)) {
         setDepartments(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
-      if (mounted && items && items.length > 0) {
+      if (mounted && Array.isArray(items)) {
         setLeavePolicies(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
-      if (mounted && items) {
+      if (mounted && Array.isArray(items)) {
         setNotifications(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
-      if (mounted && items) {
+      if (mounted && Array.isArray(items)) {
         setAuditLogs(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
 
     const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
-      if (mounted && items) {
+      if (mounted && Array.isArray(items)) {
         setEmailLogs(prev => isDeepEqual(items, prev) ? prev : items);
       }
     });
@@ -1120,47 +1119,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('storage', handleStorageEvent);
     return () => window.removeEventListener('storage', handleStorageEvent);
   }, [currentUserId, isAuthenticated]);
-
-  // Auto-sync portal data (including all audit logs, users, leave requests, leave balances) to Neon PostgreSQL DB
-  useEffect(() => {
-    if (allUsers.length > 0 || auditLogs.length > 0) {
-      const timer = setTimeout(() => {
-        const leaveBalancesToSync: any[] = [];
-        allUsers.forEach(u => {
-          if (u.leaveBalances) {
-            Object.entries(u.leaveBalances).forEach(([type, bal]: [string, any]) => {
-              leaveBalancesToSync.push({
-                id: `${u.id}_${type}`,
-                userId: u.id,
-                leaveType: type,
-                totalQuota: Number(bal?.total || 0),
-                usedDays: Number(bal?.used || 0),
-                pendingDays: Number(bal?.pending || 0),
-                updatedAt: new Date().toISOString()
-              });
-            });
-          }
-        });
-
-        syncDataToNeon({
-          users: allUsers,
-          leaveRequests,
-          departments,
-          leavePolicies,
-          auditLogs,
-          leaveBalances: leaveBalancesToSync
-        })
-        .then(data => {
-          if (data && data.success) {
-            console.log(`[Neon DB Sync Success] Synced ${data.counts?.leaveBalances || 0} leave balances into Neon PostgreSQL.`);
-          }
-        })
-        .catch(err => console.warn('[Neon Auto Sync Warning]', err));
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [auditLogs, allUsers, leaveRequests, departments, leavePolicies]);
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const cleanEmail = email.toLowerCase().trim();
