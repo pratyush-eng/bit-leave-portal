@@ -1,4 +1,4 @@
-import { collection, getDocs, setDoc, deleteDoc, doc, getDoc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, setDoc, deleteDoc, doc, getDoc, writeBatch, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
   MOCK_USERS, 
@@ -291,6 +291,33 @@ export async function deleteDocFromFirestore(colName: string, id: string) {
       console.warn(`Firestore quota limit reached deleting ${colName}/${id}. Using local state.`);
     } else {
       console.error(`Error deleting doc from ${colName}/${id}:`, err);
+    }
+  } finally {
+    notifySyncEnd();
+  }
+}
+
+export async function deleteUserFromFirestore(userId: string, email?: string) {
+  if (isQuotaExceeded) return;
+  notifySyncStart(`Deleting user record from live database...`, 'DELETE');
+  try {
+    if (userId) {
+      await deleteDoc(doc(db, 'users', String(userId)));
+    }
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, 'users', d.id));
+      }
+    }
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
+      isQuotaExceeded = true;
+      console.warn(`Firestore quota limit reached deleting user ${userId}/${email}. Using local state.`);
+    } else {
+      console.error(`Error deleting user ${userId}/${email} from Firestore:`, err);
     }
   } finally {
     notifySyncEnd();

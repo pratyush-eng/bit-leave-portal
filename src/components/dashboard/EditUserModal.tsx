@@ -70,7 +70,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (isProtectedSuperAdmin) {
       setErrorMsg("Department Admins cannot delete Institutional Super Admin accounts.");
       setShowConfirmDelete(false);

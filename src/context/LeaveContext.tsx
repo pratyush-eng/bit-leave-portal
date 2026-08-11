@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
+import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, deleteUserFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
 import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc } from '../lib/neonClient';
 import { 
   User, 
@@ -100,6 +100,8 @@ interface LeaveContextType {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   clearSanctionLogs: () => { success: boolean; message: string };
+  deleteLeaveRequest: (requestId: string) => { success: boolean; message: string };
+  purgeUnknownLeaveRequests: () => { success: boolean; count: number; message: string };
   resetData: () => void;
 }
 
@@ -113,12 +115,81 @@ const STORAGE_KEYS = {
   POLICIES: 'academia_leave_policies_v1',
   DEPARTMENTS: 'academia_leave_departments_v1',
   CURRENT_USER_ID: 'academia_current_user_id_v1',
+  CURRENT_USER_EMAIL: 'academia_current_user_email_v1',
   AUTH: 'academia_leave_auth_v1',
   SETTINGS: 'academia_system_settings_v1',
   EMAIL_LOGS: 'academia_email_logs_v1'
 };
 
+const DELETED_USER_IDS_KEY = 'academia_deleted_user_ids_v1';
+const DELETED_USER_EMAILS_KEY = 'academia_deleted_user_emails_v1';
+
+function sanitizeAndDeduplicateUsers(
+  usersList: User[],
+  delIds: Set<string>,
+  delEmails: Set<string>
+): User[] {
+  if (!Array.isArray(usersList)) return [];
+  const map = new Map<string, User>();
+
+  for (const u of usersList) {
+    if (!u) continue;
+    const cleanEmail = String(u.email || '').trim().toLowerCase();
+    const uId = String(u.id || '').trim();
+    if (!cleanEmail) continue;
+
+    // Filter out deleted users permanently
+    if ((uId && delIds.has(uId)) || delEmails.has(cleanEmail)) {
+      continue;
+    }
+
+    if (!map.has(cleanEmail)) {
+      map.set(cleanEmail, u);
+    } else {
+      const existing = map.get(cleanEmail)!;
+      const preferIncoming =
+        (u.accountStatus === 'ACTIVE' && existing.accountStatus !== 'ACTIVE') ||
+        (['SUPER_ADMIN', 'ADMIN', 'REGISTRAR'].includes(u.role) &&
+          !['SUPER_ADMIN', 'ADMIN', 'REGISTRAR'].includes(existing.role));
+
+      const merged: User = {
+        ...(preferIncoming ? existing : u),
+        ...(preferIncoming ? u : existing),
+        id: existing.id || u.id,
+        email: cleanEmail,
+        assignedPermissions: Array.from(
+          new Set([...(existing.assignedPermissions || []), ...(u.assignedPermissions || [])])
+        ),
+        leaveBalances: { ...(existing.leaveBalances || {}), ...(u.leaveBalances || {}) } as any
+      };
+      map.set(cleanEmail, merged);
+    }
+  }
+
+  const result = Array.from(map.values());
+  result.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  return result;
+}
+
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(DELETED_USER_IDS_KEY);
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(DELETED_USER_EMAILS_KEY);
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -146,7 +217,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-      return saved ? JSON.parse(saved) : MOCK_USERS;
+      const initial = saved ? JSON.parse(saved) : MOCK_USERS;
+      const savedDelIds = (() => {
+        try {
+          const s = localStorage.getItem(DELETED_USER_IDS_KEY);
+          return s ? new Set<string>(JSON.parse(s)) : new Set<string>();
+        } catch { return new Set<string>(); }
+      })();
+      const savedDelEmails = (() => {
+        try {
+          const s = localStorage.getItem(DELETED_USER_EMAILS_KEY);
+          return s ? new Set<string>(JSON.parse(s)) : new Set<string>();
+        } catch { return new Set<string>(); }
+      })();
+      return sanitizeAndDeduplicateUsers(initial, savedDelIds, savedDelEmails);
     } catch {
       return MOCK_USERS;
     }
@@ -154,9 +238,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_1';
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'usr_5';
     } catch {
-      return 'usr_1';
+      return 'usr_5';
+    }
+  });
+
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_EMAIL) || 'dean.academic@institution.edu';
+    } catch {
+      return 'dean.academic@institution.edu';
     }
   });
 
@@ -318,13 +410,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Dynamically reconcile leave balances for all users based on active leave requests and leave policies
   const effectiveAllUsers = useMemo(() => {
-    return allUsers.map(u => {
+    const sanitized = sanitizeAndDeduplicateUsers(allUsers, deletedUserIds, deletedUserEmails);
+    return sanitized.map(u => {
       const balances: Record<string, { total: number; used: number; pending: number }> = {};
 
       // 1. Initialize with quotas from policies or user's custom quota
       leavePolicies.forEach(pol => {
         const existingBal = u.leaveBalances?.[pol.type];
-        const totalQuota = existingBal && typeof existingBal.total === 'number' && existingBal.total > 0
+        const totalQuota = existingBal && typeof existingBal.total === 'number'
           ? existingBal.total 
           : pol.annualQuota;
 
@@ -386,7 +479,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         balances[typeKey] = {
           total: balances[typeKey].total,
-          used: reqUsed > 0 ? reqUsed : baseUsed,
+          used: Math.max(reqUsed, baseUsed),
           pending: reqPending
         };
       });
@@ -396,9 +489,67 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         leaveBalances: balances as any
       };
     });
-  }, [allUsers, leaveRequests, leavePolicies]);
+  }, [allUsers, leaveRequests, leavePolicies, deletedUserIds, deletedUserEmails]);
 
-  const currentUser = effectiveAllUsers.find(u => u.id === currentUserId) || effectiveAllUsers[0];
+  const currentUser = useMemo(() => {
+    const cleanEmail = currentUserEmail ? currentUserEmail.trim().toLowerCase() : '';
+
+    // 1. First search in effectiveAllUsers by ID
+    let found = effectiveAllUsers.find(u => u.id === currentUserId);
+
+    // 2. If not found by ID, search by email
+    if (!found && cleanEmail) {
+      found = effectiveAllUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+    }
+
+    // 3. If not found in effectiveAllUsers, search in raw allUsers
+    if (!found) {
+      if (currentUserId) {
+        found = allUsers.find(u => u.id === currentUserId);
+      }
+      if (!found && cleanEmail) {
+        found = allUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+      }
+    }
+
+    // 4. If found, return found user
+    if (found) {
+      return found;
+    }
+
+    // 5. If authenticated, NEVER fall back to Staff (usr_1)! Construct a stable session user matching currentUserEmail / currentUserId
+    if (isAuthenticated && (cleanEmail || currentUserId)) {
+      const isSuperAdmin = cleanEmail.includes('dean') || cleanEmail.includes('super') || cleanEmail.includes('admin') || cleanEmail === 'dean.academic@institution.edu';
+      const isRegistrar = cleanEmail.includes('registrar');
+      const isHod = cleanEmail.includes('sunita') || cleanEmail.includes('hod');
+      const role = isSuperAdmin ? 'SUPER_ADMIN' : isRegistrar ? 'REGISTRAR' : isHod ? 'HOD' : 'FACULTY';
+
+      const fallbackSessionUser: User = {
+        id: currentUserId || 'usr_5',
+        name: isSuperAdmin ? 'Prof. Vikramaditya Roy' : isRegistrar ? 'Dr. A. K. Kapoor' : 'Portal Session User',
+        email: cleanEmail || 'dean.academic@institution.edu',
+        role: role as Role,
+        designation: isSuperAdmin ? 'Dean Academic Affairs & Super Admin' : 'Academic Officer',
+        departmentId: 'CSE',
+        departmentName: 'Computer Science & Engineering',
+        employeeCode: 'EXEC-2005-002',
+        joiningDate: '2005-06-01',
+        phone: '+91 98888 77766',
+        leaveBalances: {
+          CASUAL: { total: 12, used: 0, pending: 0 },
+          SICK: { total: 10, used: 0, pending: 0 },
+          EARNED: { total: 30, used: 0, pending: 0 },
+          DUTY: { total: 15, used: 0, pending: 0 },
+          STUDY: { total: 90, used: 0, pending: 0 },
+          MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
+          SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
+        }
+      };
+      return fallbackSessionUser;
+    }
+
+    return effectiveAllUsers[0] || MOCK_USERS[0];
+  }, [effectiveAllUsers, allUsers, currentUserId, currentUserEmail, isAuthenticated]);
 
   // Track status transitions for active user leave applications
   const prevStatusesRef = React.useRef<Record<string, string>>({});
@@ -466,6 +617,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentUserId]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_EMAIL, currentUserEmail);
+  }, [currentUserEmail]);
+
+  // Keep active session user ID and email in sync with resolved currentUser
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      if (currentUser.id && currentUser.id !== currentUserId) {
+        setCurrentUserId(currentUser.id);
+      }
+      if (currentUser.email && currentUser.email.trim().toLowerCase() !== currentUserEmail.trim().toLowerCase()) {
+        setCurrentUserEmail(currentUser.email);
+      }
+    }
+  }, [isAuthenticated, currentUser, currentUserId, currentUserEmail]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(isAuthenticated));
   }, [isAuthenticated]);
 
@@ -507,23 +674,38 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let departmentId = String(raw.departmentId || raw.department_id || raw.deptId || '').trim();
     let departmentName = String(raw.departmentName || raw.department_name || raw.deptName || '').trim();
 
-    // Cross-match with user directory if any primary field is missing
-    const matchedUser = (usersList && usersList.length > 0) ? usersList.find(u => 
+    // Discard placeholder/invalid names so clean lookup can happen
+    if (applicantName === 'Unknown Applicant' || applicantName.toLowerCase() === 'unknown') {
+      applicantName = '';
+    }
+
+    // Cross-match with user directory if any primary field is missing or name was missing
+    const combinedUsers = (usersList && usersList.length > 0) ? usersList : MOCK_USERS;
+    const matchedUser = combinedUsers.find(u => 
       (applicantId && u.id === applicantId) ||
       (applicantEmail && u.email && u.email.toLowerCase().trim() === applicantEmail.toLowerCase().trim()) ||
       (applicantEmployeeCode && u.employeeCode && u.employeeCode.trim() === applicantEmployeeCode.trim()) ||
       (applicantName && u.name && u.name.toLowerCase().trim() === applicantName.toLowerCase().trim())
-    ) : undefined;
+    );
 
     if (matchedUser) {
-      if (!applicantId) applicantId = matchedUser.id;
-      if (!applicantName) applicantName = matchedUser.name;
-      if (!applicantEmail) applicantEmail = matchedUser.email;
-      if (!applicantEmployeeCode && matchedUser.employeeCode) applicantEmployeeCode = matchedUser.employeeCode;
-      if (!applicantDesignation && matchedUser.designation) applicantDesignation = matchedUser.designation;
+      applicantId = matchedUser.id;
+      applicantName = matchedUser.name;
+      applicantEmail = matchedUser.email;
+      if (matchedUser.employeeCode) applicantEmployeeCode = matchedUser.employeeCode;
+      if (matchedUser.designation) applicantDesignation = matchedUser.designation;
       if (matchedUser.role) applicantRole = matchedUser.role;
       if (!departmentId && matchedUser.departmentId) departmentId = matchedUser.departmentId;
       if (!departmentName && matchedUser.departmentName) departmentName = matchedUser.departmentName;
+    }
+
+    if (!applicantName || applicantName === 'Unknown Applicant' || applicantName.toLowerCase() === 'unknown') {
+      if (applicantEmail && applicantEmail.includes('@') && !applicantEmail.toLowerCase().includes('unknown')) {
+        const handle = applicantEmail.split('@')[0].replace(/[\._-]/g, ' ');
+        applicantName = handle.charAt(0).toUpperCase() + handle.slice(1);
+      } else {
+        applicantName = '';
+      }
     }
 
     // Standardize department info with department directory
@@ -609,7 +791,25 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const normalizeLeaveRequests = (list: any[], usersList: User[] = allUsers, deptsList: Department[] = departments): LeaveRequest[] => {
     if (!Array.isArray(list)) return [];
-    return list.map(item => normalizeLeaveRequest(item, usersList, deptsList));
+    const validRequests: LeaveRequest[] = [];
+    for (const item of list) {
+      const normalized = normalizeLeaveRequest(item, usersList, deptsList);
+      const isUnknown = 
+        !normalized.applicantName || 
+        normalized.applicantName === 'Unknown Applicant' || 
+        normalized.applicantName.toLowerCase() === 'unknown' ||
+        normalized.applicantId === 'UNKNOWN_APPLICANT' ||
+        normalized.applicantId === 'UNKNOWN' ||
+        (normalized.applicantEmail && normalized.applicantEmail.toLowerCase().includes('unknown'));
+
+      if (!isUnknown) {
+        validRequests.push(normalized);
+      } else if (item && item.id) {
+        deleteDocFromFirestore('leaveRequests', item.id);
+        deleteNeonDoc('leaveRequests', item.id).catch(() => {});
+      }
+    }
+    return validRequests;
   };
 
   // Helper to merge incoming central database records with existing local state by unique identifier
@@ -696,16 +896,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (neonData) {
           if (Array.isArray(neonData.users) && neonData.users.length > 0) {
             setAllUsers((prev: User[]) => {
-              const prevMap = new Map<string, User>(prev.map((u: User) => [u.id, u]));
-              const nextUsers = neonData.users.map((nu: any) => {
-                const existing = prevMap.get(nu.id);
-                const password = (nu.password && nu.password !== 'password123') 
-                  ? nu.password 
-                  : (existing?.password || nu.password || 'password123');
-                return { ...nu, password };
-              });
-              nextUsers.sort((a, b) => a.id.localeCompare(b.id));
-              return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
+              const combined = sanitizeAndDeduplicateUsers([...neonData.users, ...prev], deletedUserIds, deletedUserEmails);
+              return isDeepEqual(combined, prev) ? prev : combined;
             });
           }
           if (Array.isArray(neonData.leaveRequests)) {
@@ -734,7 +926,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted) return;
         if (firestoreData) {
           if (firestoreData.users && firestoreData.users.length > 0) {
-            setAllUsers(prev => isDeepEqual(firestoreData.users, prev) ? prev : firestoreData.users);
+            setAllUsers((prev: User[]) => {
+              const combined = sanitizeAndDeduplicateUsers([...firestoreData.users, ...prev], deletedUserIds, deletedUserEmails);
+              return isDeepEqual(combined, prev) ? prev : combined;
+            });
           }
           if (firestoreData.leaveRequests) {
             setLeaveRequests(prev => {
@@ -772,17 +967,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted || !neonData) return;
         if (Array.isArray(neonData.users) && neonData.users.length > 0) {
           setAllUsers((prev: User[]) => {
-            const prevMap = new Map<string, User>(prev.map((u: User) => [u.id, u]));
-            const nextUsers = neonData.users.map((nu: any) => {
-              const existing = prevMap.get(nu.id);
-              const password = (nu.password && nu.password !== 'password123') 
-                ? nu.password 
-                : (existing?.password || nu.password || 'password123');
-              return { ...nu, password };
-            });
-            // Stable sort by ID so UI order remains completely steady
-            nextUsers.sort((a, b) => a.id.localeCompare(b.id));
-            return isDeepEqual(nextUsers, prev) ? prev : nextUsers;
+            const combined = sanitizeAndDeduplicateUsers([...neonData.users, ...prev], deletedUserIds, deletedUserEmails);
+            return isDeepEqual(combined, prev) ? prev : combined;
           });
         }
         if (Array.isArray(neonData.leaveRequests)) {
@@ -821,7 +1007,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
       if (mounted && items && items.length > 0) {
-        setAllUsers(prev => isDeepEqual(items, prev) ? prev : items);
+        setAllUsers((prev: User[]) => {
+          const combined = sanitizeAndDeduplicateUsers([...items, ...prev], deletedUserIds, deletedUserEmails);
+          return isDeepEqual(combined, prev) ? prev : combined;
+        });
       }
     });
 
@@ -913,6 +1102,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (e.newValue && e.newValue !== currentUserId) {
             setCurrentUserId(e.newValue);
           }
+        } else if (e.key === STORAGE_KEYS.CURRENT_USER_EMAIL) {
+          if (e.newValue && e.newValue !== currentUserEmail) {
+            setCurrentUserEmail(e.newValue);
+          }
         } else if (e.key === STORAGE_KEYS.AUTH) {
           const parsed = JSON.parse(e.newValue);
           if (typeof parsed === 'boolean' && parsed !== isAuthenticated) {
@@ -970,7 +1163,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [auditLogs, allUsers, leaveRequests, departments, leavePolicies]);
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
-    const matched = allUsers.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
+    const cleanEmail = email.toLowerCase().trim();
+    const matched = allUsers.find(u => u.email.toLowerCase().trim() === cleanEmail);
     if (!matched) {
       return { success: false, message: 'No institutional account found with this email address.' };
     }
@@ -995,7 +1189,15 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     }
     setCurrentUserId(matched.id);
+    setCurrentUserEmail(matched.email);
     setIsAuthenticated(true);
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, matched.id);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_EMAIL, matched.email);
+      localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(true));
+    } catch (_e) {}
+
     addAuditLog(matched, 'USER_LOGIN', `User ${matched.name} (${matched.role}) logged in successfully.`);
     return { success: true };
   };
@@ -1003,12 +1205,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const logout = () => {
     addAuditLog(currentUser, 'USER_LOGOUT', `User ${currentUser.name} logged out.`);
     setIsAuthenticated(false);
+    try {
+      localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(false));
+    } catch (_e) {}
   };
 
   const switchUser = (userId: string) => {
-    const target = allUsers.find(u => u.id === userId);
+    const target = allUsers.find(u => u.id === userId || u.email.trim().toLowerCase() === userId.trim().toLowerCase());
     if (target) {
-      setCurrentUserId(userId);
+      setCurrentUserId(target.id);
+      setCurrentUserEmail(target.email);
+      try {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, target.id);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_EMAIL, target.email);
+      } catch (_e) {}
       addAuditLog(target, 'USER_SWITCH', `Switched session view to user ${target.name} (${target.role})`);
     }
   };
@@ -1143,6 +1353,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToFirestore('users', userId, updatedUser);
+    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'USER_UPDATED', `Updated user details for ${updatedUser.name} (${updatedUser.email}).`);
 
     return { success: true, message: `Successfully updated ${updatedUser.name}.` };
@@ -1411,9 +1622,28 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, message: 'Department Admin Restriction: Super Admin accounts cannot be deleted by Department Admins.' };
     }
 
-    setAllUsers(prev => prev.filter(u => u.id !== userId));
-    deleteDocFromFirestore('users', userId);
-    deleteNeonDoc('users', userId).catch(() => {});
+    const cleanEmail = target.email.trim().toLowerCase();
+
+    // 1. Record persistent tombstones
+    const nextDelIds = new Set(deletedUserIds).add(userId);
+    const nextDelEmails = new Set(deletedUserEmails).add(cleanEmail);
+    setDeletedUserIds(nextDelIds);
+    setDeletedUserEmails(nextDelEmails);
+    try {
+      localStorage.setItem(DELETED_USER_IDS_KEY, JSON.stringify(Array.from(nextDelIds)));
+      localStorage.setItem(DELETED_USER_EMAILS_KEY, JSON.stringify(Array.from(nextDelEmails)));
+    } catch (_e) {}
+
+    // 2. Remove from state immediately and save
+    const nextUsers = allUsers.filter(u => u.id !== userId && u.email.trim().toLowerCase() !== cleanEmail);
+    setAllUsers(nextUsers);
+    try {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(nextUsers));
+    } catch (_e) {}
+
+    // 3. Trigger remote database purges
+    deleteUserFromFirestore(userId, cleanEmail);
+    deleteNeonDoc('users', userId, cleanEmail).catch(() => {});
     addAuditLog(currentUser, 'USER_DELETED', `Deleted user account for ${target.name} (${target.email}, ${target.role}).`);
 
     return { success: true, message: `Successfully deleted account for ${target.name} (${target.email}).` };
@@ -1529,27 +1759,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => [newRequest, ...prev]);
 
     // Update pending count in user's leave balances
-    let updatedAppUser: User | null = null;
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === currentUser.id) {
-        const typeKey = data.leaveType;
-        const currentBal = u.leaveBalances[typeKey] || { total: 0, used: 0, pending: 0 };
-        updatedAppUser = {
-          ...u,
-          leaveBalances: {
-            ...u.leaveBalances,
-            [typeKey]: {
-              ...currentBal,
-              pending: currentBal.pending + data.totalDays
-            }
+    const targetAppUser = allUsers.find(u => u.id === currentUser.id);
+    if (targetAppUser) {
+      const typeKey = data.leaveType;
+      const currentBal = targetAppUser.leaveBalances?.[typeKey] || { total: 0, used: 0, pending: 0 };
+      const updatedAppUser: User = {
+        ...targetAppUser,
+        leaveBalances: {
+          ...(targetAppUser.leaveBalances || {}),
+          [typeKey]: {
+            ...currentBal,
+            pending: currentBal.pending + data.totalDays
           }
-        };
-        return updatedAppUser;
-      }
-      return u;
-    }));
-    if (updatedAppUser) {
+        }
+      };
+      setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
       saveDocToFirestore('users', currentUser.id, updatedAppUser);
+      syncDataToNeon({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
     }
 
     // Find Department HOD
@@ -1681,26 +1907,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // If rejected by HOD, release pending leave balance count
         if (!isRec) {
-          let updatedTargetUser: User | null = null;
-          setAllUsers(uList => uList.map(u => {
-            if (u.id === req.applicantId) {
-              const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
-              updatedTargetUser = {
-                ...u,
-                leaveBalances: {
-                  ...u.leaveBalances,
-                  [req.leaveType]: {
-                    ...currentBal,
-                    pending: Math.max(0, currentBal.pending - req.totalDays)
-                  }
+          const targetUser = allUsers.find(u => u.id === req.applicantId);
+          if (targetUser) {
+            const currentBal = targetUser.leaveBalances?.[req.leaveType] || { total: 0, used: 0, pending: 0 };
+            const updatedTargetUser: User = {
+              ...targetUser,
+              leaveBalances: {
+                ...(targetUser.leaveBalances || {}),
+                [req.leaveType]: {
+                  ...currentBal,
+                  pending: Math.max(0, currentBal.pending - req.totalDays)
                 }
-              };
-              return updatedTargetUser;
-            }
-            return u;
-          }));
-          if (updatedTargetUser) {
+              }
+            };
+            setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
             saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+            syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
           }
         }
 
@@ -1771,27 +1993,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         // Deduct/update leave balance for applicant
-        let updatedTargetUser: User | null = null;
-        setAllUsers(uList => uList.map(u => {
-          if (u.id === req.applicantId) {
-            const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
-            updatedTargetUser = {
-              ...u,
-              leaveBalances: {
-                ...u.leaveBalances,
-                [req.leaveType]: {
-                  ...currentBal,
-                  pending: Math.max(0, currentBal.pending - req.totalDays),
-                  used: isApproved ? currentBal.used + req.totalDays : currentBal.used
-                }
+        const targetUser = allUsers.find(u => u.id === req.applicantId);
+        if (targetUser) {
+          const currentBal = targetUser.leaveBalances?.[req.leaveType] || { total: 0, used: 0, pending: 0 };
+          const updatedTargetUser: User = {
+            ...targetUser,
+            leaveBalances: {
+              ...(targetUser.leaveBalances || {}),
+              [req.leaveType]: {
+                ...currentBal,
+                pending: Math.max(0, currentBal.pending - req.totalDays),
+                used: isApproved ? currentBal.used + req.totalDays : currentBal.used
               }
-            };
-            return updatedTargetUser;
-          }
-          return u;
-        }));
-        if (updatedTargetUser) {
+            }
+          };
+          setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+          syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
         }
 
         addAuditLog(currentUser, isApproved ? 'REGISTRAR_APPROVED' : 'REGISTRAR_REJECTED', `${isApproved ? 'Sanctioned' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
@@ -1921,26 +2139,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId && (req.status === 'PENDING_HOD' || req.status === 'PENDING_REGISTRAR')) {
         // Release pending balance
-        let updatedTargetUser: User | null = null;
-        setAllUsers(uList => uList.map(u => {
-          if (u.id === req.applicantId) {
-            const currentBal = u.leaveBalances[req.leaveType] || { total: 0, used: 0, pending: 0 };
-            updatedTargetUser = {
-              ...u,
-              leaveBalances: {
-                ...u.leaveBalances,
-                [req.leaveType]: {
-                  ...currentBal,
-                  pending: Math.max(0, currentBal.pending - req.totalDays)
-                }
+        const targetUser = allUsers.find(u => u.id === req.applicantId);
+        if (targetUser) {
+          const currentBal = targetUser.leaveBalances?.[req.leaveType] || { total: 0, used: 0, pending: 0 };
+          const updatedTargetUser: User = {
+            ...targetUser,
+            leaveBalances: {
+              ...(targetUser.leaveBalances || {}),
+              [req.leaveType]: {
+                ...currentBal,
+                pending: Math.max(0, currentBal.pending - req.totalDays)
               }
-            };
-            return updatedTargetUser;
-          }
-          return u;
-        }));
-        if (updatedTargetUser) {
+            }
+          };
+          setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+          syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
         }
 
         addAuditLog(currentUser, 'LEAVE_CANCELLED', `Cancelled leave application ${req.id}.`);
@@ -1955,6 +2169,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const updatedReq = { ...req, status: 'CANCELLED' as const };
         saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        syncDataToNeon({ leaveRequests: [updatedReq] }).catch(() => {});
         return updatedReq;
       }
       return req;
@@ -1981,56 +2196,46 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
     }
-    let updatedUser: User | null = null;
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        updatedUser = { ...u, role, assignedPermissions: permissions };
-        return updatedUser;
-      }
-      return u;
-    }));
-    if (updatedUser) {
-      saveDocToFirestore('users', userId, updatedUser);
-    }
-    addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permissions for user ${userId}.`);
+    const targetUser = allUsers.find(u => u.id === userId);
+    if (!targetUser) return;
+    const updatedUser: User = { ...targetUser, role, assignedPermissions: permissions };
+    setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    saveDocToFirestore('users', userId, updatedUser);
+    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
+    addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permissions for user ${targetUser.name} (${userId}).`);
   };
 
   const adjustUserLeaveBalance = (userId: string, leaveType: LeaveType, total: number, used: number) => {
-    let updatedUser: User | null = null;
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        const cur = u.leaveBalances[leaveType] || { total: 0, used: 0, pending: 0 };
-        updatedUser = {
-          ...u,
-          leaveBalances: {
-            ...u.leaveBalances,
-            [leaveType]: {
-              ...cur,
-              total,
-              used
-            }
-          }
-        };
-        return updatedUser;
+    const targetUser = allUsers.find(u => u.id === userId);
+    if (!targetUser) return;
+    const cur = targetUser.leaveBalances?.[leaveType] || { total: 0, used: 0, pending: 0 };
+    const updatedUser: User = {
+      ...targetUser,
+      leaveBalances: {
+        ...(targetUser.leaveBalances || {}),
+        [leaveType]: {
+          ...cur,
+          total,
+          used
+        }
       }
-      return u;
-    }));
-    if (updatedUser) {
-      saveDocToFirestore('users', userId, updatedUser);
-      const pendingDays = (updatedUser as User).leaveBalances[leaveType]?.pending || 0;
-      syncDataToNeon({
-        leaveBalances: [{
-          id: `${userId}_${leaveType}`,
-          userId,
-          leaveType,
-          totalQuota: total,
-          usedDays: used,
-          pendingDays,
-          updatedAt: new Date().toISOString()
-        }]
-      }).catch(err => console.warn('[Neon Direct Balance Sync Warning]', err));
-    }
-    addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${userId} (Total: ${total}, Used: ${used}).`);
+    };
+    setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+    saveDocToFirestore('users', userId, updatedUser);
+    const pendingDays = updatedUser.leaveBalances[leaveType]?.pending || 0;
+    syncDataToNeon({
+      users: [updatedUser],
+      leaveBalances: [{
+        id: `${userId}_${leaveType}`,
+        userId,
+        leaveType,
+        totalQuota: total,
+        usedDays: used,
+        pendingDays,
+        updatedAt: new Date().toISOString()
+      }]
+    }).catch(err => console.warn('[Neon Direct Balance Sync Warning]', err));
+    addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${targetUser.name} (Total: ${total}, Used: ${used}).`);
   };
 
   const createNewUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
@@ -2214,6 +2419,58 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, message: 'Historical leave sanction logs cleared successfully.' };
   };
 
+  const deleteLeaveRequest = (requestId: string): { success: boolean; message: string } => {
+    const target = leaveRequests.find(r => r.id === requestId);
+    if (!target) {
+      return { success: false, message: 'Leave request not found.' };
+    }
+
+    setLeaveRequests(prev => prev.filter(r => r.id !== requestId));
+    deleteDocFromFirestore('leaveRequests', requestId);
+    deleteNeonDoc('leaveRequests', requestId).catch(() => {});
+
+    addAuditLog(currentUser, 'LEAVE_DELETED', `Deleted leave request ${requestId} (${target.applicantName || 'Applicant'}).`);
+    addToast({
+      title: 'Leave Request Removed 🗑️',
+      message: `Leave request ${requestId} was permanently deleted.`,
+      type: 'INFO'
+    });
+
+    return { success: true, message: `Successfully deleted leave request ${requestId}.` };
+  };
+
+  const purgeUnknownLeaveRequests = (): { success: boolean; count: number; message: string } => {
+    const unknownReqs = leaveRequests.filter(r => 
+      !r.applicantName || 
+      r.applicantName === 'Unknown Applicant' || 
+      r.applicantName.toLowerCase() === 'unknown' ||
+      r.applicantId === 'UNKNOWN_APPLICANT' ||
+      r.applicantId === 'UNKNOWN' ||
+      (r.applicantEmail && r.applicantEmail.toLowerCase().includes('unknown'))
+    );
+
+    if (unknownReqs.length === 0) {
+      return { success: true, count: 0, message: 'No unknown or orphan leave requests found.' };
+    }
+
+    const unknownIds = new Set(unknownReqs.map(r => r.id));
+    unknownReqs.forEach(req => {
+      deleteDocFromFirestore('leaveRequests', req.id);
+      deleteNeonDoc('leaveRequests', req.id).catch(() => {});
+    });
+
+    setLeaveRequests(prev => prev.filter(r => !unknownIds.has(r.id)));
+
+    addAuditLog(currentUser, 'UNKNOWN_LEAVES_PURGED', `Purged ${unknownReqs.length} unknown/orphan leave requests.`);
+    addToast({
+      title: 'Unknown Data Purged 🧹',
+      message: `Successfully removed ${unknownReqs.length} unknown leave records from the database.`,
+      type: 'SUCCESS'
+    });
+
+    return { success: true, count: unknownReqs.length, message: `Purged ${unknownReqs.length} unknown leave requests.` };
+  };
+
   const resetData = () => {
     localStorage.removeItem(STORAGE_KEYS.USERS);
     localStorage.removeItem(STORAGE_KEYS.REQUESTS);
@@ -2223,7 +2480,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
     localStorage.removeItem(STORAGE_KEYS.AUTH);
-    
+    localStorage.removeItem(DELETED_USER_IDS_KEY);
+    localStorage.removeItem(DELETED_USER_EMAILS_KEY);
+
+    setDeletedUserIds(new Set());
+    setDeletedUserEmails(new Set());
     setAllUsers(MOCK_USERS);
     setCurrentUserId('usr_1');
     setIsAuthenticated(false);
@@ -2289,6 +2550,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         markNotificationRead,
         markAllNotificationsRead,
         clearSanctionLogs,
+        deleteLeaveRequest,
+        purgeUnknownLeaveRequests,
         resetData
       }}
     >

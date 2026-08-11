@@ -281,11 +281,11 @@ export async function inspectNeonTable(tableName: string) {
 /**
  * Delete a record from Neon DB
  */
-export async function deleteNeonDoc(table: string, id: string) {
+export async function deleteNeonDoc(table: string, id: string, email?: string) {
   const backendData = await safeJsonFetch('/api/neon/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ table, id })
+    body: JSON.stringify({ table, id, email })
   });
 
   if (backendData && backendData.success) {
@@ -294,7 +294,17 @@ export async function deleteNeonDoc(table: string, id: string) {
 
   try {
     await ensureClientTables();
-    if (table === 'users' && id) await sqlClient`DELETE FROM users WHERE id = ${id}`;
+    if (table === 'users') {
+      const cleanEmail = email ? email.trim().toLowerCase() : '';
+      const cleanId = id ? id.trim() : '';
+      if (cleanId && cleanEmail) {
+        await sqlClient`DELETE FROM users WHERE id = ${cleanId} OR LOWER(email) = ${cleanEmail}`;
+      } else if (cleanId) {
+        await sqlClient`DELETE FROM users WHERE id = ${cleanId}`;
+      } else if (cleanEmail) {
+        await sqlClient`DELETE FROM users WHERE LOWER(email) = ${cleanEmail}`;
+      }
+    }
     else if (table === 'leaveRequests' && id) await sqlClient`DELETE FROM leave_requests WHERE id = ${id}`;
     else if (table === 'departments' && id) await sqlClient`DELETE FROM departments WHERE id = ${id}`;
     else if (table === 'leavePolicies' && id) await sqlClient`DELETE FROM leave_policies WHERE type = ${id}`;
@@ -404,11 +414,14 @@ export async function syncDataToNeon(dataPayload: {
 
     for (const r of leaveRequests) {
       if (!r || !r.id) continue;
-      const applicantId = r.applicantId || r.applicant_id || r.applicantEmail || r.applicant_email || 'UNKNOWN_APPLICANT';
-      const applicantName = r.applicantName || r.applicant_name || 'Unknown Applicant';
-      const applicantEmail = r.applicantEmail || r.applicant_email || 'unknown@bitmesra.ac.in';
-      const departmentId = r.departmentId || r.department_id || 'GENERAL';
-      const departmentName = r.departmentName || r.department_name || 'General';
+      const applicantName = r.applicantName || r.applicant_name || '';
+      const applicantId = r.applicantId || r.applicant_id || '';
+      if (!applicantName || applicantName === 'Unknown Applicant' || applicantName.toLowerCase() === 'unknown' || applicantId === 'UNKNOWN_APPLICANT' || applicantId === 'UNKNOWN') {
+        continue;
+      }
+      const applicantEmail = r.applicantEmail || r.applicant_email || 'user@bitmesra.ac.in';
+      const departmentId = r.departmentId || r.department_id || 'CSE';
+      const departmentName = r.departmentName || r.department_name || 'Computer Science & Engineering';
       const leaveType = r.leaveType || r.leave_type || 'CASUAL';
       const startDate = r.startDate || r.start_date || new Date().toISOString().split('T')[0];
       const endDate = r.endDate || r.end_date || new Date().toISOString().split('T')[0];

@@ -45,6 +45,16 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
 
   if (!request) return null;
 
+  const matchedApplicant = allUsers?.find(u => 
+    (request.applicantId && u.id === request.applicantId) ||
+    (request.applicantEmail && u.email && u.email.toLowerCase().trim() === request.applicantEmail.toLowerCase().trim()) ||
+    (request.applicantEmployeeCode && u.employeeCode && u.employeeCode.trim() === request.applicantEmployeeCode.trim())
+  );
+
+  const applicantDisplayName = (request.applicantName && request.applicantName !== 'Unknown Applicant' && request.applicantName.trim() !== '')
+    ? request.applicantName
+    : (matchedApplicant?.name || (request.applicantEmail ? request.applicantEmail.split('@')[0] : 'Faculty Member'));
+
   const activeRegistrar = allUsers?.find(u => u.role === 'REGISTRAR');
   const registrarName = request.registrarApproval?.actionByName || activeRegistrar?.name || (currentUser.role === 'REGISTRAR' ? currentUser.name : 'University Registrar');
 
@@ -151,7 +161,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Applicant</p>
-              <p className="text-sm font-bold text-slate-900 mt-0.5">{request.applicantName}</p>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">{applicantDisplayName}</p>
               <p className="text-xs text-slate-600">{request.applicantDesignation}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[11px] font-mono font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
@@ -340,7 +350,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                 </p>
 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 font-sans text-xs">
-                  <p><strong>Name:</strong> {request.applicantName}</p>
+                  <p><strong>Name:</strong> {applicantDisplayName}</p>
                   <p><strong>Employee Code / Staff ID:</strong> {request.applicantEmployeeCode || 'N/A'}</p>
                   <p><strong>Designation:</strong> {request.applicantDesignation}</p>
                   <p><strong>Department:</strong> {request.departmentName}</p>
@@ -415,7 +425,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5 text-xs text-slate-800 px-2 pt-1">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Full Name</span>
-                    <span className="font-bold">{request.applicantName}</span>
+                    <span className="font-bold">{applicantDisplayName}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Employee Code / Staff ID</span>
@@ -497,7 +507,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                   <div className="border border-slate-300 rounded-lg p-3 flex flex-col justify-between h-28">
                     <span className="text-[10px] uppercase font-bold text-slate-500 block">Applicant Signature</span>
                     <div className="border-t border-slate-400 pt-1 text-center">
-                      <span className="font-semibold block text-[11px]">{request.applicantName}</span>
+                      <span className="font-semibold block text-[11px]">{applicantDisplayName}</span>
                       <span className="text-[9px] text-slate-500">Date: _______________</span>
                     </div>
                   </div>

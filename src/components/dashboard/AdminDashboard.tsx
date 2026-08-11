@@ -556,8 +556,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                     className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
                   >
                     <option value="ALL">All Departments ({allUsers.length})</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
+                    {departments.map((d, idx) => (
+                      <option key={`admin-dept-opt1-${d.id}-${idx}`} value={d.id}>
                         {d.name} ({allUsers.filter(u => u.departmentId === d.id).length})
                       </option>
                     ))}
@@ -594,8 +594,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((usr) => (
-                  <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
+                  filteredUsers.map((usr, idx) => (
+                  <tr key={`usr-row-${usr.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <img 
@@ -725,8 +725,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((dept) => (
-              <div key={dept.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+            {departments.map((dept, idx) => (
+              <div key={`dept-card-${dept.id}-${idx}`} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                   <div>
                     <span className="px-2 py-0.5 bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded font-mono text-[10px] font-bold">
@@ -799,9 +799,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {leavePolicies.map((pol) => (
+            {leavePolicies.map((pol, idx) => (
               <div 
-                key={pol.type} 
+                key={`pol-card-${pol.type}-${idx}`} 
                 className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3 relative overflow-hidden"
               >
                 <div className="w-1.5 absolute top-0 bottom-0 left-0" style={{ backgroundColor: pol.color }} />
@@ -894,8 +894,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   }}
                   className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
                 >
-                  {leavePolicies.map(p => (
-                    <option key={p.type} value={p.type}>{p.label} ({p.type})</option>
+                  {leavePolicies.map((p, idx) => (
+                    <option key={`policy-opt-${p.type}-${idx}`} value={p.type}>{p.label} ({p.type})</option>
                   ))}
                 </select>
               </div>
@@ -916,8 +916,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                     className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden cursor-pointer"
                   >
                     <option value="ALL">All Departments ({allUsers.length})</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
+                    {departments.map((d, idx) => (
+                      <option key={`admin-dept-opt2-${d.id}-${idx}`} value={d.id}>
                         {d.name} ({allUsers.filter(u => u.departmentId === d.id).length})
                       </option>
                     ))}
@@ -948,13 +948,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((usr) => {
+                  filteredUsers.map((usr, idx) => {
                     const bal = usr.leaveBalances[selectedLeaveType] || { total: 0, used: 0, pending: 0 };
                     const remaining = Math.max(0, bal.total - bal.used);
                     const isEditingThis = balanceUserId === usr.id;
 
                   return (
-                    <tr key={usr.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={`user-bal-row-${usr.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {usr.name} <span className="text-slate-400 font-normal">({usr.departmentId})</span>
                       </td>
@@ -973,8 +973,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                           }}
                           className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-medium focus:ring-2 focus:ring-indigo-500"
                         >
-                          {leavePolicies.map(p => (
-                            <option key={p.type} value={p.type}>{p.label}</option>
+                          {leavePolicies.map((p, pIdx) => (
+                            <option key={`row-policy-opt-${p.type}-${pIdx}`} value={p.type}>{p.label}</option>
                           ))}
                         </select>
                       </td>
@@ -1082,8 +1082,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingUsers.map((u) => (
-                <div key={u.id} className="p-5 rounded-2xl border border-amber-300 bg-amber-50/30 shadow-2xs flex flex-col justify-between space-y-4">
+              {pendingUsers.map((u, idx) => (
+                <div key={`pending-usr-${u.id}-${idx}`} className="p-5 rounded-2xl border border-amber-300 bg-amber-50/30 shadow-2xs flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <MaterialChip label={u.role} variant="role" role={u.role} />
@@ -1194,9 +1194,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                  {filteredLeaveRequests.map((r) => (
+                  {filteredLeaveRequests.map((r, idx) => (
                     <tr 
-                      key={r.id} 
+                      key={`leave-req-${r.id}-${idx}`} 
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id)}
                     >
@@ -1408,8 +1408,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   className="w-full px-3 py-2 border rounded-xl font-medium"
                 >
                   <option value="">-- Assign Later / No HOD --</option>
-                  {allUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  {allUsers.map((u, idx) => (
+                    <option key={`admin-add-hod-${u.id}-${idx}`} value={u.id}>{u.name} ({u.role})</option>
                   ))}
                 </select>
               </div>
@@ -1710,8 +1710,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                 >
                   <option value="">-- Assign HOD (Optional) --</option>
-                  {allUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
+                  {allUsers.map((u, idx) => (
+                    <option key={`admin-edit-hod-${u.id}-${idx}`} value={u.id}>
                       {u.name} ({u.role} - {u.email})
                     </option>
                   ))}

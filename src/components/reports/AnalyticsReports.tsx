@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
+import { LeaveRequest } from '../../types';
 import { MaterialChip } from '../common/MaterialChip';
 import { 
   BarChart, 
@@ -27,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, systemSettings } = useLeave();
+  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, purgeUnknownLeaveRequests, systemSettings } = useLeave();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isRegistrar = currentUser?.role === 'REGISTRAR';
@@ -137,6 +138,23 @@ export const AnalyticsReports: React.FC = () => {
   }).filter(item => item.value > 0);
 
   // Export CSV Handler
+  const resolveApplicantName = (r: LeaveRequest) => {
+    if (r.applicantName && r.applicantName !== 'Unknown Applicant' && r.applicantName.trim() !== '') {
+      return r.applicantName;
+    }
+    const matched = allUsers.find(u => 
+      (r.applicantId && u.id === r.applicantId) ||
+      (r.applicantEmail && u.email && u.email.toLowerCase().trim() === r.applicantEmail.toLowerCase().trim()) ||
+      (r.applicantEmployeeCode && u.employeeCode && u.employeeCode.trim() === r.applicantEmployeeCode.trim())
+    );
+    if (matched?.name) return matched.name;
+    if (r.applicantEmail && r.applicantEmail.includes('@')) {
+      const handle = r.applicantEmail.split('@')[0].replace(/[\._-]/g, ' ');
+      return handle.charAt(0).toUpperCase() + handle.slice(1);
+    }
+    return 'Faculty Member';
+  };
+
   const handleExportCSV = () => {
     const headers = [
       'Application ID',
@@ -153,7 +171,7 @@ export const AnalyticsReports: React.FC = () => {
 
     const rows = filteredRequests.map(r => [
       r.id,
-      `"${r.applicantName}"`,
+      `"${resolveApplicantName(r)}"`,
       `"${r.departmentName}"`,
       `"${r.applicantDesignation}"`,
       r.leaveType,
@@ -391,8 +409,8 @@ export const AnalyticsReports: React.FC = () => {
                   className="font-semibold text-slate-800 bg-transparent focus:outline-none"
                 >
                   <option value="ALL">All Departments</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.code} - {d.name}</option>
+                  {departments.map((d, idx) => (
+                    <option key={`dept-opt-${d.id}-${idx}`} value={d.id}>{d.code} - {d.name}</option>
                   ))}
                 </select>
               )}
@@ -413,8 +431,8 @@ export const AnalyticsReports: React.FC = () => {
                   className="font-semibold text-slate-800 bg-transparent focus:outline-none max-w-[180px] truncate"
                 >
                   <option value="ALL">All Faculty & Staff</option>
-                  {eligibleStaffUsers.map(u => (
-                    <option key={u.id} value={u.id}>
+                  {eligibleStaffUsers.map((u, idx) => (
+                    <option key={`staff-opt-${u.id}-${idx}`} value={u.id}>
                       {u.name} ({u.employeeCode || u.designation || u.role})
                     </option>
                   ))}
@@ -430,13 +448,24 @@ export const AnalyticsReports: React.FC = () => {
                 className="font-semibold text-slate-800 bg-transparent focus:outline-none"
               >
                 <option value="ALL">All Categories</option>
-                {leavePolicies.map(p => (
-                  <option key={p.type} value={p.type}>{p.label}</option>
+                {leavePolicies.map((p, idx) => (
+                  <option key={`policy-opt-${p.type}-${idx}`} value={p.type}>{p.label}</option>
                 ))}
               </select>
             </div>
 
             {/* Clear Leave Sanction Logs option - Super Admin Only */}
+            {(isSuperAdmin || currentUser?.role === 'ADMIN') && (
+              <button
+                type="button"
+                onClick={() => purgeUnknownLeaveRequests()}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 ml-1"
+                title="Purge unknown or orphan leave requests from database"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Purge Unknown Data
+              </button>
+            )}
             {isSuperAdmin && (
               <button
                 type="button"
@@ -478,7 +507,7 @@ export const AnalyticsReports: React.FC = () => {
                 filteredRequests.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-bold text-indigo-900">{r.id}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{r.applicantName}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{resolveApplicantName(r)}</td>
                     <td className="px-4 py-3">{r.departmentName}</td>
                     <td className="px-4 py-3">
                       <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />

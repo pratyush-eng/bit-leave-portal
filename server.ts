@@ -122,9 +122,9 @@ async function ensureNeonTables(sql: any) {
       )
     `;
 
-    // Remove specific leave requests requested by user
+    // Remove unknown or orphan leave requests
     try {
-      await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103');`;
+      await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103') OR applicant_name = 'Unknown Applicant' OR applicant_name LIKE '%Unknown%' OR applicant_id = 'UNKNOWN_APPLICANT' OR applicant_id = 'UNKNOWN' OR applicant_name IS NULL OR applicant_name = '';`;
     } catch (_e) {
       console.warn("[Delete Requests Error]", _e);
     }
@@ -302,11 +302,14 @@ async function startServer() {
       // 3. Sync Leave Requests
       for (const r of leaveRequests) {
         if (!r || !r.id) continue;
-        const applicantId = r.applicantId || r.applicant_id || r.applicantEmail || r.applicant_email || 'UNKNOWN_APPLICANT';
-        const applicantName = r.applicantName || r.applicant_name || 'Unknown Applicant';
-        const applicantEmail = r.applicantEmail || r.applicant_email || 'unknown@bitmesra.ac.in';
-        const departmentId = r.departmentId || r.department_id || 'GENERAL';
-        const departmentName = r.departmentName || r.department_name || 'General';
+        const applicantName = r.applicantName || r.applicant_name || '';
+        const applicantId = r.applicantId || r.applicant_id || '';
+        if (!applicantName || applicantName === 'Unknown Applicant' || applicantName.toLowerCase() === 'unknown' || applicantId === 'UNKNOWN_APPLICANT' || applicantId === 'UNKNOWN') {
+          continue;
+        }
+        const applicantEmail = r.applicantEmail || r.applicant_email || 'user@bitmesra.ac.in';
+        const departmentId = r.departmentId || r.department_id || 'CSE';
+        const departmentName = r.departmentName || r.department_name || 'Computer Science & Engineering';
         const leaveType = r.leaveType || r.leave_type || 'CASUAL';
         const startDate = r.startDate || r.start_date || new Date().toISOString().split('T')[0];
         const endDate = r.endDate || r.end_date || new Date().toISOString().split('T')[0];
@@ -517,11 +520,21 @@ async function startServer() {
   // API Route: Delete record from Neon DB
   app.post("/api/neon/delete", async (req, res) => {
     try {
-      const { table, id } = req.body || {};
+      const { table, id, email } = req.body || {};
       const sql = neon(NEON_DB_URL);
       await ensureNeonTables(sql);
 
-      if (table === 'users' && id) await sql`DELETE FROM users WHERE id = ${id}`;
+      if (table === 'users') {
+        const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+        const cleanId = id ? String(id).trim() : '';
+        if (cleanId && cleanEmail) {
+          await sql`DELETE FROM users WHERE id = ${cleanId} OR LOWER(email) = ${cleanEmail}`;
+        } else if (cleanId) {
+          await sql`DELETE FROM users WHERE id = ${cleanId}`;
+        } else if (cleanEmail) {
+          await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail}`;
+        }
+      }
       else if (table === 'leaveRequests' && id) await sql`DELETE FROM leave_requests WHERE id = ${id}`;
       else if (table === 'departments' && id) await sql`DELETE FROM departments WHERE id = ${id}`;
       else if (table === 'leavePolicies' && id) await sql`DELETE FROM leave_policies WHERE type = ${id}`;

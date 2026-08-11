@@ -51,7 +51,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Printer
+  Printer,
+  Trash2
 } from 'lucide-react';
 
 interface SuperAdminDashboardProps {
@@ -78,6 +79,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     exportDbJson,
     importDbJson,
     resetData,
+    deleteLeaveRequest,
+    purgeUnknownLeaveRequests,
     systemSettings,
     updateSystemSettings,
     sendTestEmail
@@ -861,11 +864,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </h3>
 
             <div className="space-y-2 max-h-[450px] overflow-y-auto">
-              {allUsers.map((u) => {
+              {allUsers.map((u, idx) => {
                 const isSelected = u.id === targetUser.id;
                 return (
                   <div
-                    key={u.id}
+                    key={`usr-sel-${u.id}-${idx}`}
                     onClick={() => setSelectedUserId(u.id)}
                     className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                       isSelected 
@@ -910,11 +913,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </div>
 
             <div className="space-y-3">
-              {granularPermissions.map((perm) => {
+              {granularPermissions.map((perm, idx) => {
                 const isGranted = currentAssigned.includes(perm.id);
                 return (
                   <div
-                    key={perm.id}
+                    key={`perm-${perm.id}-${idx}`}
                     onClick={() => handleTogglePermission(perm.id)}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start justify-between ${
                       isGranted 
@@ -1006,8 +1009,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   onChange={(e) => setNewDeptId(e.target.value)}
                   className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
                 >
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                  {departments.map((d, idx) => (
+                    <option key={`create-usr-dept-${d.id}-${idx}`} value={d.id}>{d.name} ({d.code})</option>
                   ))}
                 </select>
               </div>
@@ -1139,10 +1142,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((dept) => {
+            {departments.map((dept, idx) => {
               const facultyCount = allUsers.filter(u => u.departmentId === dept.id).length;
               return (
-                <div key={dept.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 relative">
+                <div key={`dept-card-${dept.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 relative">
                   <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                     <div>
                       <span className="px-2 py-0.5 bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded font-mono text-[10px] font-bold">
@@ -1215,9 +1218,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {leavePolicies.map((pol) => (
+            {leavePolicies.map((pol, idx) => (
               <div 
-                key={pol.type} 
+                key={`pol-card-${pol.type}-${idx}`} 
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3 relative overflow-hidden flex flex-col justify-between"
               >
                 <div className="w-1.5 absolute top-0 bottom-0 left-0" style={{ backgroundColor: pol.color }} />
@@ -1284,8 +1287,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingUsers.map((u) => (
-                <div key={u.id} className="p-5 rounded-2xl border border-amber-300 bg-amber-50/30 shadow-2xs flex flex-col justify-between space-y-4">
+              {pendingUsers.map((u, idx) => (
+                <div key={`pending-usr-${u.id}-${idx}`} className="p-5 rounded-2xl border border-amber-300 bg-amber-50/30 shadow-2xs flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <MaterialChip label={u.role} variant="role" role={u.role} />
@@ -1511,8 +1514,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto">
                         <strong className="text-indigo-400 block mb-1 text-[10px] uppercase tracking-wider font-sans">Columns Schema:</strong>
                         <div className="flex flex-wrap gap-2">
-                          {inspectData.columns.map((c) => (
-                            <span key={c.column_name} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                          {inspectData.columns.map((c, cIdx) => (
+                            <span key={`col-schema-${c.column_name}-${cIdx}`} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
                               {c.column_name}: <span className="text-indigo-400">{c.data_type}</span>
                             </span>
                           ))}
@@ -1529,21 +1532,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="border-b border-slate-800 bg-slate-900 text-indigo-300 sticky top-0">
-                                {inspectData.columns.map((col) => (
-                                  <th key={col.column_name} className="p-2 font-semibold whitespace-nowrap">
+                                {inspectData.columns.map((col, colIdx) => (
+                                  <th key={`col-head-${col.column_name}-${colIdx}`} className="p-2 font-semibold whitespace-nowrap">
                                     {col.column_name}
                                   </th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                              {inspectData.rows.map((row, idx) => (
-                                <tr key={row.id || idx} className="hover:bg-indigo-950/30 transition-colors">
-                                  {inspectData.columns.map((col) => {
+                              {inspectData.rows.map((row, rowIdx) => (
+                                <tr key={`inspect-row-${row.id ?? rowIdx}-${rowIdx}`} className="hover:bg-indigo-950/30 transition-colors">
+                                  {inspectData.columns.map((col, cellIdx) => {
                                     const val = row[col.column_name];
                                     const formattedVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'NULL');
                                     return (
-                                      <td key={col.column_name} className="p-2 max-w-xs truncate text-ellipsis">
+                                      <td key={`inspect-cell-${col.column_name}-${cellIdx}`} className="p-2 max-w-xs truncate text-ellipsis">
                                         {formattedVal}
                                       </td>
                                     );
@@ -1882,8 +1885,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     </td>
                   </tr>
                 ) : (
-                  paginatedLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                  paginatedLogs.map((log, idx) => (
+                    <tr key={`audit-log-${log.id}-${idx}`} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{log.timestamp}</td>
                       <td className="px-4 py-3 font-bold text-slate-900">{log.actorName}</td>
                       <td className="px-4 py-3">
@@ -2605,7 +2608,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                              (log.subject || '').toLowerCase().includes(q) ||
                              (log.triggerEvent || '').toLowerCase().includes(q);
                     })
-                    .map((log) => {
+                    .map((log, idx) => {
                       const getEventBadge = (evt: string) => {
                         switch (evt) {
                           case 'LEAVE_SUBMITTED':
@@ -2624,7 +2627,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       };
 
                       return (
-                        <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={`email-log-${log.id}-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{log.timestamp}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{getEventBadge(log.triggerEvent)}</td>
                           <td className="px-4 py-3">
@@ -2766,8 +2769,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                 >
                   <option value="">-- Assign HOD (Optional) --</option>
-                  {allUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
+                  {allUsers.map((u, idx) => (
+                    <option key={`add-dept-hod-${u.id}-${idx}`} value={u.id}>
                       {u.name} ({u.role} - {u.email})
                     </option>
                   ))}
@@ -2843,8 +2846,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                 >
                   <option value="">-- Assign HOD (Optional) --</option>
-                  {allUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
+                  {allUsers.map((u, idx) => (
+                    <option key={`edit-dept-hod-${u.id}-${idx}`} value={u.id}>
                       {u.name} ({u.role} - {u.email})
                     </option>
                   ))}
@@ -3138,8 +3141,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold bg-white text-slate-700 focus:outline-none"
               >
                 <option value="ALL">All Departments</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                {departments.map((d, idx) => (
+                  <option key={`super-dept-${d.id}-${idx}`} value={d.id}>{d.name}</option>
                 ))}
               </select>
 
@@ -3155,6 +3158,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <option value="REJECTED">Rejected</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
+              <button
+                type="button"
+                onClick={() => purgeUnknownLeaveRequests()}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                title="Purge unknown or orphan leave requests from database"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Purge Unknown Data
+              </button>
             </div>
           </div>
 
@@ -3178,9 +3190,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                  {filteredSuperLeaveRequests.map((r) => (
+                  {filteredSuperLeaveRequests.map((r, idx) => (
                     <tr 
-                      key={r.id} 
+                      key={`super-req-${r.id}-${idx}`} 
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id)}
                     >
@@ -3214,6 +3226,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                             className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
                           >
                             View Dossier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteLeaveRequest(r.id)}
+                            className="px-2 py-1 text-[11px] font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 rounded-lg transition-colors cursor-pointer border border-rose-200"
+                            title="Delete Leave Request"
+                          >
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
