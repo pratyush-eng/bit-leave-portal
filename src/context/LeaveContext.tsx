@@ -27,7 +27,6 @@ import {
   buildTestEmail
 } from '../lib/emailTemplates';
 import { 
-  MOCK_USERS, 
   INITIAL_LEAVE_REQUESTS, 
   INITIAL_NOTIFICATIONS, 
   INITIAL_AUDIT_LOGS, 
@@ -920,20 +919,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn("[Cloud PostgreSQL Direct Load Error]", err);
       }
 
-      // Fallback/secondary sync with Firestore if Cloud PostgreSQL is initializing
+      // Secondary sync for non-user settings and auxiliary logs from Firestore
       try {
         const firestoreData = await loadOrSeedFirestoreData();
         if (!mounted) return;
         if (firestoreData) {
-          if (Array.isArray(firestoreData.users)) {
-            setAllUsers((prev: User[]) => {
-              const sanitized = sanitizeAndDeduplicateUsers(firestoreData.users, deletedUserIds, deletedUserEmails);
-              return isDeepEqual(sanitized, prev) ? prev : sanitized;
-            });
-          }
           if (Array.isArray(firestoreData.leaveRequests)) {
             setLeaveRequests(prev => {
-              const normalized = normalizeLeaveRequests(firestoreData.leaveRequests, firestoreData.users || allUsers, firestoreData.departments || departments);
+              const normalized = normalizeLeaveRequests(firestoreData.leaveRequests, allUsers, firestoreData.departments || departments);
               return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
@@ -1004,15 +997,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    const unsubscribeUsers = subscribeToCollection<User>('users', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setAllUsers((prev: User[]) => {
-          const sanitized = sanitizeAndDeduplicateUsers(items, deletedUserIds, deletedUserEmails);
-          return isDeepEqual(sanitized, prev) ? prev : sanitized;
-        });
-      }
-    });
-
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
       if (mounted && Array.isArray(items)) {
         setDepartments(prev => isDeepEqual(items, prev) ? prev : items);
@@ -1048,7 +1032,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       clearInterval(pgPollInterval);
       if (unsubscribeSettings) unsubscribeSettings();
       if (unsubscribeRequests) unsubscribeRequests();
-      if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeDepts) unsubscribeDepts();
       if (unsubscribePolicies) unsubscribePolicies();
       if (unsubscribeNotifications) unsubscribeNotifications();
