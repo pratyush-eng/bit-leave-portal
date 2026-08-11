@@ -272,9 +272,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.REQUESTS);
-      return saved ? JSON.parse(saved) : INITIAL_LEAVE_REQUESTS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_LEAVE_REQUESTS;
+      return [];
     }
   });
 
@@ -924,12 +924,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const firestoreData = await loadOrSeedFirestoreData();
         if (!mounted) return;
         if (firestoreData) {
-          if (Array.isArray(firestoreData.leaveRequests)) {
-            setLeaveRequests(prev => {
-              const normalized = normalizeLeaveRequests(firestoreData.leaveRequests, allUsers, firestoreData.departments || departments);
-              return isDeepEqual(normalized, prev) ? prev : normalized;
-            });
-          }
           if (Array.isArray(firestoreData.departments)) {
             setDepartments(prev => isDeepEqual(firestoreData.departments, prev) ? prev : firestoreData.departments);
           }
@@ -988,15 +982,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    const unsubscribeRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setLeaveRequests(prev => {
-          const normalizedRemote = normalizeLeaveRequests(items, allUsers, departments);
-          return isDeepEqual(normalizedRemote, prev) ? prev : normalizedRemote;
-        });
-      }
-    });
-
     const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
       if (mounted && Array.isArray(items)) {
         setDepartments(prev => isDeepEqual(items, prev) ? prev : items);
@@ -1031,7 +1016,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       mounted = false;
       clearInterval(pgPollInterval);
       if (unsubscribeSettings) unsubscribeSettings();
-      if (unsubscribeRequests) unsubscribeRequests();
       if (unsubscribeDepts) unsubscribeDepts();
       if (unsubscribePolicies) unsubscribePolicies();
       if (unsubscribeNotifications) unsubscribeNotifications();
@@ -2366,7 +2350,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, message: 'Leave request not found.' };
     }
 
-    setLeaveRequests(prev => prev.filter(r => r.id !== requestId));
+    setLeaveRequests(prev => {
+      const updated = prev.filter(r => r.id !== requestId);
+      try {
+        localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(updated));
+      } catch (_e) {}
+      return updated;
+    });
     deleteDocFromFirestore('leaveRequests', requestId);
     deleteNeonDoc('leaveRequests', requestId).catch(() => {});
 

@@ -643,6 +643,9 @@ export async function sendAuditLogToNeon(log: any) {
  */
 export async function fetchNeonData() {
   const backendData = await safeJsonFetch('/api/neon/data');
+  if (backendData && backendData.success && backendData.data && Array.isArray(backendData.data.users)) {
+    return backendData.data;
+  }
   if (backendData && Array.isArray(backendData.users)) {
     return backendData;
   }

@@ -131,7 +131,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
     }
 
     const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', [], 'id');
-    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', INITIAL_LEAVE_REQUESTS, 'id');
+    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', [], 'id');
     const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
     const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
     const notifications = await getOrSeedCollection<Notification>('notifications', 'academia_leave_notifications_v1', INITIAL_NOTIFICATIONS, 'id');
