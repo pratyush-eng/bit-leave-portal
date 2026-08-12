@@ -125,8 +125,8 @@ const DELETED_USER_EMAILS_KEY = 'academia_deleted_user_emails_v1';
 
 function sanitizeAndDeduplicateUsers(
   usersList: User[],
-  delIds: Set<string>,
-  delEmails: Set<string>
+  delIds: Set<string> = new Set(),
+  delEmails: Set<string> = new Set()
 ): User[] {
   if (!Array.isArray(usersList)) return [];
   const map = new Map<string, User>();
@@ -136,11 +136,6 @@ function sanitizeAndDeduplicateUsers(
     const cleanEmail = String(u.email || '').trim().toLowerCase();
     const uId = String(u.id || '').trim();
     if (!cleanEmail) continue;
-
-    // Filter out deleted users permanently
-    if ((uId && delIds.has(uId)) || delEmails.has(cleanEmail)) {
-      continue;
-    }
 
     if (!map.has(cleanEmail)) {
       map.set(cleanEmail, u);
@@ -229,7 +224,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return s ? new Set<string>(JSON.parse(s)) : new Set<string>();
         } catch { return new Set<string>(); }
       })();
-      return sanitizeAndDeduplicateUsers(initial, savedDelIds, savedDelEmails);
+      return sanitizeAndDeduplicateUsers(initial);
     } catch {
       return [];
     }
@@ -409,7 +404,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Dynamically reconcile leave balances for all users based on active leave requests and leave policies
   const effectiveAllUsers = useMemo(() => {
-    const sanitized = sanitizeAndDeduplicateUsers(allUsers, deletedUserIds, deletedUserEmails);
+    const sanitized = sanitizeAndDeduplicateUsers(allUsers);
     return sanitized.map(u => {
       const balances: Record<string, { total: number; used: number; pending: number }> = {};
 
@@ -895,7 +890,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (neonData) {
           if (Array.isArray(neonData.users)) {
             setAllUsers((prev: User[]) => {
-              const sanitized = sanitizeAndDeduplicateUsers(neonData.users, deletedUserIds, deletedUserEmails);
+              const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
               return isDeepEqual(sanitized, prev) ? prev : sanitized;
             });
           }
@@ -928,7 +923,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted || !neonData) return;
         if (Array.isArray(neonData.users)) {
           setAllUsers((prev: User[]) => {
-            const sanitized = sanitizeAndDeduplicateUsers(neonData.users, deletedUserIds, deletedUserEmails);
+            const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
             return isDeepEqual(sanitized, prev) ? prev : sanitized;
           });
         }
