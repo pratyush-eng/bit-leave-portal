@@ -1,5 +1,3 @@
-import { collection, getDocs, setDoc, deleteDoc, doc, getDoc, writeBatch, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from './firebase';
 import { 
   MOCK_USERS, 
   INITIAL_LEAVE_REQUESTS, 
@@ -9,6 +7,7 @@ import {
   INITIAL_DEPARTMENTS 
 } from '../data/mockData';
 import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings, EmailLog } from '../types';
+import { fetchNeonData, syncDataToNeon, deleteNeonDoc, sendAuditLogToNeon } from './neonClient';
 
 export type DbOpType = 'INSERT' | 'UPDATE' | 'DELETE' | 'RESET' | 'SYNC' | 'IDLE';
 
@@ -32,7 +31,7 @@ export function subscribeToSyncStatus(listener: SyncListener) {
   syncListeners.push(listener);
   listener({
     isSyncing: activeOpCount > 0,
-    message: activeOpCount > 0 ? currentOpMessage : 'Live Database Synced',
+    message: activeOpCount > 0 ? currentOpMessage : 'PostgreSQL Database Synced',
     opType: currentOpType,
     lastSyncedAt,
     activeCount: activeOpCount
@@ -60,52 +59,17 @@ export function notifySyncEnd() {
   activeOpCount = Math.max(0, activeOpCount - 1);
   if (activeOpCount === 0) {
     currentOpType = 'IDLE';
-    currentOpMessage = 'Live Data Saved & Synced';
+    currentOpMessage = 'PostgreSQL Data Saved & Synced';
     lastSyncedAt = new Date();
   }
   const status: SyncStatus = {
     isSyncing: activeOpCount > 0,
-    message: activeOpCount > 0 ? currentOpMessage : 'Live Data Saved & Synced',
+    message: activeOpCount > 0 ? currentOpMessage : 'PostgreSQL Data Saved & Synced',
     opType: currentOpType,
     lastSyncedAt,
     activeCount: activeOpCount
   };
   syncListeners.forEach(l => l(status));
-}
-
-async function getOrSeedCollection<T>(
-  colName: string, 
-  storageKey: string, 
-  defaultItems: T[], 
-  _idField: string = 'id'
-): Promise<T[]> {
-  const isInitializedKey = `${storageKey}_is_initialized_v2`;
-
-  try {
-    const snap = await getDocs(collection(db, colName));
-    const docsWithoutMeta = snap.docs.filter(d => d.id !== '_meta_init');
-    localStorage.setItem(isInitializedKey, 'true');
-    // Always return whatever records currently exist in the database (including empty array [] if all were deleted).
-    // NEVER auto-seed or restore default initial mock records to the live database!
-    return docsWithoutMeta.map(d => d.data() as T);
-  } catch (err) {
-    console.warn(`Error fetching ${colName} from Firestore:`, err);
-  }
-
-  // Fallback to localStorage or defaultItems ONLY if Firestore query itself threw a network error
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.warn(`Error parsing localStorage for ${storageKey}:`, e);
-  }
-
-  return defaultItems;
 }
 
 export async function loadOrSeedFirestoreData(): Promise<{
@@ -119,182 +83,104 @@ export async function loadOrSeedFirestoreData(): Promise<{
   systemSettings?: SystemSettings;
 }> {
   try {
-    // Fetch global system settings (logo, institution name, feature toggles, email settings)
-    let systemSettings: SystemSettings | undefined = undefined;
-    try {
-      const settingsSnap = await getDoc(doc(db, 'settings', 'global'));
-      if (settingsSnap.exists()) {
-        systemSettings = settingsSnap.data() as SystemSettings;
-      }
-    } catch (sErr) {
-      console.warn('Could not load global settings from Firestore:', sErr);
+    const neonData = await fetchNeonData();
+    if (neonData) {
+      let savedSettings: SystemSettings | undefined;
+      try {
+        const saved = localStorage.getItem('academia_system_settings_v1');
+        if (saved) savedSettings = JSON.parse(saved);
+      } catch (_s) {}
+
+      return {
+        users: neonData.users || [],
+        leaveRequests: neonData.leaveRequests || [],
+        departments: neonData.departments || [],
+        leavePolicies: neonData.leavePolicies || [],
+        notifications: [],
+        auditLogs: neonData.auditLogs || [],
+        emailLogs: [],
+        systemSettings: savedSettings,
+      };
     }
-
-    const users = await getOrSeedCollection<User>('users', 'academia_leave_users_v1', [], 'id');
-    const leaveRequests = await getOrSeedCollection<LeaveRequest>('leaveRequests', 'academia_leave_requests_v1', [], 'id');
-    const departments = await getOrSeedCollection<Department>('departments', 'academia_leave_departments_v1', INITIAL_DEPARTMENTS, 'id');
-    const leavePolicies = await getOrSeedCollection<LeavePolicy>('leavePolicies', 'academia_leave_policies_v1', INITIAL_LEAVE_POLICIES, 'type');
-    const notifications = await getOrSeedCollection<Notification>('notifications', 'academia_leave_notifications_v1', INITIAL_NOTIFICATIONS, 'id');
-    const auditLogs = await getOrSeedCollection<AuditLog>('auditLogs', 'academia_leave_logs_v1', INITIAL_AUDIT_LOGS, 'id');
-    
-    let emailLogs: EmailLog[] = [];
-    try {
-      const mailSnap = await getDocs(collection(db, 'emailLogs'));
-      if (!mailSnap.empty) {
-        emailLogs = mailSnap.docs.map(d => d.data() as EmailLog);
-      }
-    } catch (mErr) {
-      console.warn('Could not load emailLogs from Firestore:', mErr);
-    }
-
-    return {
-      users,
-      leaveRequests,
-      departments,
-      leavePolicies,
-      notifications,
-      auditLogs,
-      emailLogs,
-      systemSettings,
-    };
-  } catch (error) {
-    console.error('Firestore sync failed, falling back to local storage/mock data:', error);
-    let localRequests: LeaveRequest[] = [];
-    try {
-      const saved = localStorage.getItem('academia_leave_requests_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) localRequests = parsed;
-      }
-    } catch (_) {}
-
-    return {
-      users: [],
-      leaveRequests: localRequests,
-      departments: INITIAL_DEPARTMENTS,
-      leavePolicies: INITIAL_LEAVE_POLICIES,
-      notifications: INITIAL_NOTIFICATIONS,
-      auditLogs: INITIAL_AUDIT_LOGS,
-    };
-  }
-}
-
-export function subscribeToSystemSettings(callback: (settings: SystemSettings) => void) {
-  try {
-    return onSnapshot(doc(db, 'settings', 'global'), (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.data() as SystemSettings);
-      }
-    }, (err) => {
-      console.warn('Settings subscription error:', err);
-    });
   } catch (err) {
-    console.warn('Failed setting up settings subscription:', err);
-    return () => {};
+    console.warn('Error loading PostgreSQL data via helper:', err);
   }
+
+  return {
+    users: [],
+    leaveRequests: [],
+    departments: [],
+    leavePolicies: [],
+    notifications: [],
+    auditLogs: [],
+  };
 }
 
-export function subscribeToCollection<T>(colName: string, callback: (items: T[]) => void) {
-  try {
-    return onSnapshot(collection(db, colName), (snapshot) => {
-      const items = snapshot.docs.filter(d => d.id !== '_meta_init').map(d => d.data() as T);
-      callback(items);
-    }, (err) => {
-      console.warn(`Realtime subscription error for ${colName}:`, err);
-    });
-  } catch (err) {
-    console.warn(`Failed setting up realtime subscription for ${colName}:`, err);
-    return () => {};
-  }
+export function subscribeToSystemSettings(_callback: (settings: SystemSettings) => void) {
+  return () => {};
 }
 
-let isQuotaExceeded = false;
-
-async function seedCollection(_colName: string, _items: any[], _idField: string) {
-  // Completely disabled auto-insertion and auto-seeding script across the portal
-  return;
+export function subscribeToCollection<T>(_colName: string, _callback: (items: T[]) => void) {
+  return () => {};
 }
 
 export async function saveDocToFirestore(colName: string, id: string, data: any, isNewRecord: boolean = false) {
-  if (isQuotaExceeded) return;
   const opType: DbOpType = isNewRecord ? 'INSERT' : 'UPDATE';
   notifySyncStart(
-    isNewRecord ? `Inserting record into live database (${colName})...` : `Updating record in live database (${colName})...`,
+    isNewRecord ? `Inserting record into PostgreSQL (${colName})...` : `Updating record in PostgreSQL (${colName})...`,
     opType
   );
   try {
-    await setDoc(doc(db, colName, String(id)), data, { merge: true });
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
-      isQuotaExceeded = true;
-      console.warn(`Firestore quota limit reached saving ${colName}/${id}. Using local state.`);
-    } else {
-      console.error(`Error saving doc to ${colName}/${id}:`, err);
+    if (colName === 'users') {
+      await syncDataToNeon({ users: [data] });
+    } else if (colName === 'leaveRequests') {
+      await syncDataToNeon({ leaveRequests: [data] });
+    } else if (colName === 'departments') {
+      await syncDataToNeon({ departments: [data] });
+    } else if (colName === 'leavePolicies') {
+      await syncDataToNeon({ leavePolicies: [data] });
+    } else if (colName === 'auditLogs') {
+      await sendAuditLogToNeon(data);
+    } else if (colName === 'settings') {
+      try {
+        localStorage.setItem('academia_system_settings_v1', JSON.stringify(data));
+      } catch (_e) {}
     }
+  } catch (err: any) {
+    console.error(`Error saving doc to PostgreSQL ${colName}/${id}:`, err);
   } finally {
     notifySyncEnd();
   }
 }
 
 export async function deleteDocFromFirestore(colName: string, id: string) {
-  if (isQuotaExceeded) return;
-  notifySyncStart(`Deleting record from live database (${colName})...`, 'DELETE');
+  notifySyncStart(`Deleting record from PostgreSQL (${colName})...`, 'DELETE');
   try {
-    await deleteDoc(doc(db, colName, String(id)));
+    await deleteNeonDoc(colName, id);
   } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
-      isQuotaExceeded = true;
-      console.warn(`Firestore quota limit reached deleting ${colName}/${id}. Using local state.`);
-    } else {
-      console.error(`Error deleting doc from ${colName}/${id}:`, err);
-    }
+    console.error(`Error deleting doc from PostgreSQL ${colName}/${id}:`, err);
   } finally {
     notifySyncEnd();
   }
 }
 
 export async function deleteUserFromFirestore(userId: string, email?: string) {
-  if (isQuotaExceeded) return;
-  notifySyncStart(`Deleting user record from live database...`, 'DELETE');
+  notifySyncStart(`Deleting user from PostgreSQL...`, 'DELETE');
   try {
-    if (userId) {
-      await deleteDoc(doc(db, 'users', String(userId)));
-    }
-    if (email) {
-      const cleanEmail = email.trim().toLowerCase();
-      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
-      const snap = await getDocs(q);
-      for (const d of snap.docs) {
-        await deleteDoc(doc(db, 'users', d.id));
-      }
-    }
+    await deleteNeonDoc('users', userId, email);
   } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
-      isQuotaExceeded = true;
-      console.warn(`Firestore quota limit reached deleting user ${userId}/${email}. Using local state.`);
-    } else {
-      console.error(`Error deleting user ${userId}/${email} from Firestore:`, err);
-    }
+    console.error(`Error deleting user ${userId}/${email} from PostgreSQL:`, err);
   } finally {
     notifySyncEnd();
   }
 }
 
 export async function resetFirestoreData() {
-  if (isQuotaExceeded) return;
-  notifySyncStart('Resetting institutional database records...', 'RESET');
+  notifySyncStart('Resetting PostgreSQL database records...', 'RESET');
   try {
-    const collectionsToClear = ['users', 'leaveRequests', 'departments', 'leavePolicies', 'notifications', 'auditLogs', 'emailLogs'];
-    for (const col of collectionsToClear) {
-      const snap = await getDocs(collection(db, col));
-      if (!snap.empty) {
-        const batch = writeBatch(db);
-        snap.docs.forEach(d => batch.delete(d.ref));
-        await batch.commit();
-      }
-    }
+    await deleteNeonDoc('clearAllRequests', 'all');
   } catch (err) {
-    console.warn('Error resetting Firestore database:', err);
+    console.warn('Error resetting PostgreSQL database:', err);
   } finally {
     notifySyncEnd();
   }

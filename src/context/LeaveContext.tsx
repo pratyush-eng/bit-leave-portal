@@ -918,32 +918,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (err) {
         console.warn("[Cloud PostgreSQL Direct Load Error]", err);
       }
-
-      // Secondary sync for non-user settings and auxiliary logs from Firestore
-      try {
-        const firestoreData = await loadOrSeedFirestoreData();
-        if (!mounted) return;
-        if (firestoreData) {
-          if (Array.isArray(firestoreData.departments)) {
-            setDepartments(prev => isDeepEqual(firestoreData.departments, prev) ? prev : firestoreData.departments);
-          }
-          if (Array.isArray(firestoreData.leavePolicies)) {
-            setLeavePolicies(prev => isDeepEqual(firestoreData.leavePolicies, prev) ? prev : firestoreData.leavePolicies);
-          }
-          if (Array.isArray(firestoreData.notifications)) {
-            setNotifications(prev => isDeepEqual(firestoreData.notifications, prev) ? prev : firestoreData.notifications);
-          }
-          if (Array.isArray(firestoreData.auditLogs)) {
-            setAuditLogs(prev => isDeepEqual(firestoreData.auditLogs, prev) ? prev : firestoreData.auditLogs);
-          }
-          if (Array.isArray(firestoreData.emailLogs)) {
-            setEmailLogs(prev => isDeepEqual(firestoreData.emailLogs, prev) ? prev : firestoreData.emailLogs);
-          }
-          if (firestoreData.systemSettings) {
-            setSystemSettings(prev => isDeepEqual(firestoreData.systemSettings, prev) ? prev : firestoreData.systemSettings);
-          }
-        }
-      } catch (_e) {}
     };
 
     loadFromCloudPg();
@@ -976,51 +950,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }).catch(_err => {});
     }, 4000);
 
-    const unsubscribeSettings = subscribeToSystemSettings((updatedSettings) => {
-      if (mounted && updatedSettings) {
-        setSystemSettings(prev => isDeepEqual(updatedSettings, prev) ? prev : updatedSettings);
-      }
-    });
-
-    const unsubscribeDepts = subscribeToCollection<Department>('departments', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setDepartments(prev => isDeepEqual(items, prev) ? prev : items);
-      }
-    });
-
-    const unsubscribePolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setLeavePolicies(prev => isDeepEqual(items, prev) ? prev : items);
-      }
-    });
-
-    const unsubscribeNotifications = subscribeToCollection<Notification>('notifications', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setNotifications(prev => isDeepEqual(items, prev) ? prev : items);
-      }
-    });
-
-    const unsubscribeAuditLogs = subscribeToCollection<AuditLog>('auditLogs', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setAuditLogs(prev => isDeepEqual(items, prev) ? prev : items);
-      }
-    });
-
-    const unsubscribeEmailLogs = subscribeToCollection<EmailLog>('emailLogs', (items) => {
-      if (mounted && Array.isArray(items)) {
-        setEmailLogs(prev => isDeepEqual(items, prev) ? prev : items);
-      }
-    });
-
     return () => {
       mounted = false;
       clearInterval(pgPollInterval);
-      if (unsubscribeSettings) unsubscribeSettings();
-      if (unsubscribeDepts) unsubscribeDepts();
-      if (unsubscribePolicies) unsubscribePolicies();
-      if (unsubscribeNotifications) unsubscribeNotifications();
-      if (unsubscribeAuditLogs) unsubscribeAuditLogs();
-      if (unsubscribeEmailLogs) unsubscribeEmailLogs();
     };
   }, []);
 
