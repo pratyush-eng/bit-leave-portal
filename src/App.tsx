@@ -54,7 +54,7 @@ const AppContent: React.FC = () => {
   const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
   const [printLeaveMode, setPrintLeaveMode] = useState<boolean>(false);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !currentUser) {
     return <LoginPage />;
   }
 
@@ -70,7 +70,7 @@ const AppContent: React.FC = () => {
   const renderMainContent = () => {
     switch (activeView) {
       case 'dashboard':
-        switch (currentUser.role) {
+        switch (currentUser?.role) {
           case 'FACULTY':
           case 'STAFF':
             return (
@@ -124,9 +124,9 @@ const AppContent: React.FC = () => {
 
       case 'my_leaves':
         const myRequests = leaveRequests.filter(r => 
-          r.applicantId === currentUser.id ||
-          (!!r.applicantEmail && !!currentUser.email && r.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
-          (!!r.applicantEmployeeCode && !!currentUser.employeeCode && r.applicantEmployeeCode === currentUser.employeeCode)
+          (currentUser?.id && r.applicantId === currentUser.id) ||
+          (!!r.applicantEmail && !!currentUser?.email && r.applicantEmail.toLowerCase() === currentUser.email.toLowerCase()) ||
+          (!!r.applicantEmployeeCode && !!currentUser?.employeeCode && r.applicantEmployeeCode === currentUser.employeeCode)
         );
         return (
           <div className="space-y-6">
@@ -188,9 +188,9 @@ const AppContent: React.FC = () => {
         );
 
       case 'approvals':
-        if (currentUser.role === 'HOD') {
+        if (currentUser?.role === 'HOD') {
           return <HodDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
-        } else if (currentUser.role === 'REGISTRAR') {
+        } else if (currentUser?.role === 'REGISTRAR') {
           return <RegistrarDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
         } else {
           return <HodDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;

@@ -37,22 +37,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Calculate pending approval counts
   const pendingHodCount = leaveRequests.filter(
-    r => r.status === 'PENDING_HOD' && r.departmentId === currentUser.departmentId
+    r => r.status === 'PENDING_HOD' && currentUser?.departmentId && r.departmentId === currentUser.departmentId
   ).length;
 
   const pendingRegistrarCount = leaveRequests.filter(
     r => r.status === 'PENDING_REGISTRAR'
   ).length;
 
-  const pendingCountForRole = currentUser.role === 'HOD' 
+  const pendingCountForRole = currentUser?.role === 'HOD' 
     ? pendingHodCount 
-    : currentUser.role === 'REGISTRAR' 
+    : currentUser?.role === 'REGISTRAR' 
       ? pendingRegistrarCount 
       : 0;
 
-  const isHodOrRegistrar = currentUser.role === 'HOD' || currentUser.role === 'REGISTRAR' || currentUser.role === 'SUPER_ADMIN';
-  const isAdminOrSuper = currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN';
-  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN';
+  const isHodOrRegistrar = currentUser?.role === 'HOD' || currentUser?.role === 'REGISTRAR' || currentUser?.role === 'SUPER_ADMIN';
+  const isAdminOrSuper = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
@@ -60,14 +60,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'my_leaves', label: 'My Leave History', icon: History },
     ...(isHodOrRegistrar ? [{ 
       id: 'approvals', 
-      label: currentUser.role === 'HOD' ? 'HOD Endorsements' : currentUser.role === 'REGISTRAR' ? 'Registrar Sanctions' : 'Pending Approvals', 
+      label: currentUser?.role === 'HOD' ? 'HOD Endorsements' : currentUser?.role === 'REGISTRAR' ? 'Registrar Sanctions' : 'Pending Approvals', 
       icon: CheckSquare,
       badge: pendingCountForRole
     }] : []),
     { id: 'calendar', label: 'Department Calendar', icon: Calendar },
     { id: 'reports', label: 'Analytics & Reports', icon: BarChart3 },
     ...(isAdminOrSuper ? [{ id: 'admin', label: 'User Roles & Quotas', icon: UserCog }] : []),
-    ...(isSuperAdmin ? [{ id: 'super_admin', label: 'Super Admin Controls', icon: ShieldCheck }] : []),
+    { id: 'super_admin', label: 'Super Admin Controls', icon: ShieldCheck },
   ];
 
   const handleNavClick = (viewId: string) => {
@@ -179,14 +179,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <img 
-                src={currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e3a8a&color=fff`} 
-                alt={currentUser.name} 
+                src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=1e3a8a&color=fff`} 
+                alt={currentUser?.name || 'User'} 
                 className="w-9 h-9 rounded-full object-cover border-2 border-white/20 shadow-xs shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-white truncate">{currentUser.name}</p>
+                <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'User'}</p>
                 <p className="text-[10px] text-indigo-200 uppercase tracking-wider font-bold truncate">
-                  {currentUser.role} • {currentUser.departmentId}
+                  {currentUser?.role} • {currentUser?.departmentId}
                 </p>
               </div>
             </div>

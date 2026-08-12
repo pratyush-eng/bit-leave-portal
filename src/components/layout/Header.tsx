@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
           
           {/* Persona / Role Switcher Launcher Button */}
-          {(systemSettings?.enableRoleSwitcher || currentUser.role === 'SUPER_ADMIN') && (
+          {(systemSettings?.enableRoleSwitcher || currentUser?.role === 'SUPER_ADMIN') && (
             <button
               onClick={onOpenRoleSwitcher}
               className="bg-[#3F51B5] hover:bg-[#303F9F] text-white px-2 sm:px-3 py-1.5 rounded-lg shadow-xs text-[11px] sm:text-xs font-bold uppercase tracking-wide flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0"
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ArrowLeftRight className="w-3.5 h-3.5 shrink-0 opacity-90" />
               <span className="hidden sm:inline">Role:</span>
-              <span>{currentUser.role}</span>
+              <span>{currentUser?.role}</span>
             </button>
           )}
 
@@ -146,13 +146,13 @@ export const Header: React.FC<HeaderProps> = ({
           {/* User Avatar */}
           <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 shrink-0">
             <img
-              src={currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e3a8a&color=fff`}
-              alt={currentUser.name}
+              src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=1e3a8a&color=fff`}
+              alt={currentUser?.name || 'User'}
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
             />
             <div className="text-left hidden lg:block">
-              <p className="text-xs font-semibold text-slate-800 leading-none">{currentUser.name}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{currentUser.departmentId}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-none">{currentUser?.name || 'User'}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{currentUser?.departmentId}</p>
             </div>
           </div>
 

@@ -33,7 +33,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
   const [isHalfDay, setIsHalfDay] = useState<boolean>(false);
   const [halfDaySession, setHalfDaySession] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
   const [reason, setReason] = useState<string>('');
-  const [contactPhone, setContactPhone] = useState<string>(currentUser.phone || '');
+  const [contactPhone, setContactPhone] = useState<string>(currentUser?.phone || '');
   const [contactAddress, setContactAddress] = useState<string>('');
   const [documentUrl, setDocumentUrl] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
@@ -69,13 +69,13 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
 
   // Current balance for selected leave type
   const selectedPolicy = leavePolicies.find(p => p.type === leaveType);
-  const userBalance = currentUser.leaveBalances[leaveType] || { total: 0, used: 0, pending: 0 };
+  const userBalance = currentUser?.leaveBalances?.[leaveType] || { total: 0, used: 0, pending: 0 };
   const remainingDays = userBalance.total - userBalance.used - userBalance.pending;
 
   const isExceedingBalance = calculatedDays > remainingDays;
 
   // Substitute staff list (faculty from same/other department)
-  const availableSubstitutes = allUsers.filter(u => u.id !== currentUser.id);
+  const availableSubstitutes = allUsers.filter(u => u.id !== currentUser?.id);
 
   const handleAddHandover = () => {
     setHandovers(prev => [
@@ -182,23 +182,23 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#3F51B5]/10 text-[#3F51B5] flex items-center justify-center font-bold text-sm shrink-0">
-                {currentUser.name.charAt(0)}
+                {currentUser?.name?.charAt(0) || 'U'}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-900">{currentUser.name}</span>
+                  <span className="text-xs font-bold text-slate-900">{currentUser?.name || 'User'}</span>
                   <span className="px-2 py-0.5 text-[10px] font-extrabold bg-indigo-100 text-indigo-800 rounded-md uppercase tracking-wider">
-                    {currentUser.role}
+                    {currentUser?.role}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                  {currentUser.designation} • {currentUser.departmentName}
+                  {currentUser?.designation} • {currentUser?.departmentName}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 border border-slate-200 rounded-lg text-xs shrink-0 shadow-2xs">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee Code:</span>
-              <span className="font-mono font-bold text-indigo-950">{currentUser.employeeCode || 'N/A'}</span>
+              <span className="font-mono font-bold text-indigo-950">{currentUser?.employeeCode || 'N/A'}</span>
             </div>
           </div>
 

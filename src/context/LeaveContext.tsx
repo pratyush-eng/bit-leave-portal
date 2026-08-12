@@ -549,6 +549,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const prevStatusesRef = React.useRef<Record<string, string>>({});
 
   useEffect(() => {
+    if (!currentUser) return;
     leaveRequests.forEach(req => {
       const prevStatus = prevStatusesRef.current[req.id];
       if (prevStatus && prevStatus !== req.status && req.applicantId === currentUser.id) {
@@ -579,7 +580,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       prevStatusesRef.current[req.id] = req.status;
     });
-  }, [leaveRequests, currentUser.id]);
+  }, [leaveRequests, currentUser?.id]);
 
   // Sync state to local storage
   useEffect(() => {
@@ -2355,7 +2356,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     resetFirestoreData().catch(err => console.warn('Error resetting Firestore:', err));
   };
 
-  const userNotifications = notifications.filter(n => n.userId === currentUser.id);
+  const userNotifications = notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || n.recipientId === currentUser.id));
   const unreadNotificationCount = userNotifications.filter(n => !n.read).length;
 
   return (
