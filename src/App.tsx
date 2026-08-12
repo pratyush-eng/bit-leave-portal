@@ -206,6 +206,9 @@ const AppContent: React.FC = () => {
         return <AdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
 
       case 'super_admin':
+        if (currentUser?.role !== 'SUPER_ADMIN') {
+          return <FacultyDashboard onOpenApplyModal={() => setIsApplyModalOpen(true)} onSelectLeaveRequest={handleSelectLeaveRequest} />;
+        }
         return <SuperAdminDashboard onSelectLeaveRequest={handleSelectLeaveRequest} />;
 
       default:

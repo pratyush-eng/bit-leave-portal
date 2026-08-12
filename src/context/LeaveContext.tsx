@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, deleteUserFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
-import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc } from '../lib/neonClient';
+import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc, savePermissionMatrixToNeon } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -15,7 +15,8 @@ import {
   ToastNotification,
   SystemSettings,
   EmailLog,
-  EmailSettings
+  EmailSettings,
+  PermissionMatrixEntry
 } from '../types';
 import { 
   DEFAULT_EMAIL_SETTINGS,
@@ -44,6 +45,7 @@ interface LeaveContextType {
   notifications: Notification[];
   auditLogs: AuditLog[];
   emailLogs: EmailLog[];
+  permissionMatrix: PermissionMatrixEntry[];
   granularPermissions: GranularPermission[];
   unreadNotificationCount: number;
   isAuthenticated: boolean;
@@ -229,6 +231,19 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [];
     }
   });
+
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('academia_permission_matrix_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('academia_permission_matrix_v1', JSON.stringify(permissionMatrix));
+  }, [permissionMatrix]);
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     try {
@@ -910,6 +925,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (Array.isArray(neonData.auditLogs)) {
             setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
           }
+          if (Array.isArray(neonData.permissionMatrix)) {
+            setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
+          }
         }
       } catch (err) {
         console.warn("[Cloud PostgreSQL Direct Load Error]", err);
@@ -942,6 +960,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (Array.isArray(neonData.auditLogs)) {
           setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
+        }
+        if (Array.isArray(neonData.permissionMatrix)) {
+          setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
         }
       }).catch(_err => {});
     }, 4000);
@@ -2053,9 +2074,30 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!targetUser) return;
     const updatedUser: User = { ...targetUser, role, assignedPermissions: permissions };
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+
+    const pmEntry: PermissionMatrixEntry = {
+      id: userId,
+      userId,
+      userName: targetUser.name,
+      userEmail: targetUser.email,
+      role,
+      departmentId: targetUser.departmentId || '',
+      permissions,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser?.name || 'SUPER_ADMIN'
+    };
+
+    setPermissionMatrix(prev => {
+      const exists = prev.some(p => p.userId === userId);
+      if (exists) return prev.map(p => p.userId === userId ? pmEntry : p);
+      return [...prev, pmEntry];
+    });
+
     saveDocToFirestore('users', userId, updatedUser);
-    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
-    addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permissions for user ${targetUser.name} (${userId}).`);
+    saveDocToFirestore('permission_matrix', userId, pmEntry);
+    savePermissionMatrixToNeon(pmEntry).catch(() => {});
+    syncDataToNeon({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
+    addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permission matrix entry for user ${targetUser.name} (${userId}).`);
   };
 
   const adjustUserLeaveBalance = (userId: string, leaveType: LeaveType, total: number, used: number) => {
@@ -2370,6 +2412,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         notifications: userNotifications,
         auditLogs,
         emailLogs,
+        permissionMatrix,
         granularPermissions: GRANULAR_PERMISSIONS,
         unreadNotificationCount,
         isAuthenticated,

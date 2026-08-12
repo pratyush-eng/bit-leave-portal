@@ -68,6 +68,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     leavePolicies,
     auditLogs, 
     emailLogs,
+    permissionMatrix = [],
     granularPermissions, 
     updateUserRoleAndPermissions,
     createNewUser,
@@ -422,7 +423,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   };
 
   const targetUser = allUsers.find(u => u.id === selectedUserId) || allUsers[0];
-  const currentAssigned = targetUser.assignedPermissions || [];
+  const pmEntry = permissionMatrix.find(p => p.userId === targetUser.id || p.id === targetUser.id);
+  const currentAssigned = pmEntry ? (Array.isArray(pmEntry.permissions) ? pmEntry.permissions : []) : (targetUser.assignedPermissions || []);
 
   const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
 
@@ -891,10 +893,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
             <div className="border-b pb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Assigned Permissions for {targetUser.name}
-                </h3>
-                <p className="text-xs text-slate-500">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Assigned Permissions for {targetUser.name}
+                  </h3>
+                  <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    DB: permission_matrix ({permissionMatrix.length} entries)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Role: {targetUser.role} • Department: {targetUser.departmentName} ({targetUser.email})
                 </p>
               </div>

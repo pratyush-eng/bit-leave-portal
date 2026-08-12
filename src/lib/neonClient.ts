@@ -113,6 +113,19 @@ async function ensureClientTables() {
         updated_at TEXT
       )
     `;
+    await sqlClient`
+      CREATE TABLE IF NOT EXISTS permission_matrix (
+        id TEXT PRIMARY KEY,
+        user_id TEXT UNIQUE NOT NULL,
+        user_name TEXT,
+        user_email TEXT,
+        role TEXT,
+        department_id TEXT,
+        permissions JSONB NOT NULL DEFAULT '[]',
+        updated_at TEXT,
+        updated_by TEXT
+      )
+    `;
   } catch (err) {
     console.warn('[Neon Client Ensure Tables]', err);
   }
@@ -260,6 +273,8 @@ export async function inspectNeonTable(tableName: string) {
       rows = await sqlClient`SELECT * FROM audit_logs LIMIT 100`;
     } else if (tableName === 'leave_balances') {
       rows = await sqlClient`SELECT * FROM leave_balances LIMIT 100`;
+    } else if (tableName === 'permission_matrix') {
+      rows = await sqlClient`SELECT * FROM permission_matrix LIMIT 100`;
     }
 
     return {
@@ -332,6 +347,7 @@ export async function syncDataToNeon(dataPayload: {
   leavePolicies?: any[];
   auditLogs?: any[];
   leaveBalances?: any[];
+  permissionMatrix?: any[];
 }) {
   const backendData = await safeJsonFetch('/api/neon/sync', {
     method: 'POST',
@@ -346,7 +362,7 @@ export async function syncDataToNeon(dataPayload: {
   // Direct Client Sync Fallback
   try {
     await ensureClientTables();
-    const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [] } = dataPayload;
+    const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [] } = dataPayload;
 
     let auditLogsSynced = 0;
     let usersSynced = 0;
@@ -354,6 +370,7 @@ export async function syncDataToNeon(dataPayload: {
     let deptsSynced = 0;
     let policiesSynced = 0;
     let balancesSynced = 0;
+    let permissionMatrixSynced = 0;
 
     for (const a of auditLogs) {
       if (!a || !a.id) continue;
@@ -573,6 +590,34 @@ export async function syncDataToNeon(dataPayload: {
       balancesSynced++;
     }
 
+    for (const p of permissionMatrix) {
+      if (!p || (!p.userId && !p.id)) continue;
+      const uId = p.userId || p.id;
+      await sqlClient`
+        INSERT INTO permission_matrix (id, user_id, user_name, user_email, role, department_id, permissions, updated_at, updated_by)
+        VALUES (
+          ${uId},
+          ${uId},
+          ${p.userName || p.user_name || ''},
+          ${p.userEmail || p.user_email || ''},
+          ${p.role || ''},
+          ${p.departmentId || p.department_id || ''},
+          ${JSON.stringify(p.permissions || [])},
+          ${p.updatedAt || p.updated_at || new Date().toISOString()},
+          ${p.updatedBy || p.updated_by || 'SUPER_ADMIN'}
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+          user_name = EXCLUDED.user_name,
+          user_email = EXCLUDED.user_email,
+          role = EXCLUDED.role,
+          department_id = EXCLUDED.department_id,
+          permissions = EXCLUDED.permissions,
+          updated_at = EXCLUDED.updated_at,
+          updated_by = EXCLUDED.updated_by
+      `;
+      permissionMatrixSynced++;
+    }
+
     return {
       success: true,
       message: 'Successfully synchronized portal data directly into Neon PostgreSQL.',
@@ -583,6 +628,7 @@ export async function syncDataToNeon(dataPayload: {
         departments: deptsSynced,
         leavePolicies: policiesSynced,
         leaveBalances: balancesSynced,
+        permissionMatrix: permissionMatrixSynced,
       },
     };
   } catch (err: any) {
@@ -763,10 +809,74 @@ export async function fetchNeonData() {
       ipAddress: a.ip_address
     }));
 
-    return { users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances: leaveBalancesList };
+    let rawPermissionMatrix: any[] = [];
+    try {
+      rawPermissionMatrix = await sqlClient`SELECT * FROM permission_matrix ORDER BY user_id ASC`;
+    } catch (_pmErr) {}
+
+    const permissionMatrix = rawPermissionMatrix.map((pm: any) => ({
+      id: pm.id || pm.user_id,
+      userId: pm.user_id,
+      userName: pm.user_name || '',
+      userEmail: pm.user_email || '',
+      role: pm.role || '',
+      departmentId: pm.department_id || '',
+      permissions: typeof pm.permissions === 'string' ? JSON.parse(pm.permissions) : (pm.permissions || []),
+      updatedAt: pm.updated_at,
+      updatedBy: pm.updated_by
+    }));
+
+    return { users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances: leaveBalancesList, permissionMatrix };
   } catch (err) {
     console.warn('[Fetch Neon Data Error]', err);
     return null;
+  }
+}
+
+/**
+ * Save single permission matrix record to Neon DB
+ */
+export async function savePermissionMatrixToNeon(entry: any) {
+  const backendData = await safeJsonFetch('/api/permission-matrix/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry)
+  });
+
+  if (backendData && backendData.success) {
+    return backendData;
+  }
+
+  // Fallback direct browser query
+  try {
+    await ensureClientTables();
+    const uId = entry.userId || entry.id;
+    await sqlClient`
+      INSERT INTO permission_matrix (id, user_id, user_name, user_email, role, department_id, permissions, updated_at, updated_by)
+      VALUES (
+        ${uId},
+        ${uId},
+        ${entry.userName || entry.user_name || ''},
+        ${entry.userEmail || entry.user_email || ''},
+        ${entry.role || ''},
+        ${entry.departmentId || entry.department_id || ''},
+        ${JSON.stringify(entry.permissions || [])},
+        ${entry.updatedAt || entry.updated_at || new Date().toISOString()},
+        ${entry.updatedBy || entry.updated_by || 'SUPER_ADMIN'}
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        user_name = EXCLUDED.user_name,
+        user_email = EXCLUDED.user_email,
+        role = EXCLUDED.role,
+        department_id = EXCLUDED.department_id,
+        permissions = EXCLUDED.permissions,
+        updated_at = EXCLUDED.updated_at,
+        updated_by = EXCLUDED.updated_by
+    `;
+    return { success: true, userId: uId };
+  } catch (err: any) {
+    console.warn('[Direct Neon Permission Matrix Error]', err);
+    return { success: false, error: err?.message };
   }
 }
 

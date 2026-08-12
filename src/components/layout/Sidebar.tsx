@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'calendar', label: 'Department Calendar', icon: Calendar },
     { id: 'reports', label: 'Analytics & Reports', icon: BarChart3 },
     ...(isAdminOrSuper ? [{ id: 'admin', label: 'User Roles & Quotas', icon: UserCog }] : []),
-    { id: 'super_admin', label: 'Super Admin Controls', icon: ShieldCheck },
+    ...(isSuperAdmin ? [{ id: 'super_admin', label: 'Super Admin Controls', icon: ShieldCheck }] : []),
   ];
 
   const handleNavClick = (viewId: string) => {

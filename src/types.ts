@@ -139,6 +139,18 @@ export interface GranularPermission {
   category: 'LEAVE_MANAGEMENT' | 'USER_MANAGEMENT' | 'REPORTS' | 'SYSTEM';
 }
 
+export interface PermissionMatrixEntry {
+  id: string; // e.g. user_id
+  userId: string;
+  userName: string;
+  userEmail: string;
+  role: Role;
+  departmentId: string;
+  permissions: string[];
+  updatedAt: string;
+  updatedBy?: string;
+}
+
 export interface ToastNotification {
   id: string;
   title: string;

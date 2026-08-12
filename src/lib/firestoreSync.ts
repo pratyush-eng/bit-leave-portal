@@ -6,7 +6,7 @@ import {
   INITIAL_LEAVE_POLICIES, 
   INITIAL_DEPARTMENTS 
 } from '../data/mockData';
-import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings, EmailLog } from '../types';
+import { User, LeaveRequest, Notification, AuditLog, LeavePolicy, Department, SystemSettings, EmailLog, PermissionMatrixEntry } from '../types';
 import { fetchNeonData, syncDataToNeon, deleteNeonDoc, sendAuditLogToNeon } from './neonClient';
 
 export type DbOpType = 'INSERT' | 'UPDATE' | 'DELETE' | 'RESET' | 'SYNC' | 'IDLE';
@@ -81,6 +81,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
   auditLogs: AuditLog[];
   emailLogs?: EmailLog[];
   systemSettings?: SystemSettings;
+  permissionMatrix?: PermissionMatrixEntry[];
 }> {
   try {
     const neonData = await fetchNeonData();
@@ -100,6 +101,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         auditLogs: neonData.auditLogs || [],
         emailLogs: [],
         systemSettings: savedSettings,
+        permissionMatrix: neonData.permissionMatrix || [],
       };
     }
   } catch (err) {
@@ -113,6 +115,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
     leavePolicies: [],
     notifications: [],
     auditLogs: [],
+    permissionMatrix: [],
   };
 }
 
@@ -139,6 +142,8 @@ export async function saveDocToFirestore(colName: string, id: string, data: any,
       await syncDataToNeon({ departments: [data] });
     } else if (colName === 'leavePolicies') {
       await syncDataToNeon({ leavePolicies: [data] });
+    } else if (colName === 'permission_matrix' || colName === 'permissionMatrix') {
+      await syncDataToNeon({ permissionMatrix: [data] });
     } else if (colName === 'auditLogs') {
       await sendAuditLogToNeon(data);
     } else if (colName === 'settings') {
