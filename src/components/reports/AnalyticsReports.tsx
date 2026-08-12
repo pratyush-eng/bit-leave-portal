@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsReports: React.FC = () => {
-  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, purgeUnknownLeaveRequests, deleteLeaveRequest, systemSettings } = useLeave();
+  const { currentUser, leaveRequests, departments, allUsers, leavePolicies, clearSanctionLogs, purgeUnknownLeaveRequests, deleteLeaveRequest, systemSettings, hasPermission, addToast } = useLeave();
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isRegistrar = currentUser?.role === 'REGISTRAR';
@@ -157,6 +157,19 @@ export const AnalyticsReports: React.FC = () => {
   };
 
   const handleExportCSV = () => {
+    if (currentUser?.role === 'ADMIN' && hasPermission && !hasPermission('PERM_EXPORT_REPORTS')) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'You do not have PERM_EXPORT_REPORTS permission assigned in the Permission Matrix to export CSV reports.',
+          type: 'ERROR'
+        });
+      } else {
+        alert('Permission Denied: Missing PERM_EXPORT_REPORTS permission.');
+      }
+      return;
+    }
+
     const headers = [
       'Application ID',
       'Applicant Name',

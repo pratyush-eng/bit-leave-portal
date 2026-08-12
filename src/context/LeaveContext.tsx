@@ -47,6 +47,7 @@ interface LeaveContextType {
   emailLogs: EmailLog[];
   permissionMatrix: PermissionMatrixEntry[];
   granularPermissions: GranularPermission[];
+  hasPermission: (permissionId: string, userIdToCheck?: string) => boolean;
   unreadNotificationCount: number;
   isAuthenticated: boolean;
   toasts: ToastNotification[];
@@ -417,10 +418,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts([]);
   };
 
-  // Dynamically reconcile leave balances for all users based on active leave requests and leave policies
+  // Dynamically reconcile leave balances and permission matrix entries for all users
   const effectiveAllUsers = useMemo(() => {
     const sanitized = sanitizeAndDeduplicateUsers(allUsers);
     return sanitized.map(u => {
+      // 0. Synchronize permission matrix entry onto user's assignedPermissions and role
+      const pmEntry = permissionMatrix.find(
+        p => p.userId === u.id ||
+             p.id === u.id ||
+             (p.userEmail && u.email && p.userEmail.toLowerCase().trim() === u.email.toLowerCase().trim())
+      );
+
+      const activePermissions = pmEntry && Array.isArray(pmEntry.permissions)
+        ? pmEntry.permissions
+        : (u.assignedPermissions || []);
+
+      const activeRole = (pmEntry && pmEntry.role) ? (pmEntry.role as Role) : u.role;
+
       const balances: Record<string, { total: number; used: number; pending: number }> = {};
 
       // 1. Initialize with quotas from policies or user's custom quota
@@ -495,10 +509,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return {
         ...u,
+        role: activeRole,
+        assignedPermissions: activePermissions,
         leaveBalances: balances as any
       };
     });
-  }, [allUsers, leaveRequests, leavePolicies, deletedUserIds, deletedUserEmails]);
+  }, [allUsers, leaveRequests, leavePolicies, permissionMatrix, deletedUserIds, deletedUserEmails]);
 
   const currentUser = useMemo(() => {
     const cleanEmail = currentUserEmail ? currentUserEmail.trim().toLowerCase() : '';
@@ -559,6 +575,30 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return effectiveAllUsers[0] || null;
   }, [effectiveAllUsers, allUsers, currentUserId, currentUserEmail, isAuthenticated]);
+
+  const hasPermission = (permissionId: string, userIdToCheck?: string): boolean => {
+    const user = userIdToCheck
+      ? effectiveAllUsers.find(u => u.id === userIdToCheck)
+      : currentUser;
+
+    if (!user) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+
+    const pmEntry = permissionMatrix.find(
+      p => p.userId === user.id ||
+           p.id === user.id ||
+           (p.userEmail && user.email && p.userEmail.toLowerCase().trim() === user.email.toLowerCase().trim())
+    );
+
+    let activePermissions: string[] = [];
+    if (pmEntry && Array.isArray(pmEntry.permissions)) {
+      activePermissions = pmEntry.permissions;
+    } else if (Array.isArray(user.assignedPermissions)) {
+      activePermissions = user.assignedPermissions;
+    }
+
+    return activePermissions.includes(permissionId);
+  };
 
   // Track status transitions for active user leave applications
   const prevStatusesRef = React.useRef<Record<string, string>>({});
@@ -2186,20 +2226,32 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
-  const checkSuperAdminPermission = (): boolean => {
-    if (currentUser?.role !== 'SUPER_ADMIN') {
-      addToast({
-        title: 'Permission Denied 🚫',
-        message: 'Departments and Leave Types & Policies can be added or modified by Super Admin only.',
-        type: 'ERROR'
-      });
-      return false;
+  const canModifyPolicies = (): boolean => {
+    if (currentUser?.role === 'SUPER_ADMIN' || hasPermission('PERM_CONFIG_POLICIES')) {
+      return true;
     }
-    return true;
+    addToast({
+      title: 'Permission Denied 🚫',
+      message: 'Leave Types & Policies require PERM_CONFIG_POLICIES permission.',
+      type: 'ERROR'
+    });
+    return false;
+  };
+
+  const canModifyDepartments = (): boolean => {
+    if (currentUser?.role === 'SUPER_ADMIN' || hasPermission('PERM_MANAGE_USERS') || hasPermission('PERM_CONFIG_POLICIES')) {
+      return true;
+    }
+    addToast({
+      title: 'Permission Denied 🚫',
+      message: 'Managing Departments requires PERM_MANAGE_USERS or PERM_CONFIG_POLICIES permission.',
+      type: 'ERROR'
+    });
+    return false;
   };
 
   const createNewDepartment = (deptData: Omit<Department, 'totalFaculty'>) => {
-    if (!checkSuperAdminPermission()) return;
+    if (!canModifyDepartments()) return;
     const newDept: Department = {
       ...deptData,
       totalFaculty: 0
@@ -2215,7 +2267,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateDepartment = (updatedDept: Department) => {
-    if (!checkSuperAdminPermission()) return;
+    if (!canModifyDepartments()) return;
     setDepartments(prev => prev.map(d => d.id === updatedDept.id ? updatedDept : d));
     saveDocToFirestore('departments', updatedDept.id, updatedDept);
     addAuditLog(currentUser, 'DEPARTMENT_UPDATED', `Updated department ${updatedDept.name} (${updatedDept.code}).`);
@@ -2227,7 +2279,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const createNewLeaveType = (policyData: LeavePolicy) => {
-    if (!checkSuperAdminPermission()) return;
+    if (!canModifyPolicies()) return;
     setLeavePolicies(prev => {
       const exists = prev.some(p => p.type === policyData.type);
       if (exists) {
@@ -2260,7 +2312,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateLeavePolicy = (updatedPolicy: LeavePolicy) => {
-    if (!checkSuperAdminPermission()) return;
+    if (!canModifyPolicies()) return;
     setLeavePolicies(prev => prev.map(p => p.type === updatedPolicy.type ? updatedPolicy : p));
     saveDocToFirestore('leavePolicies', updatedPolicy.type, updatedPolicy);
     addAuditLog(currentUser, 'POLICY_UPDATED', `Updated policy for ${updatedPolicy.label}. Annual Quota set to ${updatedPolicy.annualQuota}.`);
@@ -2414,6 +2466,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         emailLogs,
         permissionMatrix,
         granularPermissions: GRANULAR_PERMISSIONS,
+        hasPermission,
         unreadNotificationCount,
         isAuthenticated,
         toasts,

@@ -50,14 +50,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
     updateLeavePolicy,
     updateUserStatus,
     currentUser,
-    addToast
+    addToast,
+    hasPermission,
+    granularPermissions
   } = useLeave();
 
   const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending' | 'leaves'>('users');
   
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
   const userDeptId = currentUser?.departmentId;
   const userDeptObj = departments.find(d => d.id === userDeptId);
+
+  // Granular Permission Capability Checks for Admins
+  const canManageUsers = isSuperAdmin || (hasPermission && hasPermission('PERM_MANAGE_USERS'));
+  const canAdjustBalances = isSuperAdmin || (hasPermission && hasPermission('PERM_ADJUST_BALANCE'));
+  const canConfigPolicies = isSuperAdmin || (hasPermission && hasPermission('PERM_CONFIG_POLICIES'));
+  const canExportReports = isSuperAdmin || (hasPermission && hasPermission('PERM_EXPORT_REPORTS'));
+  const canOverrideHOD = isSuperAdmin || (hasPermission && hasPermission('PERM_APPROVE_OVERRIDE'));
 
   // Department Filter & User Search & User Editing
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('ALL');
@@ -167,6 +177,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
   const [policyDesc, setPolicyDesc] = useState<string>('');
 
   const handleSaveRole = (userId: string) => {
+    if (!canManageUsers) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Missing PERM_MANAGE_USERS permission to manage user roles.',
+          type: 'ERROR'
+        });
+      }
+      return;
+    }
     updateUserRoleAndPermissions(userId, selectedRole, []);
     setEditingUserId(null);
     if (addToast) {
@@ -179,6 +199,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
   };
 
   const handleSaveBalance = (userId: string) => {
+    if (!canAdjustBalances) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Missing PERM_ADJUST_BALANCE permission to adjust leave quotas.',
+          type: 'ERROR'
+        });
+      }
+      return;
+    }
     adjustUserLeaveBalance(userId, selectedLeaveType, editTotalQuota, editUsedDays);
     setBalanceUserId(null);
     if (addToast) {
@@ -192,6 +222,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
   const handleSavePolicy = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canConfigPolicies) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Missing PERM_CONFIG_POLICIES permission to edit leave policies.',
+          type: 'ERROR'
+        });
+      }
+      return;
+    }
     if (editingPolicy) {
       updateLeavePolicy(editingPolicy);
       setEditingPolicy(null);
@@ -200,6 +240,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
   const handleUpdateDepartment = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageUsers && !canConfigPolicies) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Missing permission to edit department parameters.',
+          type: 'ERROR'
+        });
+      }
+      return;
+    }
     if (!editingDept) return;
     const hodUser = allUsers.find(u => u.id === deptHodId);
     updateDepartment({
@@ -214,6 +264,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageUsers) {
+      if (addToast) {
+        addToast({
+          title: 'Permission Denied 🚫',
+          message: 'Missing PERM_MANAGE_USERS permission to create user profiles.',
+          type: 'ERROR'
+        });
+      }
+      return;
+    }
     if (!newName || !newEmail) {
       alert('Please fill required fields.');
       return;
@@ -377,6 +437,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           <p className="text-xs text-indigo-100/90 mt-1 max-w-xl leading-relaxed">
             Create user profiles, establish departments, define custom leave types, and adjust quotas.
           </p>
+
+          {/* Active Permission Matrix Status for Non-Super Admin Admins */}
+          {!isSuperAdmin && granularPermissions && (
+            <div className="mt-3 pt-3 border-t border-white/20 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-semibold text-indigo-100 flex items-center gap-1 mr-1">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-300" /> Active Matrix Permissions:
+              </span>
+              {granularPermissions.map(perm => {
+                const isGranted = hasPermission && hasPermission(perm.id);
+                return (
+                  <span
+                    key={perm.id}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-tight flex items-center gap-1 ${
+                      isGranted 
+                        ? 'bg-emerald-500/25 text-emerald-100 border border-emerald-400/40' 
+                        : 'bg-white/10 text-indigo-200/50 border border-white/10 line-through'
+                    }`}
+                    title={perm.description}
+                  >
+                    {isGranted ? <Check className="w-3 h-3 text-emerald-300 shrink-0" /> : <Lock className="w-3 h-3 text-white/40 shrink-0" />}
+                    {perm.name}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 shrink-0">
@@ -511,6 +597,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {/* TAB 1: USER PROFILES & ROLES */}
       {activeTab === 'users' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          {!canManageUsers && (
+            <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs flex items-center gap-2 font-medium">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span><strong>Restricted Access:</strong> You do not have <code>PERM_MANAGE_USERS</code> permission assigned in the Permission Matrix. User creation and role modification controls are read-only.</span>
+            </div>
+          )}
+
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
@@ -697,10 +790,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {/* TAB 2: DEPARTMENTS MANAGEMENT */}
       {activeTab === 'departments' && (
         <div className="space-y-4">
-          {currentUser?.role !== 'SUPER_ADMIN' && (
+          {(!canManageUsers && !canConfigPolicies) && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-xs text-amber-900 font-medium shadow-2xs">
               <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Institutional Restriction: Departments can be added or modified by Super Admin only. (View Only Mode)</span>
+              <span>Permission Notice: Managing Departments requires <code>PERM_MANAGE_USERS</code> or <code>PERM_CONFIG_POLICIES</code> permission in the Permission Matrix. (Read Only)</span>
             </div>
           )}
 
@@ -714,7 +807,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
               </p>
             </div>
 
-            {currentUser?.role === 'SUPER_ADMIN' && (
+            {(canManageUsers || canConfigPolicies) && (
               <button
                 onClick={() => setShowAddDeptModal(true)}
                 className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
@@ -747,7 +840,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   </div>
                 </div>
 
-                {currentUser?.role === 'SUPER_ADMIN' && (
+                {(canManageUsers || canConfigPolicies) && (
                   <div className="pt-2 flex justify-end border-t border-slate-100">
                     <button
                       onClick={() => {
@@ -771,10 +864,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {/* TAB 3: LEAVE TYPES & POLICIES */}
       {activeTab === 'policies' && (
         <div className="space-y-4">
-          {currentUser?.role !== 'SUPER_ADMIN' && (
+          {!canConfigPolicies && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-xs text-amber-900 font-medium shadow-2xs">
               <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Institutional Restriction: Leave Types & Policies can be added or modified by Super Admin only. (View Only Mode)</span>
+              <span>Permission Notice: Leave Types & Policies require <code>PERM_CONFIG_POLICIES</code> permission in the Permission Matrix. (Read Only)</span>
             </div>
           )}
 
@@ -788,7 +881,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
               </p>
             </div>
 
-            {currentUser?.role === 'SUPER_ADMIN' && (
+            {canConfigPolicies && (
               <button
                 onClick={() => setShowAddPolicyModal(true)}
                 className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
@@ -825,7 +918,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   <span>Document: <strong>{pol.requiresDocument ? 'Mandatory' : 'Optional'}</strong></span>
                 </div>
 
-                {currentUser?.role === 'SUPER_ADMIN' && (
+                {canConfigPolicies && (
                   <div className="pl-2 pt-2 flex justify-end">
                     <button
                       onClick={() => setEditingPolicy(pol)}
@@ -844,6 +937,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {/* TAB 4: QUOTA & BALANCE ADJUSTER */}
       {activeTab === 'balances' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          {!canAdjustBalances && (
+            <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs flex items-center gap-2 font-medium">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span><strong>Restricted Access:</strong> You do not have <code>PERM_ADJUST_BALANCE</code> permission assigned in the Permission Matrix. Leave balance adjustments are read-only.</span>
+            </div>
+          )}
+
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
