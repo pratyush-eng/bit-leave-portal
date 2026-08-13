@@ -6,7 +6,26 @@ import { createServer as createViteServer } from "vite";
 
 const NEON_DB_URL = process.env.POSTGRES_URL || "postgresql://neondb_owner:npg_2nbd1fBtRchx@ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech/bit_leave_portal?sslmode=require";
 
+let isNeonQuotaExceeded = false;
+let lastNeonQuotaLogTime = 0;
+
+function isNeonQuotaError(err: any): boolean {
+  if (!err) return false;
+  const status = err.status || err.statusCode || err.response?.status;
+  const msg = (err.message || err.toString() || "").toLowerCase();
+  return status === 402 || msg.includes("402") || msg.includes("quota") || msg.includes("data transfer");
+}
+
+function logNeonQuotaNoticeOnce() {
+  const now = Date.now();
+  if (now - lastNeonQuotaLogTime > 300000) { // Log at most once per 5 minutes
+    console.warn("[Neon PostgreSQL Notice] Free plan data transfer quota reached (HTTP 402). Application operating in high-availability Firestore/LocalStorage fallback mode.");
+    lastNeonQuotaLogTime = now;
+  }
+}
+
 async function ensureNeonTables(sql: any) {
+  if (isNeonQuotaExceeded) return;
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -136,14 +155,31 @@ async function ensureNeonTables(sql: any) {
       )
     `;
 
+    await sql`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        id TEXT PRIMARY KEY DEFAULT 'default',
+        enable_demo_accounts BOOLEAN DEFAULT true,
+        enable_role_switcher BOOLEAN DEFAULT true,
+        enable_self_registration BOOLEAN DEFAULT true,
+        institution_name TEXT DEFAULT 'BIT Leave Portal',
+        institution_logo_url TEXT,
+        email_settings JSONB,
+        updated_at TEXT,
+        updated_by TEXT
+      )
+    `;
+
     // Remove unknown or orphan leave requests
     try {
       await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103') OR applicant_name = 'Unknown Applicant' OR applicant_name LIKE '%Unknown%' OR applicant_id = 'UNKNOWN_APPLICANT' OR applicant_id = 'UNKNOWN' OR applicant_name IS NULL OR applicant_name = '';`;
-    } catch (_e) {
-      console.warn("[Delete Requests Error]", _e);
+    } catch (_e) {}
+  } catch (err: any) {
+    if (isNeonQuotaError(err)) {
+      isNeonQuotaExceeded = true;
+      logNeonQuotaNoticeOnce();
+      return;
     }
-  } catch (err) {
-    console.warn("[Ensure Neon Tables Warning]", err);
+    console.warn("[Ensure Neon Tables Warning]", err?.message || err);
   }
 }
 
@@ -166,6 +202,15 @@ async function startServer() {
 
   // API Route: Neon DB Connection Health & Status
   app.get("/api/neon/status", async (req, res) => {
+    if (isNeonQuotaExceeded) {
+      return res.json({
+        connected: false,
+        quotaExceeded: true,
+        database: "bit_leave_portal",
+        host: "ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech",
+        error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating seamlessly on Firestore & Local Storage."
+      });
+    }
     try {
       const sql = neon(NEON_DB_URL);
       await ensureNeonTables(sql);
@@ -223,7 +268,18 @@ async function startServer() {
         }
       });
     } catch (err: any) {
-      console.error("[Neon Status Error]", err);
+      if (isNeonQuotaError(err)) {
+        isNeonQuotaExceeded = true;
+        logNeonQuotaNoticeOnce();
+        return res.json({
+          connected: false,
+          quotaExceeded: true,
+          database: "bit_leave_portal",
+          host: "ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech",
+          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating seamlessly on Firestore & Local Storage."
+        });
+      }
+      console.error("[Neon Status Error]", err?.message || err);
       return res.status(500).json({
         connected: false,
         error: err?.message || "Failed to connect to Neon PostgreSQL database"
@@ -237,7 +293,7 @@ async function startServer() {
       const sql = neon(NEON_DB_URL);
       await ensureNeonTables(sql);
 
-      const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [] } = req.body || {};
+      const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [], systemSettings } = req.body || {};
 
       let usersSynced = 0;
       let requestsSynced = 0;
@@ -246,6 +302,7 @@ async function startServer() {
       let auditLogsSynced = 0;
       let balancesSynced = 0;
       let permissionMatrixSynced = 0;
+      let systemSettingsSynced = 0;
 
       // 1. Sync Audit Logs
       for (const a of auditLogs) {
@@ -504,6 +561,34 @@ async function startServer() {
         permissionMatrixSynced++;
       }
 
+      if (systemSettings && typeof systemSettings === 'object') {
+        const now = new Date().toISOString();
+        await sql`
+          INSERT INTO system_settings (id, enable_demo_accounts, enable_role_switcher, enable_self_registration, institution_name, institution_logo_url, email_settings, updated_at, updated_by)
+          VALUES (
+            'default',
+            ${systemSettings.enableDemoAccounts ?? true},
+            ${systemSettings.enableRoleSwitcher ?? true},
+            ${systemSettings.enableSelfRegistration ?? true},
+            ${systemSettings.institutionName || 'BIT Leave Portal'},
+            ${systemSettings.institutionLogoUrl || null},
+            ${JSON.stringify(systemSettings.emailSettings || {})},
+            ${now},
+            'SUPER_ADMIN'
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            enable_demo_accounts = EXCLUDED.enable_demo_accounts,
+            enable_role_switcher = EXCLUDED.enable_role_switcher,
+            enable_self_registration = EXCLUDED.enable_self_registration,
+            institution_name = EXCLUDED.institution_name,
+            institution_logo_url = EXCLUDED.institution_logo_url,
+            email_settings = EXCLUDED.email_settings,
+            updated_at = EXCLUDED.updated_at,
+            updated_by = EXCLUDED.updated_by
+        `;
+        systemSettingsSynced = 1;
+      }
+
       return res.json({
         success: true,
         message: "Successfully synchronized portal data into Neon PostgreSQL",
@@ -514,11 +599,21 @@ async function startServer() {
           departments: deptsSynced,
           leavePolicies: policiesSynced,
           leaveBalances: balancesSynced,
-          permissionMatrix: permissionMatrixSynced
+          permissionMatrix: permissionMatrixSynced,
+          systemSettings: systemSettingsSynced
         }
       });
     } catch (err: any) {
-      console.error("[Neon Sync Error]", err);
+      if (isNeonQuotaError(err)) {
+        isNeonQuotaExceeded = true;
+        logNeonQuotaNoticeOnce();
+        return res.json({
+          success: false,
+          quotaExceeded: true,
+          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402)."
+        });
+      }
+      console.error("[Neon Sync Error]", err?.message || err);
       return res.status(500).json({
         success: false,
         error: err?.message || "Failed to sync data to Neon DB"
@@ -560,7 +655,12 @@ async function startServer() {
 
       return res.json({ success: true, message: "Audit log inserted into Neon DB", logId: a.id });
     } catch (err: any) {
-      console.error("[Neon Single Audit Log Error]", err);
+      if (isNeonQuotaError(err)) {
+        isNeonQuotaExceeded = true;
+        logNeonQuotaNoticeOnce();
+        return res.json({ success: false, quotaExceeded: true, error: "Neon PostgreSQL quota exceeded (HTTP 402)." });
+      }
+      console.error("[Neon Single Audit Log Error]", err?.message || err);
       return res.status(500).json({ success: false, error: err?.message });
     }
   });
@@ -693,6 +793,13 @@ async function startServer() {
 
   // API Route: Fetch all data from Neon DB
   app.get("/api/neon/data", async (req, res) => {
+    if (isNeonQuotaExceeded) {
+      return res.json({
+        success: false,
+        quotaExceeded: true,
+        error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating on Firestore/LocalStorage."
+      });
+    }
     try {
       const sql = neon(NEON_DB_URL);
 
@@ -710,6 +817,22 @@ async function startServer() {
       try {
         rawPermissionMatrix = await sql`SELECT * FROM permission_matrix ORDER BY user_id ASC`;
       } catch (_pmErr) {}
+
+      let systemSettings: any = null;
+      try {
+        const rawSys = await sql`SELECT * FROM system_settings WHERE id = 'default' LIMIT 1`;
+        if (rawSys && rawSys.length > 0) {
+          const s = rawSys[0];
+          systemSettings = {
+            enableDemoAccounts: s.enable_demo_accounts ?? true,
+            enableRoleSwitcher: s.enable_role_switcher ?? true,
+            enableSelfRegistration: s.enable_self_registration ?? true,
+            institutionName: s.institution_name || 'BIT Leave Portal',
+            institutionLogoUrl: s.institution_logo_url || null,
+            emailSettings: typeof s.email_settings === 'string' ? JSON.parse(s.email_settings) : (s.email_settings || {})
+          };
+        }
+      } catch (_sErr) {}
 
       // Build a map of leave_balances by user_id
       const userBalancesMap: Record<string, Record<string, { total: number; used: number; pending: number }>> = {};
@@ -834,11 +957,21 @@ async function startServer() {
           leavePolicies,
           auditLogs,
           leaveBalances: leaveBalancesList,
-          permissionMatrix
+          permissionMatrix,
+          systemSettings
         }
       });
     } catch (err: any) {
-      console.error("[Neon Fetch Data Error]", err);
+      if (isNeonQuotaError(err)) {
+        isNeonQuotaExceeded = true;
+        logNeonQuotaNoticeOnce();
+        return res.json({
+          success: false,
+          quotaExceeded: true,
+          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating on Firestore/LocalStorage."
+        });
+      }
+      console.error("[Neon Fetch Data Error]", err?.message || err);
       return res.status(500).json({
         success: false,
         error: err?.message || "Failed to fetch data from Neon DB"
@@ -889,6 +1022,8 @@ async function startServer() {
         rows = await sql`SELECT * FROM audit_logs LIMIT 100`;
       } else if (tableName === "permission_matrix") {
         rows = await sql`SELECT * FROM permission_matrix LIMIT 100`;
+      } else if (tableName === "system_settings") {
+        rows = await sql`SELECT * FROM system_settings LIMIT 100`;
       } else {
         // Fallback for any other custom table
         rows = await sql`SELECT * FROM information_schema.tables WHERE table_schema = 'public'`;
@@ -972,6 +1107,80 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Save Permission Matrix Error]", err);
       return res.status(500).json({ success: false, error: err?.message || "Failed to save permission matrix entry" });
+    }
+  });
+
+  // Dedicated API Route: Fetch System Settings & Privilege Toggles from PostgreSQL
+  app.get("/api/system-settings", async (req, res) => {
+    try {
+      const sql = neon(NEON_DB_URL);
+      await ensureNeonTables(sql);
+      const rows = await sql`SELECT * FROM system_settings WHERE id = 'default' LIMIT 1`;
+      let settings = {
+        enableDemoAccounts: true,
+        enableRoleSwitcher: true,
+        enableSelfRegistration: true,
+        institutionName: 'BIT Leave Portal',
+        institutionLogoUrl: null,
+        emailSettings: {}
+      };
+      if (rows && rows.length > 0) {
+        const s = rows[0];
+        settings = {
+          enableDemoAccounts: s.enable_demo_accounts ?? true,
+          enableRoleSwitcher: s.enable_role_switcher ?? true,
+          enableSelfRegistration: s.enable_self_registration ?? true,
+          institutionName: s.institution_name || 'BIT Leave Portal',
+          institutionLogoUrl: s.institution_logo_url || null,
+          emailSettings: typeof s.email_settings === 'string' ? JSON.parse(s.email_settings) : (s.email_settings || {})
+        };
+      }
+      return res.json({ success: true, settings });
+    } catch (err: any) {
+      console.error("[Get System Settings Error]", err);
+      return res.status(500).json({ success: false, error: err?.message || "Failed to fetch system settings" });
+    }
+  });
+
+  // Dedicated API Route: Save System Settings & Privilege Toggles to PostgreSQL
+  app.post("/api/system-settings/save", async (req, res) => {
+    try {
+      const sql = neon(NEON_DB_URL);
+      await ensureNeonTables(sql);
+      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, updatedBy } = req.body || {};
+      const now = new Date().toISOString();
+      await sql`
+        INSERT INTO system_settings (id, enable_demo_accounts, enable_role_switcher, enable_self_registration, institution_name, institution_logo_url, email_settings, updated_at, updated_by)
+        VALUES (
+          'default',
+          ${enableDemoAccounts ?? true},
+          ${enableRoleSwitcher ?? true},
+          ${enableSelfRegistration ?? true},
+          ${institutionName || 'BIT Leave Portal'},
+          ${institutionLogoUrl || null},
+          ${JSON.stringify(emailSettings || {})},
+          ${now},
+          ${updatedBy || 'SUPER_ADMIN'}
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          enable_demo_accounts = EXCLUDED.enable_demo_accounts,
+          enable_role_switcher = EXCLUDED.enable_role_switcher,
+          enable_self_registration = EXCLUDED.enable_self_registration,
+          institution_name = EXCLUDED.institution_name,
+          institution_logo_url = EXCLUDED.institution_logo_url,
+          email_settings = EXCLUDED.email_settings,
+          updated_at = EXCLUDED.updated_at,
+          updated_by = EXCLUDED.updated_by
+      `;
+      return res.json({ success: true, message: "System privilege & settings updated in PostgreSQL" });
+    } catch (err: any) {
+      if (isNeonQuotaError(err)) {
+        isNeonQuotaExceeded = true;
+        logNeonQuotaNoticeOnce();
+        return res.json({ success: false, quotaExceeded: true, error: "Neon PostgreSQL quota exceeded (HTTP 402)." });
+      }
+      console.error("[Save System Settings Error]", err?.message || err);
+      return res.status(500).json({ success: false, error: err?.message || "Failed to save system settings" });
     }
   });
 

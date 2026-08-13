@@ -27,14 +27,31 @@ let currentOpMessage = '';
 let currentOpType: DbOpType = 'IDLE';
 let lastSyncedAt: Date | undefined = undefined;
 
+function dispatchSyncStatus(status: SyncStatus) {
+  queueMicrotask(() => {
+    syncListeners.forEach(l => {
+      try {
+        l(status);
+      } catch (err) {
+        console.warn('[SyncListener Error]', err);
+      }
+    });
+  });
+}
+
 export function subscribeToSyncStatus(listener: SyncListener) {
   syncListeners.push(listener);
-  listener({
+  const initialStatus: SyncStatus = {
     isSyncing: activeOpCount > 0,
     message: activeOpCount > 0 ? currentOpMessage : 'PostgreSQL Database Synced',
     opType: currentOpType,
     lastSyncedAt,
     activeCount: activeOpCount
+  };
+  queueMicrotask(() => {
+    try {
+      listener(initialStatus);
+    } catch (_err) {}
   });
   return () => {
     syncListeners = syncListeners.filter(l => l !== listener);
@@ -45,14 +62,13 @@ export function notifySyncStart(msg: string, opType: DbOpType = 'UPDATE') {
   activeOpCount++;
   currentOpMessage = msg;
   currentOpType = opType;
-  const status: SyncStatus = {
+  dispatchSyncStatus({
     isSyncing: true,
     message: currentOpMessage,
     opType: currentOpType,
     lastSyncedAt,
     activeCount: activeOpCount
-  };
-  syncListeners.forEach(l => l(status));
+  });
 }
 
 export function notifySyncEnd() {
@@ -62,14 +78,13 @@ export function notifySyncEnd() {
     currentOpMessage = 'PostgreSQL Data Saved & Synced';
     lastSyncedAt = new Date();
   }
-  const status: SyncStatus = {
+  dispatchSyncStatus({
     isSyncing: activeOpCount > 0,
     message: activeOpCount > 0 ? currentOpMessage : 'PostgreSQL Data Saved & Synced',
     opType: currentOpType,
     lastSyncedAt,
     activeCount: activeOpCount
-  };
-  syncListeners.forEach(l => l(status));
+  });
 }
 
 export async function loadOrSeedFirestoreData(): Promise<{
@@ -100,7 +115,7 @@ export async function loadOrSeedFirestoreData(): Promise<{
         notifications: [],
         auditLogs: neonData.auditLogs || [],
         emailLogs: [],
-        systemSettings: savedSettings,
+        systemSettings: neonData.systemSettings || savedSettings,
         permissionMatrix: neonData.permissionMatrix || [],
       };
     }
@@ -552,6 +567,35 @@ export function generateVercelPostgresDump(data: {
     sql += `INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at) VALUES\n`;
     sql += pgBalanceRows.join(',\n') + `;\n\n`;
   }
+
+  // 7. System Settings & Privileges Table
+  sql += `-- 7. System Settings & Privilege Toggles Table\n`;
+  sql += `DROP TABLE IF EXISTS system_settings CASCADE;\n`;
+  sql += `CREATE TABLE system_settings (\n`;
+  sql += `  id VARCHAR(50) PRIMARY KEY DEFAULT 'default',\n`;
+  sql += `  enable_demo_accounts BOOLEAN DEFAULT TRUE,\n`;
+  sql += `  enable_role_switcher BOOLEAN DEFAULT TRUE,\n`;
+  sql += `  enable_self_registration BOOLEAN DEFAULT TRUE,\n`;
+  sql += `  institution_name VARCHAR(255) DEFAULT 'BIT Leave Portal',\n`;
+  sql += `  institution_logo_url TEXT,\n`;
+  sql += `  email_settings JSONB DEFAULT '{}'::jsonb,\n`;
+  sql += `  updated_at VARCHAR(50),\n`;
+  sql += `  updated_by VARCHAR(50)\n`;
+  sql += `);\n\n`;
+
+  sql += `INSERT INTO system_settings (id, enable_demo_accounts, enable_role_switcher, enable_self_registration, institution_name, institution_logo_url, email_settings, updated_at, updated_by)\n`;
+  sql += `VALUES ('default', TRUE, TRUE, TRUE, 'BIT Leave Portal', NULL, '{}'::jsonb, ${escapeSql(new Date().toISOString())}, 'SUPER_ADMIN')\n`;
+  sql += `ON CONFLICT (id) DO NOTHING;\n\n`;
+
+  // 8. Permission Matrix Table
+  sql += `-- 8. Permission Matrix Table\n`;
+  sql += `DROP TABLE IF EXISTS permission_matrix CASCADE;\n`;
+  sql += `CREATE TABLE permission_matrix (\n`;
+  sql += `  user_id VARCHAR(50) PRIMARY KEY,\n`;
+  sql += `  permissions JSONB DEFAULT '[]'::jsonb,\n`;
+  sql += `  updated_at VARCHAR(50),\n`;
+  sql += `  updated_by VARCHAR(50)\n`;
+  sql += `);\n\n`;
 
   return sql;
 }

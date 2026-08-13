@@ -1473,7 +1473,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">In-Portal Neon DB Table Explorer:</span>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs'].map((tbl) => (
+                        {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'system_settings', 'permission_matrix'].map((tbl) => (
                           <button
                             key={tbl}
                             type="button"

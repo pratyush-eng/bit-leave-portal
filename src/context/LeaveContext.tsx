@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, deleteUserFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
-import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc, savePermissionMatrixToNeon } from '../lib/neonClient';
+import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc, savePermissionMatrixToNeon, saveSystemSettingsToNeon } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -695,6 +695,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const updated = { ...prev, ...newSettings };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
       saveDocToFirestore('settings', 'global', updated);
+      saveSystemSettingsToNeon(updated);
       return updated;
     });
     addAuditLog(
@@ -968,6 +969,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (Array.isArray(neonData.permissionMatrix)) {
             setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
           }
+          if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
+            setSystemSettings(prev => isDeepEqual(neonData.systemSettings, prev) ? prev : { ...prev, ...neonData.systemSettings });
+          }
         }
       } catch (err) {
         console.warn("[Cloud PostgreSQL Direct Load Error]", err);
@@ -1003,6 +1007,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (Array.isArray(neonData.permissionMatrix)) {
           setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
+        }
+        if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
+          setSystemSettings(prev => isDeepEqual(neonData.systemSettings, prev) ? prev : { ...prev, ...neonData.systemSettings });
         }
       }).catch(_err => {});
     }, 4000);
