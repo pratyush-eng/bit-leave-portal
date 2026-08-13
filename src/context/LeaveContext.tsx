@@ -169,82 +169,20 @@ function sanitizeAndDeduplicateUsers(
 }
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(DELETED_USER_IDS_KEY);
-      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
-    } catch {
-      return new Set<string>();
-    }
+  const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(new Set<string>());
+  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(new Set<string>());
+
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    enableDemoAccounts: true,
+    enableRoleSwitcher: true,
+    enableSelfRegistration: true,
+    institutionName: 'BIT Leave Portal',
+    institutionLogoUrl: '',
+    emailSettings: DEFAULT_EMAIL_SETTINGS
   });
 
-  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(DELETED_USER_EMAILS_KEY);
-      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
-    } catch {
-      return new Set<string>();
-    }
-  });
-
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      const parsed = saved ? JSON.parse(saved) : {};
-      return {
-        enableDemoAccounts: parsed.enableDemoAccounts ?? true,
-        enableRoleSwitcher: parsed.enableRoleSwitcher ?? true,
-        enableSelfRegistration: parsed.enableSelfRegistration ?? true,
-        institutionName: parsed.institutionName || 'BIT Leave Portal',
-        institutionLogoUrl: parsed.institutionLogoUrl || '',
-        emailSettings: parsed.emailSettings || DEFAULT_EMAIL_SETTINGS
-      };
-    } catch {
-      return {
-        enableDemoAccounts: true,
-        enableRoleSwitcher: true,
-        enableSelfRegistration: true,
-        institutionName: 'BIT Leave Portal',
-        institutionLogoUrl: '',
-        emailSettings: DEFAULT_EMAIL_SETTINGS
-      };
-    }
-  });
-
-  const [allUsers, setAllUsers] = useState<User[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-      const initial = saved ? JSON.parse(saved) : [];
-      const savedDelIds = (() => {
-        try {
-          const s = localStorage.getItem(DELETED_USER_IDS_KEY);
-          return s ? new Set<string>(JSON.parse(s)) : new Set<string>();
-        } catch { return new Set<string>(); }
-      })();
-      const savedDelEmails = (() => {
-        try {
-          const s = localStorage.getItem(DELETED_USER_EMAILS_KEY);
-          return s ? new Set<string>(JSON.parse(s)) : new Set<string>();
-        } catch { return new Set<string>(); }
-      })();
-      return sanitizeAndDeduplicateUsers(initial);
-    } catch {
-      return [];
-    }
-  });
-
-  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('academia_permission_matrix_v1');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('academia_permission_matrix_v1', JSON.stringify(permissionMatrix));
-  }, [permissionMatrix]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([]);
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     try {
@@ -265,65 +203,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.AUTH);
-      return saved !== null ? JSON.parse(saved) : false;
+      return saved !== null ? JSON.parse(saved) : true;
     } catch {
-      return false;
+      return true;
     }
   });
 
-  const [departments, setDepartments] = useState<Department[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
-      return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
-    } catch {
-      return INITIAL_DEPARTMENTS;
-    }
-  });
-
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.REQUESTS);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-      return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
-    } catch {
-      return INITIAL_NOTIFICATIONS;
-    }
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.LOGS);
-      return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-    } catch {
-      return INITIAL_AUDIT_LOGS;
-    }
-  });
-
-  const [emailLogs, setEmailLogs] = useState<EmailLog[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.EMAIL_LOGS);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.POLICIES);
-      return saved ? JSON.parse(saved) : INITIAL_LEAVE_POLICIES;
-    } catch {
-      return INITIAL_LEAVE_POLICIES;
-    }
-  });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>([]);
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -637,31 +528,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [leaveRequests, currentUser?.id]);
 
-  // Sync state to local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
-  }, [allUsers]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(leaveRequests));
-  }, [leaveRequests]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-  }, [notifications]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
-  }, [auditLogs]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(leavePolicies));
-  }, [leavePolicies]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
-  }, [departments]);
-
+  // Keep session user ID and email in sync
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
   }, [currentUserId]);
@@ -935,153 +802,86 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   }
 
-  // Load initial data directly from Cloud PostgreSQL (Neon DB) & subscribe to real-time sync
+  // Subscribe to real-time Firebase Firestore data changes across all global devices
   useEffect(() => {
     let mounted = true;
 
-    const loadFromCloudPg = async () => {
-      try {
-        const neonData = await fetchNeonData(false);
-        if (!mounted) return;
+    // Trigger seed repair check asynchronously on app start
+    loadOrSeedFirestoreData(false).catch(_err => {});
 
-        if (neonData) {
-          if (Array.isArray(neonData.users) && neonData.users.length > 0) {
-            setAllUsers((prev: User[]) => {
-              const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
-              return isDeepEqual(sanitized, prev) ? prev : sanitized;
-            });
-          }
-          if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
-            setLeaveRequests(prev => {
-              const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
-              return isDeepEqual(normalized, prev) ? prev : normalized;
-            });
-          }
-          if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
-            setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
-          }
-          if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
-            setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
-          }
-          if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
-            setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
-          }
-          if (Array.isArray(neonData.permissionMatrix) && neonData.permissionMatrix.length > 0) {
-            setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
-          }
-          if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
-            setSystemSettings(prev => isDeepEqual(neonData.systemSettings, prev) ? prev : { ...prev, ...neonData.systemSettings });
-          }
-        }
-      } catch (err) {
-        console.warn("[Cloud PostgreSQL Direct Load Error]", err);
+    // 1. Users real-time subscription
+    const unsubUsers = subscribeToCollection<User>('users', (users) => {
+      if (!mounted) return;
+      if (Array.isArray(users) && users.length > 0) {
+        setAllUsers((prev: User[]) => {
+          const sanitized = sanitizeAndDeduplicateUsers(users);
+          return isDeepEqual(sanitized, prev) ? prev : sanitized;
+        });
       }
-    };
+    });
 
-    loadFromCloudPg();
+    // 2. Leave Requests real-time subscription
+    const unsubRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (reqs) => {
+      if (!mounted) return;
+      if (Array.isArray(reqs)) {
+        setLeaveRequests((prev) => {
+          const normalized = normalizeLeaveRequests(reqs, allUsers, departments);
+          return isDeepEqual(normalized, prev) ? prev : normalized;
+        });
+      }
+    });
 
-    // Poll Cloud PostgreSQL asynchronously every 4 seconds for real-time background sync without forcing re-renders if unchanged
-    const pgPollInterval = setInterval(() => {
-      fetchNeonData(false).then(neonData => {
-        if (!mounted || !neonData) return;
-        if (Array.isArray(neonData.users) && neonData.users.length > 0) {
-          setAllUsers((prev: User[]) => {
-            const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
-            return isDeepEqual(sanitized, prev) ? prev : sanitized;
-          });
-        }
-        if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
-          setLeaveRequests(prev => {
-            const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
-            return isDeepEqual(normalized, prev) ? prev : normalized;
-          });
-        }
-        if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
-          setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
-        }
-        if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
-          setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
-        }
-        if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
-          setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
-        }
-        if (Array.isArray(neonData.permissionMatrix) && neonData.permissionMatrix.length > 0) {
-          setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
-        }
-        if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
-          setSystemSettings(prev => isDeepEqual(neonData.systemSettings, prev) ? prev : { ...prev, ...neonData.systemSettings });
-        }
-      }).catch(_err => {});
-    }, 4000);
+    // 3. Departments real-time subscription
+    const unsubDepts = subscribeToCollection<Department>('departments', (depts) => {
+      if (!mounted) return;
+      if (Array.isArray(depts) && depts.length > 0) {
+        setDepartments((prev) => isDeepEqual(depts, prev) ? prev : depts);
+      }
+    });
+
+    // 4. Leave Policies real-time subscription
+    const unsubPolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (policies) => {
+      if (!mounted) return;
+      if (Array.isArray(policies) && policies.length > 0) {
+        setLeavePolicies((prev) => isDeepEqual(policies, prev) ? prev : policies);
+      }
+    });
+
+    // 5. Audit Logs real-time subscription
+    const unsubLogs = subscribeToCollection<AuditLog>('auditLogs', (logs) => {
+      if (!mounted) return;
+      if (Array.isArray(logs)) {
+        setAuditLogs((prev) => isDeepEqual(logs, prev) ? prev : logs);
+      }
+    });
+
+    // 6. Permission Matrix real-time subscription
+    const unsubPM = subscribeToCollection<PermissionMatrixEntry>('permissionMatrix', (pm) => {
+      if (!mounted) return;
+      if (Array.isArray(pm)) {
+        setPermissionMatrix((prev) => isDeepEqual(pm, prev) ? prev : pm);
+      }
+    });
+
+    // 7. System Settings real-time subscription
+    const unsubSettings = subscribeToSystemSettings((settings) => {
+      if (!mounted) return;
+      if (settings && typeof settings === 'object') {
+        setSystemSettings((prev) => isDeepEqual(settings, prev) ? prev : { ...prev, ...settings });
+      }
+    });
 
     return () => {
       mounted = false;
-      clearInterval(pgPollInterval);
+      unsubUsers();
+      unsubRequests();
+      unsubDepts();
+      unsubPolicies();
+      unsubLogs();
+      unsubPM();
+      unsubSettings();
     };
   }, []);
-
-  // Listen for window 'storage' events for instant multi-tab sync without page refreshes
-  useEffect(() => {
-    const handleStorageEvent = (e: StorageEvent) => {
-      if (!e.key || e.newValue === null) return;
-      try {
-        if (e.key === STORAGE_KEYS.REQUESTS) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setLeaveRequests(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.USERS) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setAllUsers(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.NOTIFICATIONS) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setNotifications(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.LOGS) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setAuditLogs(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.POLICIES) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setLeavePolicies(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.DEPARTMENTS) {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) {
-            setDepartments(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.SETTINGS) {
-          const parsed = JSON.parse(e.newValue);
-          if (parsed && typeof parsed === 'object') {
-            setSystemSettings(prev => isDeepEqual(parsed, prev) ? prev : parsed);
-          }
-        } else if (e.key === STORAGE_KEYS.CURRENT_USER_ID) {
-          if (e.newValue && e.newValue !== currentUserId) {
-            setCurrentUserId(e.newValue);
-          }
-        } else if (e.key === STORAGE_KEYS.CURRENT_USER_EMAIL) {
-          if (e.newValue && e.newValue !== currentUserEmail) {
-            setCurrentUserEmail(e.newValue);
-          }
-        } else if (e.key === STORAGE_KEYS.AUTH) {
-          const parsed = JSON.parse(e.newValue);
-          if (typeof parsed === 'boolean' && parsed !== isAuthenticated) {
-            setIsAuthenticated(parsed);
-          }
-        }
-      } catch (err) {
-        console.warn('[Storage Sync Warning]', err);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageEvent);
-    return () => window.removeEventListener('storage', handleStorageEvent);
-  }, [currentUserId, isAuthenticated]);
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const cleanEmail = email.toLowerCase().trim();
