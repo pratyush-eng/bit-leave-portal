@@ -14,13 +14,20 @@ export const DatabaseSyncIndicator: React.FC = () => {
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
+    let hasBeenSyncing = false;
+
     const unsubscribe = subscribeToSyncStatus((status) => {
       setSyncStatus(status);
-      if (!status.isSyncing && status.opType === 'IDLE') {
+      if (status.isSyncing) {
+        hasBeenSyncing = true;
+        setShowSavedPill(false);
+      } else if (hasBeenSyncing && !status.isSyncing) {
+        hasBeenSyncing = false;
         setShowSavedPill(true);
+        if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
           setShowSavedPill(false);
-        }, 2800);
+        }, 2200);
       } else {
         setShowSavedPill(false);
       }

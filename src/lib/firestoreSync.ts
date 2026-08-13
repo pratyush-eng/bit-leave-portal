@@ -69,10 +69,32 @@ export function subscribeToSyncStatus(listener: SyncListener) {
   };
 }
 
+let autoEndTimer: NodeJS.Timeout | null = null;
+
 export function notifySyncStart(msg: string, opType: DbOpType = 'UPDATE') {
   activeOpCount++;
   currentOpMessage = msg;
   currentOpType = opType;
+
+  if (autoEndTimer) {
+    clearTimeout(autoEndTimer);
+  }
+
+  // Safety timer: Forcibly clear syncing toast after 3 seconds if notifySyncEnd wasn't reached
+  autoEndTimer = setTimeout(() => {
+    activeOpCount = 0;
+    currentOpType = 'IDLE';
+    currentOpMessage = 'Firebase Firestore Synced';
+    lastSyncedAt = new Date();
+    dispatchSyncStatus({
+      isSyncing: false,
+      message: 'Firebase Firestore Synced',
+      opType: 'IDLE',
+      lastSyncedAt,
+      activeCount: 0
+    });
+  }, 3000);
+
   dispatchSyncStatus({
     isSyncing: true,
     message: currentOpMessage,
@@ -85,6 +107,10 @@ export function notifySyncStart(msg: string, opType: DbOpType = 'UPDATE') {
 export function notifySyncEnd() {
   activeOpCount = Math.max(0, activeOpCount - 1);
   if (activeOpCount === 0) {
+    if (autoEndTimer) {
+      clearTimeout(autoEndTimer);
+      autoEndTimer = null;
+    }
     currentOpType = 'IDLE';
     currentOpMessage = 'Firebase Firestore Saved & Synced';
     lastSyncedAt = new Date();
@@ -100,9 +126,10 @@ export function notifySyncEnd() {
 
 /**
  * Loads all collections from Firebase Firestore.
- * If collections are empty, seeds default institutional data into Firestore.
+ * If collections are empty or missing records, seeds default institutional data into Firestore.
+ * @param notifyToast whether to display the sync toast popup (defaults to false for background sync)
  */
-export async function loadOrSeedFirestoreData(): Promise<{
+export async function loadOrSeedFirestoreData(notifyToast: boolean = false): Promise<{
   users: User[];
   leaveRequests: LeaveRequest[];
   departments: Department[];
@@ -113,9 +140,11 @@ export async function loadOrSeedFirestoreData(): Promise<{
   systemSettings?: SystemSettings;
   permissionMatrix?: PermissionMatrixEntry[];
 }> {
-  try {
+  if (notifyToast) {
     notifySyncStart('Connecting & Loading Data from Firebase Firestore...', 'SYNC');
+  }
 
+  try {
     // Fetch users collection
     const usersSnap = await getDocs(collection(db, 'users'));
     let usersList: User[] = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
@@ -144,38 +173,65 @@ export async function loadOrSeedFirestoreData(): Promise<{
     const settingsDoc = await getDoc(doc(db, 'systemSettings', 'default'));
     let settings: SystemSettings | undefined = settingsDoc.exists() ? (settingsDoc.data() as SystemSettings) : undefined;
 
-    // Check if seeding is required (if Firestore has 0 users)
-    if (usersList.length === 0) {
-      console.log('[Firebase Firestore] No existing users found. Seeding initial institutional data into Firestore...');
-      notifySyncStart('Seeding initial institutional tables into Firebase Firestore...', 'INSERT');
+    let needsBatchCommit = false;
+    const batch = writeBatch(db);
 
-      // Seed Users
-      const batch = writeBatch(db);
-      MOCK_USERS.forEach(u => {
-        batch.set(doc(db, 'users', u.id), u, { merge: true });
-      });
-
-      // Seed Leave Requests
-      INITIAL_LEAVE_REQUESTS.forEach(r => {
-        batch.set(doc(db, 'leaveRequests', r.id), r, { merge: true });
-      });
-
-      // Seed Departments
+    // 1. Ensure Departments exist
+    if (deptList.length === 0) {
+      console.log('[Firebase Firestore] Seeding default departments...');
       INITIAL_DEPARTMENTS.forEach(d => {
         batch.set(doc(db, 'departments', d.id), d, { merge: true });
       });
+      deptList = [...INITIAL_DEPARTMENTS];
+      needsBatchCommit = true;
+    }
 
-      // Seed Policies
+    // 2. Ensure Leave Policies exist
+    if (policyList.length === 0) {
+      console.log('[Firebase Firestore] Seeding default leave policies...');
       INITIAL_LEAVE_POLICIES.forEach(p => {
         batch.set(doc(db, 'leavePolicies', p.type), p, { merge: true });
       });
+      policyList = [...INITIAL_LEAVE_POLICIES];
+      needsBatchCommit = true;
+    }
 
-      // Seed Audit Logs
+    // 3. Ensure all MOCK_USERS exist in Firestore
+    const existingUserIds = new Set(usersList.map(u => u.id));
+    const missingMockUsers = MOCK_USERS.filter(u => !existingUserIds.has(u.id));
+    if (usersList.length === 0 || missingMockUsers.length > 0) {
+      console.log(`[Firebase Firestore] Seeding ${missingMockUsers.length} missing mock users into Firestore...`);
+      missingMockUsers.forEach(u => {
+        batch.set(doc(db, 'users', u.id), u, { merge: true });
+      });
+      const mergedMap = new Map<string, User>();
+      [...MOCK_USERS, ...usersList].forEach(u => mergedMap.set(u.id, u));
+      usersList = Array.from(mergedMap.values());
+      needsBatchCommit = true;
+    }
+
+    // 4. Ensure Leave Requests exist
+    if (reqList.length === 0) {
+      console.log('[Firebase Firestore] Seeding default leave requests...');
+      INITIAL_LEAVE_REQUESTS.forEach(r => {
+        batch.set(doc(db, 'leaveRequests', r.id), r, { merge: true });
+      });
+      reqList = [...INITIAL_LEAVE_REQUESTS];
+      needsBatchCommit = true;
+    }
+
+    // 5. Ensure Audit Logs exist
+    if (auditList.length === 0) {
+      console.log('[Firebase Firestore] Seeding default audit logs...');
       INITIAL_AUDIT_LOGS.forEach(a => {
         batch.set(doc(db, 'auditLogs', a.id), a, { merge: true });
       });
+      auditList = [...INITIAL_AUDIT_LOGS];
+      needsBatchCommit = true;
+    }
 
-      // Default System Settings
+    // 6. Ensure System Settings exist
+    if (!settings) {
       const defaultSettings: SystemSettings = {
         enableDemoAccounts: true,
         enableRoleSwitcher: true,
@@ -194,19 +250,17 @@ export async function loadOrSeedFirestoreData(): Promise<{
         }
       };
       batch.set(doc(db, 'systemSettings', 'default'), defaultSettings, { merge: true });
-
-      await batch.commit();
-
-      usersList = [...MOCK_USERS];
-      reqList = [...INITIAL_LEAVE_REQUESTS];
-      deptList = [...INITIAL_DEPARTMENTS];
-      policyList = [...INITIAL_LEAVE_POLICIES];
-      auditList = [...INITIAL_AUDIT_LOGS];
       settings = defaultSettings;
-      console.log('[Firebase Firestore] Seeding complete!');
+      needsBatchCommit = true;
     }
 
-    notifySyncEnd();
+    if (needsBatchCommit) {
+      if (notifyToast) {
+        notifySyncStart('Seeding missing institutional tables into Firebase Firestore...', 'INSERT');
+      }
+      await batch.commit();
+      console.log('[Firebase Firestore] Automatic seed & repair commit complete!');
+    }
 
     return {
       users: usersList,
@@ -222,7 +276,6 @@ export async function loadOrSeedFirestoreData(): Promise<{
 
   } catch (err: any) {
     console.error('[Firebase Firestore Load Error]', err);
-    notifySyncEnd();
     return {
       users: MOCK_USERS,
       leaveRequests: INITIAL_LEAVE_REQUESTS,
@@ -232,6 +285,10 @@ export async function loadOrSeedFirestoreData(): Promise<{
       auditLogs: INITIAL_AUDIT_LOGS,
       permissionMatrix: []
     };
+  } finally {
+    if (notifyToast) {
+      notifySyncEnd();
+    }
   }
 }
 

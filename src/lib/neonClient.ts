@@ -56,6 +56,6 @@ export async function savePermissionMatrixToNeon(permissionMatrix: PermissionMat
   return await syncAllLocalToFirestore({ permissionMatrix: pmArray });
 }
 
-export async function fetchNeonData() {
-  return await loadOrSeedFirestoreData();
+export async function fetchNeonData(notifyToast: boolean = false) {
+  return await loadOrSeedFirestoreData(notifyToast);
 }

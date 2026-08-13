@@ -941,32 +941,32 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const loadFromCloudPg = async () => {
       try {
-        const neonData = await fetchNeonData();
+        const neonData = await fetchNeonData(false);
         if (!mounted) return;
 
         if (neonData) {
-          if (Array.isArray(neonData.users)) {
+          if (Array.isArray(neonData.users) && neonData.users.length > 0) {
             setAllUsers((prev: User[]) => {
               const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
               return isDeepEqual(sanitized, prev) ? prev : sanitized;
             });
           }
-          if (Array.isArray(neonData.leaveRequests)) {
+          if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
             setLeaveRequests(prev => {
               const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
               return isDeepEqual(normalized, prev) ? prev : normalized;
             });
           }
-          if (Array.isArray(neonData.departments)) {
+          if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
             setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
           }
-          if (Array.isArray(neonData.leavePolicies)) {
+          if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
             setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
           }
-          if (Array.isArray(neonData.auditLogs)) {
+          if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
             setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
           }
-          if (Array.isArray(neonData.permissionMatrix)) {
+          if (Array.isArray(neonData.permissionMatrix) && neonData.permissionMatrix.length > 0) {
             setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
           }
           if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
@@ -982,30 +982,30 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Poll Cloud PostgreSQL asynchronously every 4 seconds for real-time background sync without forcing re-renders if unchanged
     const pgPollInterval = setInterval(() => {
-      fetchNeonData().then(neonData => {
+      fetchNeonData(false).then(neonData => {
         if (!mounted || !neonData) return;
-        if (Array.isArray(neonData.users)) {
+        if (Array.isArray(neonData.users) && neonData.users.length > 0) {
           setAllUsers((prev: User[]) => {
             const sanitized = sanitizeAndDeduplicateUsers(neonData.users);
             return isDeepEqual(sanitized, prev) ? prev : sanitized;
           });
         }
-        if (Array.isArray(neonData.leaveRequests)) {
+        if (Array.isArray(neonData.leaveRequests) && neonData.leaveRequests.length > 0) {
           setLeaveRequests(prev => {
             const normalized = normalizeLeaveRequests(neonData.leaveRequests, neonData.users || allUsers, neonData.departments || departments);
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
-        if (Array.isArray(neonData.departments)) {
+        if (Array.isArray(neonData.departments) && neonData.departments.length > 0) {
           setDepartments(prev => isDeepEqual(neonData.departments, prev) ? prev : neonData.departments);
         }
-        if (Array.isArray(neonData.leavePolicies)) {
+        if (Array.isArray(neonData.leavePolicies) && neonData.leavePolicies.length > 0) {
           setLeavePolicies(prev => isDeepEqual(neonData.leavePolicies, prev) ? prev : neonData.leavePolicies);
         }
-        if (Array.isArray(neonData.auditLogs)) {
+        if (Array.isArray(neonData.auditLogs) && neonData.auditLogs.length > 0) {
           setAuditLogs(prev => isDeepEqual(neonData.auditLogs, prev) ? prev : neonData.auditLogs);
         }
-        if (Array.isArray(neonData.permissionMatrix)) {
+        if (Array.isArray(neonData.permissionMatrix) && neonData.permissionMatrix.length > 0) {
           setPermissionMatrix(prev => isDeepEqual(neonData.permissionMatrix, prev) ? prev : neonData.permissionMatrix);
         }
         if (neonData.systemSettings && typeof neonData.systemSettings === 'object') {
