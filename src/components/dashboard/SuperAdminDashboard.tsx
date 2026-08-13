@@ -3,7 +3,7 @@ import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
 import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSync';
-import { getNeonStatus, inspectNeonTable, syncDataToNeon } from '../../lib/neonClient';
+import { getNeonStatus, inspectNeonTable, syncDataToNeon, connectMongoUri } from '../../lib/neonClient';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
 import { 
@@ -177,21 +177,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [selectedEmailLog, setSelectedEmailLog] = useState<EmailLog | null>(null);
   const [emailLogSearch, setEmailLogSearch] = useState<string>('');
 
-  // Neon DB Connection State
+  // MongoDB Atlas Connection State
+  const [customMongoUriInput, setCustomMongoUriInput] = useState<string>('');
+  const [savingMongoUri, setSavingMongoUri] = useState<boolean>(false);
+  const [showMongoConfig, setShowMongoConfig] = useState<boolean>(false);
+
   const [neonStatus, setNeonStatus] = useState<{
     loading: boolean;
     connected: boolean | null;
     database?: string;
     host?: string;
     tables?: string[];
-    counts?: { users: number; leaveRequests: number; departments: number };
+    counts?: { users: number; leaveRequests: number; departments: number; auditLogs?: number };
     error?: string;
   }>({
     loading: false,
     connected: null,
   });
 
-  // Neon Table Explorer State
+  // MongoDB Collection Explorer State
   const [selectedInspectTable, setSelectedInspectTable] = useState<string>('audit_logs');
   const [inspectData, setInspectData] = useState<{
     columns: Array<{ column_name: string; data_type: string; is_nullable: string }>;
@@ -217,23 +221,52 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       if (data && data.success) {
         setNeonSyncMsg({
           type: 'success',
-          text: `Neon PostgreSQL Synced! Stored ${data.counts?.auditLogs} Audit Logs, ${data.counts?.users} Users, and ${data.counts?.leaveRequests} Leave Requests.`
+          text: `Firebase Firestore Synced! Transferred ${data.count ?? 0} documents into Firestore.`
         });
         await checkNeonConnection();
-        await fetchInspectTable(selectedInspectTable || 'audit_logs');
+        await fetchInspectTable(selectedInspectTable || 'auditLogs');
       } else {
         setNeonSyncMsg({
           type: 'error',
-          text: data?.error || 'Failed to sync portal data into Neon PostgreSQL.'
+          text: (data as any)?.error || 'Failed to sync portal data into Firebase Firestore.'
         });
       }
     } catch (err: any) {
       setNeonSyncMsg({
         type: 'error',
-        text: err?.message || 'Network error syncing to Neon DB.'
+        text: err?.message || 'Network error syncing to Firebase Firestore.'
       });
     } finally {
       setSyncingNeon(false);
+    }
+  };
+
+  const handleSaveMongoUri = async () => {
+    if (!customMongoUriInput.trim()) return;
+    setSavingMongoUri(true);
+    setNeonSyncMsg(null);
+    try {
+      const res = await connectMongoUri(customMongoUriInput.trim());
+      if (res && res.success) {
+        setNeonSyncMsg({
+          type: 'success',
+          text: `Successfully connected to Firebase Firestore!`
+        });
+        setShowMongoConfig(false);
+        await checkNeonConnection();
+      } else {
+        setNeonSyncMsg({
+          type: 'error',
+          text: (res as any)?.error || 'Failed to connect to Firebase Firestore.'
+        });
+      }
+    } catch (err: any) {
+      setNeonSyncMsg({
+        type: 'error',
+        text: err?.message || 'Error connecting to Firebase Firestore.'
+      });
+    } finally {
+      setSavingMongoUri(false);
     }
   };
 
@@ -250,10 +283,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           totalRows: data.totalRows || 0,
         });
       } else {
-        setInspectError(data?.error || 'Failed to inspect table.');
+        setInspectError(data?.error || 'Failed to inspect collection.');
       }
     } catch (err: any) {
-      setInspectError(err?.message || 'Error fetching table data.');
+      setInspectError(err?.message || 'Error fetching collection data.');
     } finally {
       setInspectLoading(false);
     }
@@ -269,21 +302,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           connected: true,
           database: data.database,
           host: data.host,
-          tables: data.tables,
+          tables: data.collections,
           counts: data.counts,
         });
       } else {
         setNeonStatus({
           loading: false,
           connected: false,
-          error: data?.error || 'Failed to connect to Neon PostgreSQL database',
+          host: data?.host,
+          error: (data as any)?.error || 'Failed to connect to Firebase Firestore database',
         });
       }
     } catch (err: any) {
       setNeonStatus({
         loading: false,
         connected: false,
-        error: err?.message || 'Network error pinging Neon status',
+        error: err?.message || 'Network error pinging Firebase Firestore status',
       });
     }
   };
@@ -1365,16 +1399,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </span>
           </div>
 
-          {/* Neon PostgreSQL Live Connection Diagnostic Card */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-xl space-y-4">
+          {/* Firebase Firestore Live Connection Diagnostic Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white border border-amber-900/60 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 font-bold text-xl">
-                  🐘
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 font-bold text-xl">
+                  🔥
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white tracking-tight">Neon PostgreSQL Database Connection</h3>
+                    <h3 className="text-base font-bold text-white tracking-tight">Firebase Firestore Database</h3>
                     {neonStatus.loading ? (
                       <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" /> Checking...
@@ -1389,8 +1423,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-indigo-200/80">
-                    Database Host: <code className="text-indigo-300 font-mono text-[11px]">ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech</code>
+                  <p className="text-xs text-amber-200/80">
+                    Database Host: <code className="text-amber-300 font-mono text-[11px]">{neonStatus.host || 'Firebase Firestore Cluster'}</code>
                   </p>
                 </div>
               </div>
@@ -1400,10 +1434,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   type="button"
                   onClick={syncAllDataToNeon}
                   disabled={syncingNeon}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-emerald-400/30 active:scale-98"
+                  className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-amber-400/30 active:scale-98"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${syncingNeon ? 'animate-spin' : ''}`} />
-                  {syncingNeon ? 'Syncing Data...' : `Sync All Data (${auditLogs.length} Audit Logs) to Neon DB`}
+                  {syncingNeon ? 'Syncing Data...' : `Transfer All Tables & Data to Firebase Firestore`}
                 </button>
                 <button
                   type="button"
@@ -1412,7 +1446,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-indigo-400/30 active:scale-98"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${neonStatus.loading ? 'animate-spin' : ''}`} />
-                  Ping Connection
+                  Ping Firestore
                 </button>
               </div>
             </div>
@@ -1439,39 +1473,39 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="space-y-4 pt-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Database Name</span>
-                    <p className="text-xs font-mono text-emerald-400 font-bold">
-                      {neonStatus.database || 'bit_leave_portal'}
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Database ID</span>
+                    <p className="text-xs font-mono text-emerald-400 font-bold truncate">
+                      {neonStatus.database || 'ai-studio-bitleaveportal-f2d7361a-752a-4bfb-b964-3bcdd1d53a2b'}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Audit Logs Count</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Audit Logs</span>
                     <p className="text-xs font-mono text-emerald-300 font-bold">
-                      {neonStatus.counts?.auditLogs ?? 0} Audit Log Records
+                      {neonStatus.counts?.auditLogs ?? 0} Log Documents
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Users Count</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Users</span>
                     <p className="text-xs font-mono text-blue-300 font-bold">
-                      {neonStatus.counts?.users ?? 0} Users recorded
+                      {neonStatus.counts?.users ?? 0} User Documents
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 block">Neon Leave Requests</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Leave Requests</span>
                     <p className="text-xs font-mono text-amber-300 font-bold">
-                      {neonStatus.counts?.leaveRequests ?? 0} Leave Applications
+                      {neonStatus.counts?.leaveRequests ?? 0} Request Documents
                     </p>
                   </div>
                 </div>
 
-                {/* Live Table & Row Inspector Section */}
-                <div className="p-4 rounded-xl bg-slate-850 border border-indigo-900/80 bg-slate-900/90 space-y-3">
+                {/* Live Collection & Document Inspector Section */}
+                <div className="p-4 rounded-xl bg-slate-850 border border-amber-900/80 bg-slate-900/90 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">In-Portal Neon DB Table Explorer:</span>
+                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Firebase Firestore Collection Explorer:</span>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'system_settings', 'permission_matrix'].map((tbl) => (
                           <button
@@ -1494,7 +1528,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       type="button"
                       onClick={() => fetchInspectTable(selectedInspectTable)}
                       disabled={inspectLoading}
-                      className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-indigo-500/30"
+                      className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-amber-500/30"
                     >
                       <RefreshCw className={`w-3 h-3 ${inspectLoading ? 'animate-spin' : ''}`} />
                       Inspect {selectedInspectTable}
@@ -1503,9 +1537,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
                   {/* Inspector Results */}
                   {inspectLoading ? (
-                    <div className="py-6 text-center text-xs text-indigo-300 flex items-center justify-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                      Loading table data from Neon PostgreSQL...
+                    <div className="py-6 text-center text-xs text-amber-300 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                      Loading collection documents from Firebase Firestore...
                     </div>
                   ) : inspectError ? (
                     <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs">
@@ -1513,18 +1547,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     </div>
                   ) : inspectData ? (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs text-indigo-200">
-                        <span>Table: <strong className="font-mono text-emerald-400">{selectedInspectTable}</strong></span>
-                        <span>Loaded Rows: <strong className="font-mono text-amber-300">{inspectData.totalRows}</strong></span>
+                      <div className="flex items-center justify-between text-xs text-amber-200">
+                        <span>Firestore Collection: <strong className="font-mono text-emerald-400">{selectedInspectTable}</strong></span>
+                        <span>Documents Loaded: <strong className="font-mono text-amber-300">{inspectData.totalRows}</strong></span>
                       </div>
 
-                      {/* Columns Schema Bar */}
+                      {/* Fields Schema Bar */}
                       <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto">
-                        <strong className="text-indigo-400 block mb-1 text-[10px] uppercase tracking-wider font-sans">Columns Schema:</strong>
+                        <strong className="text-amber-400 block mb-1 text-[10px] uppercase tracking-wider font-sans font-bold">Document Fields Schema:</strong>
                         <div className="flex flex-wrap gap-2">
                           {inspectData.columns.map((c, cIdx) => (
                             <span key={`col-schema-${c.column_name}-${cIdx}`} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
-                              {c.column_name}: <span className="text-indigo-400">{c.data_type}</span>
+                              {c.column_name}: <span className="text-amber-300">{c.data_type}</span>
                             </span>
                           ))}
                         </div>
@@ -1534,12 +1568,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       <div className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950/90 font-mono text-[11px]">
                         {inspectData.rows.length === 0 ? (
                           <div className="p-4 text-center text-slate-400 text-xs font-sans">
-                            Table <code className="text-indigo-300 font-bold">{selectedInspectTable}</code> currently has 0 rows in Neon DB.
+                            Collection <code className="text-amber-300 font-bold">{selectedInspectTable}</code> currently has 0 documents in Firebase Firestore.
                           </div>
                         ) : (
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="border-b border-slate-800 bg-slate-900 text-indigo-300 sticky top-0">
+                              <tr className="border-b border-slate-800 bg-slate-900 text-amber-300 sticky top-0">
                                 {inspectData.columns.map((col, colIdx) => (
                                   <th key={`col-head-${col.column_name}-${colIdx}`} className="p-2 font-semibold whitespace-nowrap">
                                     {col.column_name}
@@ -1549,7 +1583,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                             </thead>
                             <tbody className="divide-y divide-slate-800/60 text-slate-300">
                               {inspectData.rows.map((row, rowIdx) => (
-                                <tr key={`inspect-row-${row.id ?? rowIdx}-${rowIdx}`} className="hover:bg-indigo-950/30 transition-colors">
+                                <tr key={`inspect-row-${row.id ?? rowIdx}-${rowIdx}`} className="hover:bg-amber-950/30 transition-colors">
                                   {inspectData.columns.map((col, cellIdx) => {
                                     const val = row[col.column_name];
                                     const formattedVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'NULL');
@@ -1567,16 +1601,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       </div>
                     </div>
                   ) : (
-                    <div className="py-3 text-center text-xs text-indigo-300/80 font-sans">
-                      Select a table above to inspect its live PostgreSQL schema and rows.
+                    <div className="py-3 text-center text-xs text-amber-300/80 font-sans">
+                      Select a collection above to inspect its live Firebase Firestore documents and fields.
                     </div>
                   )}
                 </div>
               </div>
             ) : neonStatus.error ? (
-              <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span><strong>Neon Connection Issue:</strong> {neonStatus.error}</span>
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span><strong>Firebase Firestore Connection Issue:</strong> {neonStatus.error}</span>
+                </div>
               </div>
             ) : null}
           </div>

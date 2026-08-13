@@ -1,187 +1,174 @@
 import express from "express";
 import path from "path";
 import nodemailer from "nodemailer";
-import { neon } from "@neondatabase/serverless";
+import mongoose from "mongoose";
 import { createServer as createViteServer } from "vite";
 
-const NEON_DB_URL = process.env.POSTGRES_URL || "postgresql://neondb_owner:npg_2nbd1fBtRchx@ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech/bit_leave_portal?sslmode=require";
+let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://bit_leave_admin:BitLeave2026SecurePass@cluster0.a8qpl.mongodb.net/bit_leave_portal?retryWrites=true&w=majority&appName=Cluster0";
 
-let isNeonQuotaExceeded = false;
-let lastNeonQuotaLogTime = 0;
+let isMongoConnected = false;
+let mongoConnectError = "";
 
-function isNeonQuotaError(err: any): boolean {
-  if (!err) return false;
-  const status = err.status || err.statusCode || err.response?.status;
-  const msg = (err.message || err.toString() || "").toLowerCase();
-  return status === 402 || msg.includes("402") || msg.includes("quota") || msg.includes("data transfer");
-}
-
-function logNeonQuotaNoticeOnce() {
-  const now = Date.now();
-  if (now - lastNeonQuotaLogTime > 300000) { // Log at most once per 5 minutes
-    console.warn("[Neon PostgreSQL Notice] Free plan data transfer quota reached (HTTP 402). Application operating in high-availability Firestore/LocalStorage fallback mode.");
-    lastNeonQuotaLogTime = now;
-  }
-}
-
-async function ensureNeonTables(sql: any) {
-  if (isNeonQuotaExceeded) return;
+function getMaskedUri(uri: string) {
   try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        role TEXT NOT NULL,
-        designation TEXT,
-        department_id TEXT,
-        department_name TEXT,
-        employee_code TEXT,
-        joining_date TEXT,
-        phone TEXT,
-        avatar_url TEXT,
-        account_status TEXT,
-        password TEXT,
-        leave_balances JSONB
-      )
-    `;
-
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT;`;
-    } catch (_pErr) {}
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS leave_requests (
-        id TEXT PRIMARY KEY,
-        applicant_id TEXT,
-        applicant_name TEXT,
-        applicant_email TEXT,
-        applicant_designation TEXT,
-        applicant_employee_code TEXT,
-        department_id TEXT,
-        department_name TEXT,
-        leave_type TEXT,
-        start_date TEXT,
-        end_date TEXT,
-        total_days NUMERIC,
-        reason TEXT,
-        contact_address TEXT,
-        contact_phone TEXT,
-        document_url TEXT,
-        status TEXT,
-        applied_on TEXT,
-        hod_approval JSONB,
-        registrar_approval JSONB,
-        class_handovers JSONB
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS departments (
-        id TEXT PRIMARY KEY,
-        code TEXT,
-        name TEXT,
-        hod_id TEXT,
-        hod_name TEXT,
-        total_faculty INT
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS leave_policies (
-        type TEXT PRIMARY KEY,
-        label TEXT,
-        annual_quota INT,
-        min_days_notice INT,
-        requires_document BOOLEAN,
-        color TEXT,
-        description TEXT
-      )
-    `;
-
-    // Migration safeguard: ensure requires_document in Neon DB is BOOLEAN
-    try {
-      await sql`ALTER TABLE leave_policies ADD COLUMN IF NOT EXISTS requires_document BOOLEAN DEFAULT false;`;
-      await sql`
-        ALTER TABLE leave_policies 
-        ALTER COLUMN requires_document TYPE BOOLEAN 
-        USING (CASE WHEN requires_document::text IN ('1', 'true', 't', 'TRUE') THEN true ELSE false END);
-      `;
-    } catch (_e) {
-      try {
-        await sql`ALTER TABLE leave_policies DROP COLUMN IF EXISTS requires_document CASCADE;`;
-        await sql`ALTER TABLE leave_policies ADD COLUMN requires_document BOOLEAN DEFAULT false;`;
-      } catch (_err) {
-        console.warn("[Migration Leave Policies Error]", _err);
-      }
-    }
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        id TEXT PRIMARY KEY,
-        timestamp TEXT,
-        actor_id TEXT,
-        actor_name TEXT,
-        actor_role TEXT,
-        action TEXT,
-        details TEXT,
-        ip_address TEXT
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS leave_balances (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        leave_type TEXT NOT NULL,
-        total_quota NUMERIC DEFAULT 0,
-        used_days NUMERIC DEFAULT 0,
-        pending_days NUMERIC DEFAULT 0,
-        updated_at TEXT
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS permission_matrix (
-        id TEXT PRIMARY KEY,
-        user_id TEXT UNIQUE NOT NULL,
-        user_name TEXT,
-        user_email TEXT,
-        role TEXT,
-        department_id TEXT,
-        permissions JSONB NOT NULL DEFAULT '[]',
-        updated_at TEXT,
-        updated_by TEXT
-      )
-    `;
-
-    await sql`
-      CREATE TABLE IF NOT EXISTS system_settings (
-        id TEXT PRIMARY KEY DEFAULT 'default',
-        enable_demo_accounts BOOLEAN DEFAULT true,
-        enable_role_switcher BOOLEAN DEFAULT true,
-        enable_self_registration BOOLEAN DEFAULT true,
-        institution_name TEXT DEFAULT 'BIT Leave Portal',
-        institution_logo_url TEXT,
-        email_settings JSONB,
-        updated_at TEXT,
-        updated_by TEXT
-      )
-    `;
-
-    // Remove unknown or orphan leave requests
-    try {
-      await sql`DELETE FROM leave_requests WHERE id IN ('LV-2026-100', 'LV-2026-101', 'LV-2026-103') OR applicant_name = 'Unknown Applicant' OR applicant_name LIKE '%Unknown%' OR applicant_id = 'UNKNOWN_APPLICANT' OR applicant_id = 'UNKNOWN' OR applicant_name IS NULL OR applicant_name = '';`;
-    } catch (_e) {}
-  } catch (err: any) {
-    if (isNeonQuotaError(err)) {
-      isNeonQuotaExceeded = true;
-      logNeonQuotaNoticeOnce();
-      return;
-    }
-    console.warn("[Ensure Neon Tables Warning]", err?.message || err);
+    return uri.replace(/\/\/(.+)@/, (_match, p1) => {
+      const parts = p1.split(':');
+      const user = parts[0] || 'user';
+      return `//${user}:****@`;
+    });
+  } catch {
+    return "MongoDB Atlas Cluster";
   }
 }
+
+async function initMongo(customUri?: string) {
+  if (customUri && customUri.trim() !== activeMongoUri) {
+    activeMongoUri = customUri.trim();
+    isMongoConnected = false;
+    try {
+      await mongoose.disconnect();
+    } catch (_e) {}
+  }
+
+  if (isMongoConnected && mongoose.connection.readyState === 1) return true;
+
+  try {
+    mongoose.set("strictQuery", false);
+    await mongoose.connect(activeMongoUri, {
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 10000,
+    });
+    isMongoConnected = true;
+    mongoConnectError = "";
+    console.log("[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster.");
+    return true;
+  } catch (err: any) {
+    isMongoConnected = false;
+    const rawMsg = err?.message || String(err);
+    if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
+      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your MongoDB Atlas Connection String or IP Access Rules in Atlas Console.`;
+    } else {
+      mongoConnectError = rawMsg;
+    }
+    console.warn("[MongoDB Atlas Connection Warning]", mongoConnectError);
+    return false;
+  }
+}
+
+// Define Mongoose Schemas for MongoDB Collections
+const UserSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, default: "" },
+  email: { type: String, required: true, unique: true },
+  role: { type: String, default: "FACULTY" },
+  designation: { type: String, default: "" },
+  departmentId: { type: String, default: "" },
+  departmentName: { type: String, default: "" },
+  employeeCode: { type: String, default: "" },
+  joiningDate: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  avatarUrl: { type: String, default: "" },
+  accountStatus: { type: String, default: "ACTIVE" },
+  password: { type: String, default: "password123" },
+  leaveBalances: { type: mongoose.Schema.Types.Mixed, default: {} },
+}, { timestamps: true });
+
+const LeaveRequestSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  applicantId: { type: String, default: "" },
+  applicantName: { type: String, default: "" },
+  applicantEmail: { type: String, default: "" },
+  applicantDesignation: { type: String, default: "" },
+  applicantEmployeeCode: { type: String, default: "" },
+  departmentId: { type: String, default: "" },
+  departmentName: { type: String, default: "" },
+  leaveType: { type: String, default: "CASUAL" },
+  startDate: { type: String, default: "" },
+  endDate: { type: String, default: "" },
+  totalDays: { type: Number, default: 1 },
+  reason: { type: String, default: "" },
+  contactAddress: { type: String, default: "" },
+  contactPhone: { type: String, default: "" },
+  documentUrl: { type: String, default: "" },
+  status: { type: String, default: "PENDING_HOD" },
+  appliedOn: { type: String, default: "" },
+  hodApproval: { type: mongoose.Schema.Types.Mixed, default: null },
+  registrarApproval: { type: mongoose.Schema.Types.Mixed, default: null },
+  classHandovers: { type: mongoose.Schema.Types.Mixed, default: null },
+}, { timestamps: true });
+
+const DepartmentSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  code: { type: String, default: "" },
+  name: { type: String, default: "" },
+  hodId: { type: String, default: null },
+  hodName: { type: String, default: null },
+  totalFaculty: { type: Number, default: 0 },
+}, { timestamps: true });
+
+const LeavePolicySchema = new mongoose.Schema({
+  type: { type: String, required: true, unique: true },
+  label: { type: String, default: "" },
+  annualQuota: { type: Number, default: 12 },
+  minDaysNotice: { type: Number, default: 0 },
+  requiresDocument: { type: Boolean, default: false },
+  color: { type: String, default: "#2563eb" },
+  description: { type: String, default: "" },
+}, { timestamps: true });
+
+const AuditLogSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  timestamp: { type: String, default: "" },
+  actorId: { type: String, default: "sys" },
+  actorName: { type: String, default: "System" },
+  actorRole: { type: String, default: "SUPER_ADMIN" },
+  action: { type: String, default: "ACTION" },
+  details: { type: String, default: "" },
+  ipAddress: { type: String, default: null },
+}, { timestamps: true });
+
+const LeaveBalanceSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true },
+  leaveType: { type: String, required: true },
+  totalQuota: { type: Number, default: 0 },
+  usedDays: { type: Number, default: 0 },
+  pendingDays: { type: Number, default: 0 },
+  updatedAt: { type: String, default: "" },
+}, { timestamps: true });
+
+const PermissionMatrixSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, unique: true },
+  userName: { type: String, default: "" },
+  userEmail: { type: String, default: "" },
+  role: { type: String, default: "" },
+  departmentId: { type: String, default: "" },
+  permissions: { type: mongoose.Schema.Types.Mixed, default: [] },
+  updatedAt: { type: String, default: "" },
+  updatedBy: { type: String, default: "SUPER_ADMIN" },
+}, { timestamps: true });
+
+const SystemSettingsSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, default: "default" },
+  enableDemoAccounts: { type: Boolean, default: true },
+  enableRoleSwitcher: { type: Boolean, default: true },
+  enableSelfRegistration: { type: Boolean, default: true },
+  institutionName: { type: String, default: "BIT Leave Portal" },
+  institutionLogoUrl: { type: String, default: null },
+  emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
+  updatedAt: { type: String, default: "" },
+  updatedBy: { type: String, default: "SUPER_ADMIN" },
+}, { timestamps: true });
+
+const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema);
+const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema);
+const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
+const LeavePolicyModel: any = mongoose.models.LeavePolicy || mongoose.model("LeavePolicy", LeavePolicySchema);
+const AuditLogModel: any = mongoose.models.AuditLog || mongoose.model("AuditLog", AuditLogSchema);
+const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("LeaveBalance", LeaveBalanceSchema);
+const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema);
+const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
 
 async function startServer() {
   const app = express();
@@ -189,7 +176,7 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  // CORS Middleware for external domains (e.g. leave.bitmesra.ac.in)
+  // CORS Middleware for external domains
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -200,65 +187,39 @@ async function startServer() {
     next();
   });
 
-  // API Route: Neon DB Connection Health & Status
-  app.get("/api/neon/status", async (req, res) => {
-    if (isNeonQuotaExceeded) {
+  // Pre-initialize MongoDB connection
+  initMongo();
+
+  // Status handler function for both MongoDB and legacy Neon endpoints
+  const handleStatus = async (req: express.Request, res: express.Response) => {
+    const connected = await initMongo();
+    const maskedUri = getMaskedUri(activeMongoUri);
+
+    if (!connected) {
       return res.json({
         connected: false,
-        quotaExceeded: true,
         database: "bit_leave_portal",
-        host: "ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech",
-        error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating seamlessly on Firestore & Local Storage."
+        host: maskedUri,
+        error: mongoConnectError || "Connecting to MongoDB Atlas...",
+        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
+        counts: { users: 0, leaveRequests: 0, departments: 0, auditLogs: 0, leaveBalances: 0 }
       });
     }
+
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      
-      const tablesResult = await sql`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
-      `;
-      
-      const tableNames = tablesResult.map((r: any) => r.table_name);
-      
-      let userCount = 0;
-      let requestCount = 0;
-      let deptCount = 0;
-      let auditLogCount = 0;
-      let balanceCount = 0;
-
-      if (tableNames.includes("users")) {
-        const users = await sql`SELECT COUNT(*)::int as count FROM users`;
-        userCount = users[0]?.count || 0;
-      }
-
-      if (tableNames.includes("leave_requests")) {
-        const reqs = await sql`SELECT COUNT(*)::int as count FROM leave_requests`;
-        requestCount = reqs[0]?.count || 0;
-      }
-
-      if (tableNames.includes("departments")) {
-        const depts = await sql`SELECT COUNT(*)::int as count FROM departments`;
-        deptCount = depts[0]?.count || 0;
-      }
-
-      if (tableNames.includes("audit_logs")) {
-        const logs = await sql`SELECT COUNT(*)::int as count FROM audit_logs`;
-        auditLogCount = logs[0]?.count || 0;
-      }
-
-      if (tableNames.includes("leave_balances")) {
-        const bals = await sql`SELECT COUNT(*)::int as count FROM leave_balances`;
-        balanceCount = bals[0]?.count || 0;
-      }
+      const [userCount, requestCount, deptCount, auditLogCount, balanceCount] = await Promise.all([
+        UserModel.countDocuments(),
+        LeaveRequestModel.countDocuments(),
+        DepartmentModel.countDocuments(),
+        AuditLogModel.countDocuments(),
+        LeaveBalanceModel.countDocuments(),
+      ]);
 
       return res.json({
         connected: true,
         database: "bit_leave_portal",
-        host: "ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech",
-        tables: tableNames,
+        host: maskedUri,
+        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
         counts: {
           users: userCount,
           leaveRequests: requestCount,
@@ -268,66 +229,71 @@ async function startServer() {
         }
       });
     } catch (err: any) {
-      if (isNeonQuotaError(err)) {
-        isNeonQuotaExceeded = true;
-        logNeonQuotaNoticeOnce();
-        return res.json({
-          connected: false,
-          quotaExceeded: true,
-          database: "bit_leave_portal",
-          host: "ep-floral-term-au00qpec-pooler.c-10.us-east-1.aws.neon.tech",
-          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating seamlessly on Firestore & Local Storage."
-        });
-      }
-      console.error("[Neon Status Error]", err?.message || err);
       return res.status(500).json({
         connected: false,
-        error: err?.message || "Failed to connect to Neon PostgreSQL database"
+        host: maskedUri,
+        error: err?.message || "Error reading MongoDB Atlas collection stats"
+      });
+    }
+  };
+
+  app.get("/api/mongo/status", handleStatus);
+  app.get("/api/neon/status", handleStatus);
+
+  // Update MongoDB URI endpoint
+  app.post("/api/mongo/connect", async (req: express.Request, res: express.Response) => {
+    const { uri } = req.body || {};
+    if (!uri || typeof uri !== "string" || !uri.trim()) {
+      return res.status(400).json({ success: false, error: "Connection URI is required." });
+    }
+    const connected = await initMongo(uri.trim());
+    if (connected) {
+      return res.json({
+        success: true,
+        message: "Successfully connected to MongoDB Atlas!",
+        host: getMaskedUri(activeMongoUri)
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: mongoConnectError || "Failed to connect with provided MongoDB URI.",
+        host: getMaskedUri(activeMongoUri)
       });
     }
   });
 
-  // API Route: Bulk Sync Portal Data into Neon PostgreSQL
-  app.post("/api/neon/sync", async (req, res) => {
+  // Sync handler for MongoDB Atlas
+  const handleSync = async (req: express.Request, res: express.Response) => {
+    await initMongo();
+    const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [], systemSettings } = req.body || {};
+
+    let usersSynced = 0;
+    let requestsSynced = 0;
+    let deptsSynced = 0;
+    let policiesSynced = 0;
+    let auditLogsSynced = 0;
+    let balancesSynced = 0;
+    let permissionMatrixSynced = 0;
+    let systemSettingsSynced = 0;
+
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-
-      const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [], systemSettings } = req.body || {};
-
-      let usersSynced = 0;
-      let requestsSynced = 0;
-      let deptsSynced = 0;
-      let policiesSynced = 0;
-      let auditLogsSynced = 0;
-      let balancesSynced = 0;
-      let permissionMatrixSynced = 0;
-      let systemSettingsSynced = 0;
-
       // 1. Sync Audit Logs
       for (const a of auditLogs) {
         if (!a || !a.id) continue;
-        await sql`
-          INSERT INTO audit_logs (id, timestamp, actor_id, actor_name, actor_role, action, details, ip_address)
-          VALUES (
-            ${a.id},
-            ${a.timestamp || new Date().toISOString()},
-            ${a.actorId || 'sys'},
-            ${a.actorName || 'System'},
-            ${a.actorRole || 'SUPER_ADMIN'},
-            ${a.action || 'ACTION'},
-            ${a.details || ''},
-            ${a.ipAddress || null}
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            timestamp = EXCLUDED.timestamp,
-            actor_id = EXCLUDED.actor_id,
-            actor_name = EXCLUDED.actor_name,
-            actor_role = EXCLUDED.actor_role,
-            action = EXCLUDED.action,
-            details = EXCLUDED.details,
-            ip_address = EXCLUDED.ip_address
-        `;
+        await AuditLogModel.findOneAndUpdate(
+          { id: a.id },
+          {
+            id: a.id,
+            timestamp: a.timestamp || new Date().toISOString(),
+            actorId: a.actorId || "sys",
+            actorName: a.actorName || "System",
+            actorRole: a.actorRole || "SUPER_ADMIN",
+            action: a.action || "ACTION",
+            details: a.details || "",
+            ipAddress: a.ipAddress || null,
+          },
+          { upsert: true, new: true }
+        );
         auditLogsSynced++;
       }
 
@@ -335,263 +301,168 @@ async function startServer() {
       for (const u of users) {
         if (!u || !u.email) continue;
         const cleanEmail = String(u.email).trim().toLowerCase();
-        const uId = String(u.id || '');
-        if (['usr_3', 'usr_4', 'usr_5', 'usr_6', 'usr_7'].includes(uId)) {
-          console.warn(`[Neon Sync Audit] Request to sync user record ${uId} (${cleanEmail}). Executing PostgreSQL upsert.`);
-        }
-        await sql`
-          INSERT INTO users (id, name, email, role, designation, department_id, department_name, employee_code, joining_date, phone, avatar_url, account_status, password, leave_balances)
-          VALUES (
-            ${u.id || 'USER-' + Date.now()},
-            ${u.name || ''},
-            ${cleanEmail},
-            ${u.role || 'FACULTY'},
-            ${u.designation || null},
-            ${u.departmentId || null},
-            ${u.departmentName || null},
-            ${u.employeeCode || null},
-            ${u.joiningDate || null},
-            ${u.phone || null},
-            ${u.avatarUrl || null},
-            ${u.accountStatus || 'ACTIVE'},
-            ${u.password || 'password123'},
-            ${JSON.stringify(u.leaveBalances || {})}
-          )
-          ON CONFLICT (email) DO UPDATE SET
-            id = EXCLUDED.id,
-            name = EXCLUDED.name,
-            role = EXCLUDED.role,
-            designation = EXCLUDED.designation,
-            department_id = EXCLUDED.department_id,
-            department_name = EXCLUDED.department_name,
-            employee_code = EXCLUDED.employee_code,
-            joining_date = EXCLUDED.joining_date,
-            phone = EXCLUDED.phone,
-            avatar_url = EXCLUDED.avatar_url,
-            account_status = EXCLUDED.account_status,
-            password = EXCLUDED.password,
-            leave_balances = EXCLUDED.leave_balances
-        `;
+        await UserModel.findOneAndUpdate(
+          { email: cleanEmail },
+          {
+            id: u.id || "USER-" + Date.now(),
+            name: u.name || "",
+            email: cleanEmail,
+            role: u.role || "FACULTY",
+            designation: u.designation || "",
+            departmentId: u.departmentId || "",
+            departmentName: u.departmentName || "",
+            employeeCode: u.employeeCode || "",
+            joiningDate: u.joiningDate || "",
+            phone: u.phone || "",
+            avatarUrl: u.avatarUrl || "",
+            accountStatus: u.accountStatus || "ACTIVE",
+            password: u.password || "password123",
+            leaveBalances: u.leaveBalances || {},
+          },
+          { upsert: true, new: true }
+        );
         usersSynced++;
       }
 
       // 3. Sync Leave Requests
       for (const r of leaveRequests) {
         if (!r || !r.id) continue;
-        const applicantName = r.applicantName || r.applicant_name || '';
-        const applicantId = r.applicantId || r.applicant_id || '';
-        if (!applicantName || applicantName === 'Unknown Applicant' || applicantName.toLowerCase() === 'unknown' || applicantId === 'UNKNOWN_APPLICANT' || applicantId === 'UNKNOWN') {
+        const applicantName = r.applicantName || r.applicant_name || "";
+        const applicantId = r.applicantId || r.applicant_id || "";
+        if (!applicantName || applicantName === "Unknown Applicant" || applicantName.toLowerCase() === "unknown" || applicantId === "UNKNOWN_APPLICANT" || applicantId === "UNKNOWN") {
           continue;
         }
-        const applicantEmail = r.applicantEmail || r.applicant_email || 'user@bitmesra.ac.in';
-        const departmentId = r.departmentId || r.department_id || 'CSE';
-        const departmentName = r.departmentName || r.department_name || 'Computer Science & Engineering';
-        const leaveType = r.leaveType || r.leave_type || 'CASUAL';
-        const startDate = r.startDate || r.start_date || new Date().toISOString().split('T')[0];
-        const endDate = r.endDate || r.end_date || new Date().toISOString().split('T')[0];
-        const appliedOn = r.appliedOn || r.applied_on || new Date().toISOString().split('T')[0];
-
-        await sql`
-          INSERT INTO leave_requests (id, applicant_id, applicant_name, applicant_email, applicant_designation, applicant_employee_code, department_id, department_name, leave_type, start_date, end_date, total_days, reason, contact_address, contact_phone, document_url, status, applied_on, hod_approval, registrar_approval, class_handovers)
-          VALUES (
-            ${r.id},
-            ${applicantId},
-            ${applicantName},
-            ${applicantEmail},
-            ${r.applicantDesignation || r.applicant_designation || null},
-            ${r.applicantEmployeeCode || r.applicant_employee_code || null},
-            ${departmentId},
-            ${departmentName},
-            ${leaveType},
-            ${startDate},
-            ${endDate},
-            ${r.totalDays ?? r.total_days ?? 1},
-            ${r.reason || ''},
-            ${r.contactAddress || r.contact_address || null},
-            ${r.contactPhone || r.contact_phone || null},
-            ${r.documentUrl || r.document_url || null},
-            ${r.status || 'PENDING_HOD'},
-            ${appliedOn},
-            ${JSON.stringify(r.hodApproval || r.hod_approval || null)},
-            ${JSON.stringify(r.registrarApproval || r.registrar_approval || null)},
-            ${JSON.stringify(r.classHandovers || r.class_handovers || null)}
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            applicant_id = EXCLUDED.applicant_id,
-            applicant_name = EXCLUDED.applicant_name,
-            applicant_email = EXCLUDED.applicant_email,
-            applicant_designation = EXCLUDED.applicant_designation,
-            applicant_employee_code = EXCLUDED.applicant_employee_code,
-            department_id = EXCLUDED.department_id,
-            department_name = EXCLUDED.department_name,
-            leave_type = EXCLUDED.leave_type,
-            start_date = EXCLUDED.start_date,
-            end_date = EXCLUDED.end_date,
-            total_days = EXCLUDED.total_days,
-            reason = EXCLUDED.reason,
-            contact_address = EXCLUDED.contact_address,
-            contact_phone = EXCLUDED.contact_phone,
-            document_url = EXCLUDED.document_url,
-            status = EXCLUDED.status,
-            applied_on = EXCLUDED.applied_on,
-            hod_approval = EXCLUDED.hod_approval,
-            registrar_approval = EXCLUDED.registrar_approval,
-            class_handovers = EXCLUDED.class_handovers
-        `;
+        await LeaveRequestModel.findOneAndUpdate(
+          { id: r.id },
+          {
+            id: r.id,
+            applicantId: applicantId,
+            applicantName: applicantName,
+            applicantEmail: r.applicantEmail || r.applicant_email || "user@bitmesra.ac.in",
+            applicantDesignation: r.applicantDesignation || r.applicant_designation || "",
+            applicantEmployeeCode: r.applicantEmployeeCode || r.applicant_employee_code || "",
+            departmentId: r.departmentId || r.department_id || "CSE",
+            departmentName: r.departmentName || r.department_name || "Computer Science & Engineering",
+            leaveType: r.leaveType || r.leave_type || "CASUAL",
+            startDate: r.startDate || r.start_date || new Date().toISOString().split("T")[0],
+            endDate: r.endDate || r.end_date || new Date().toISOString().split("T")[0],
+            totalDays: Number(r.totalDays ?? r.total_days ?? 1),
+            reason: r.reason || "",
+            contactAddress: r.contactAddress || r.contact_address || "",
+            contactPhone: r.contactPhone || r.contact_phone || "",
+            documentUrl: r.documentUrl || r.document_url || "",
+            status: r.status || "PENDING_HOD",
+            appliedOn: r.appliedOn || r.applied_on || new Date().toISOString().split("T")[0],
+            hodApproval: r.hodApproval || r.hod_approval || null,
+            registrarApproval: r.registrarApproval || r.registrar_approval || null,
+            classHandovers: r.classHandovers || r.class_handovers || null,
+          },
+          { upsert: true, new: true }
+        );
         requestsSynced++;
       }
 
       // 4. Sync Departments
       for (const d of departments) {
         if (!d || !d.id) continue;
-        await sql`
-          INSERT INTO departments (id, code, name, hod_id, hod_name, total_faculty)
-          VALUES (
-            ${d.id},
-            ${d.code || d.id},
-            ${d.name || ''},
-            ${d.hodId || null},
-            ${d.hodName || null},
-            ${d.totalFaculty || 0}
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            code = EXCLUDED.code,
-            name = EXCLUDED.name,
-            hod_id = EXCLUDED.hod_id,
-            hod_name = EXCLUDED.hod_name,
-            total_faculty = EXCLUDED.total_faculty
-        `;
+        await DepartmentModel.findOneAndUpdate(
+          { id: d.id },
+          {
+            id: d.id,
+            code: d.code || d.id,
+            name: d.name || "",
+            hodId: d.hodId || null,
+            hodName: d.hodName || null,
+            totalFaculty: Number(d.totalFaculty) || 0,
+          },
+          { upsert: true, new: true }
+        );
         deptsSynced++;
       }
 
       // 5. Sync Leave Policies
       for (const p of leavePolicies) {
         if (!p || !p.type) continue;
-        const reqDoc = Boolean(p.requiresDocument);
-        await sql`
-          INSERT INTO leave_policies (type, label, annual_quota, min_days_notice, requires_document, color, description)
-          VALUES (
-            ${p.type},
-            ${p.label || p.type},
-            ${Number(p.annualQuota) || 12},
-            ${Number(p.minDaysNotice) || 0},
-            ${reqDoc},
-            ${p.color || '#2563eb'},
-            ${p.description || null}
-          )
-          ON CONFLICT (type) DO UPDATE SET
-            label = EXCLUDED.label,
-            annual_quota = EXCLUDED.annual_quota,
-            min_days_notice = EXCLUDED.min_days_notice,
-            requires_document = EXCLUDED.requires_document,
-            color = EXCLUDED.color,
-            description = EXCLUDED.description
-        `;
+        await LeavePolicyModel.findOneAndUpdate(
+          { type: p.type },
+          {
+            type: p.type,
+            label: p.label || p.type,
+            annualQuota: Number(p.annualQuota) || 12,
+            minDaysNotice: Number(p.minDaysNotice) || 0,
+            requiresDocument: Boolean(p.requiresDocument),
+            color: p.color || "#2563eb",
+            description: p.description || "",
+          },
+          { upsert: true, new: true }
+        );
         policiesSynced++;
       }
 
-      // 6. Sync Leave Balances Table
-      let effectiveBalances = leaveBalances;
-      if (!Array.isArray(effectiveBalances) || effectiveBalances.length === 0) {
-        effectiveBalances = [];
-        users.forEach((u: any) => {
-          if (u.leaveBalances && typeof u.leaveBalances === 'object') {
-            Object.entries(u.leaveBalances).forEach(([type, bal]: [string, any]) => {
-              effectiveBalances.push({
-                id: `${u.id}_${type}`,
-                userId: u.id,
-                leaveType: type,
-                totalQuota: Number(bal?.total || 0),
-                usedDays: Number(bal?.used || 0),
-                pendingDays: Number(bal?.pending || 0),
-                updatedAt: new Date().toISOString()
-              });
-            });
-          }
-        });
-      }
-
-      for (const b of effectiveBalances) {
+      // 6. Sync Leave Balances
+      for (const b of leaveBalances) {
         if (!b || !b.id) continue;
-        await sql`
-          INSERT INTO leave_balances (id, user_id, leave_type, total_quota, used_days, pending_days, updated_at)
-          VALUES (
-            ${b.id},
-            ${b.userId || b.user_id},
-            ${b.leaveType || b.leave_type},
-            ${Number(b.totalQuota ?? b.total_quota) || 0},
-            ${Number(b.usedDays ?? b.used_days) || 0},
-            ${Number(b.pendingDays ?? b.pending_days) || 0},
-            ${b.updatedAt || b.updated_at || new Date().toISOString()}
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            total_quota = EXCLUDED.total_quota,
-            used_days = EXCLUDED.used_days,
-            pending_days = EXCLUDED.pending_days,
-            updated_at = EXCLUDED.updated_at
-        `;
+        await LeaveBalanceModel.findOneAndUpdate(
+          { id: b.id },
+          {
+            id: b.id,
+            userId: b.userId || b.user_id,
+            leaveType: b.leaveType || b.leave_type,
+            totalQuota: Number(b.totalQuota ?? b.total_quota) || 0,
+            usedDays: Number(b.usedDays ?? b.used_days) || 0,
+            pendingDays: Number(b.pendingDays ?? b.pending_days) || 0,
+            updatedAt: b.updatedAt || b.updated_at || new Date().toISOString(),
+          },
+          { upsert: true, new: true }
+        );
         balancesSynced++;
       }
 
+      // 7. Sync Permission Matrix
       for (const p of permissionMatrix) {
         if (!p || (!p.userId && !p.id)) continue;
         const uId = p.userId || p.id;
-        await sql`
-          INSERT INTO permission_matrix (id, user_id, user_name, user_email, role, department_id, permissions, updated_at, updated_by)
-          VALUES (
-            ${uId},
-            ${uId},
-            ${p.userName || p.user_name || ''},
-            ${p.userEmail || p.user_email || ''},
-            ${p.role || ''},
-            ${p.departmentId || p.department_id || ''},
-            ${JSON.stringify(p.permissions || [])},
-            ${p.updatedAt || p.updated_at || new Date().toISOString()},
-            ${p.updatedBy || p.updated_by || 'SUPER_ADMIN'}
-          )
-          ON CONFLICT (user_id) DO UPDATE SET
-            user_name = EXCLUDED.user_name,
-            user_email = EXCLUDED.user_email,
-            role = EXCLUDED.role,
-            department_id = EXCLUDED.department_id,
-            permissions = EXCLUDED.permissions,
-            updated_at = EXCLUDED.updated_at,
-            updated_by = EXCLUDED.updated_by
-        `;
+        await PermissionMatrixModel.findOneAndUpdate(
+          { userId: uId },
+          {
+            id: uId,
+            userId: uId,
+            userName: p.userName || p.user_name || "",
+            userEmail: p.userEmail || p.user_email || "",
+            role: p.role || "",
+            departmentId: p.departmentId || p.department_id || "",
+            permissions: p.permissions || [],
+            updatedAt: p.updatedAt || p.updated_at || new Date().toISOString(),
+            updatedBy: p.updatedBy || p.updated_by || "SUPER_ADMIN",
+          },
+          { upsert: true, new: true }
+        );
         permissionMatrixSynced++;
       }
 
-      if (systemSettings && typeof systemSettings === 'object') {
-        const now = new Date().toISOString();
-        await sql`
-          INSERT INTO system_settings (id, enable_demo_accounts, enable_role_switcher, enable_self_registration, institution_name, institution_logo_url, email_settings, updated_at, updated_by)
-          VALUES (
-            'default',
-            ${systemSettings.enableDemoAccounts ?? true},
-            ${systemSettings.enableRoleSwitcher ?? true},
-            ${systemSettings.enableSelfRegistration ?? true},
-            ${systemSettings.institutionName || 'BIT Leave Portal'},
-            ${systemSettings.institutionLogoUrl || null},
-            ${JSON.stringify(systemSettings.emailSettings || {})},
-            ${now},
-            'SUPER_ADMIN'
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            enable_demo_accounts = EXCLUDED.enable_demo_accounts,
-            enable_role_switcher = EXCLUDED.enable_role_switcher,
-            enable_self_registration = EXCLUDED.enable_self_registration,
-            institution_name = EXCLUDED.institution_name,
-            institution_logo_url = EXCLUDED.institution_logo_url,
-            email_settings = EXCLUDED.email_settings,
-            updated_at = EXCLUDED.updated_at,
-            updated_by = EXCLUDED.updated_by
-        `;
+      // 8. Sync System Settings
+      if (systemSettings && typeof systemSettings === "object") {
+        await SystemSettingsModel.findOneAndUpdate(
+          { id: "default" },
+          {
+            id: "default",
+            enableDemoAccounts: systemSettings.enableDemoAccounts ?? true,
+            enableRoleSwitcher: systemSettings.enableRoleSwitcher ?? true,
+            enableSelfRegistration: systemSettings.enableSelfRegistration ?? true,
+            institutionName: systemSettings.institutionName || "BIT Leave Portal",
+            institutionLogoUrl: systemSettings.institutionLogoUrl || null,
+            emailSettings: systemSettings.emailSettings || {},
+            updatedAt: new Date().toISOString(),
+            updatedBy: "SUPER_ADMIN",
+          },
+          { upsert: true, new: true }
+        );
         systemSettingsSynced = 1;
       }
 
       return res.json({
         success: true,
-        message: "Successfully synchronized portal data into Neon PostgreSQL",
+        message: "Successfully synchronized portal data into MongoDB Atlas",
         counts: {
           auditLogs: auditLogsSynced,
           users: usersSynced,
@@ -600,147 +471,153 @@ async function startServer() {
           leavePolicies: policiesSynced,
           leaveBalances: balancesSynced,
           permissionMatrix: permissionMatrixSynced,
-          systemSettings: systemSettingsSynced
+          systemSettings: systemSettingsSynced,
         }
       });
     } catch (err: any) {
-      if (isNeonQuotaError(err)) {
-        isNeonQuotaExceeded = true;
-        logNeonQuotaNoticeOnce();
-        return res.json({
-          success: false,
-          quotaExceeded: true,
-          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402)."
-        });
-      }
-      console.error("[Neon Sync Error]", err?.message || err);
-      return res.status(500).json({
-        success: false,
-        error: err?.message || "Failed to sync data to Neon DB"
-      });
+      console.error("[MongoDB Sync Error]", err);
+      return res.status(500).json({ success: false, error: err?.message || "Failed to sync data to MongoDB Atlas" });
     }
-  });
+  };
 
-  // API Route: Insert single Audit Log directly into Neon PostgreSQL
-  app.post("/api/neon/audit-log", async (req, res) => {
+  app.post("/api/mongo/sync", handleSync);
+  app.post("/api/neon/sync", handleSync);
+
+  // Fetch all data from MongoDB Atlas
+  const handleFetchData = async (req: express.Request, res: express.Response) => {
+    await initMongo();
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      const a = req.body;
-      if (!a || !a.id) {
-        return res.status(400).json({ success: false, error: "Missing log object or log.id" });
-      }
+      const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc] = await Promise.all([
+        UserModel.find().lean(),
+        LeaveRequestModel.find().lean(),
+        DepartmentModel.find().lean(),
+        LeavePolicyModel.find().lean(),
+        AuditLogModel.find().sort({ timestamp: -1 }).lean(),
+        LeaveBalanceModel.find().lean(),
+        PermissionMatrixModel.find().lean(),
+        SystemSettingsModel.findOne({ id: "default" }).lean(),
+      ]);
 
-      await sql`
-        INSERT INTO audit_logs (id, timestamp, actor_id, actor_name, actor_role, action, details, ip_address)
-        VALUES (
-          ${a.id},
-          ${a.timestamp || new Date().toISOString()},
-          ${a.actorId || 'sys'},
-          ${a.actorName || 'System'},
-          ${a.actorRole || 'SUPER_ADMIN'},
-          ${a.action || 'ACTION'},
-          ${a.details || ''},
-          ${a.ipAddress || null}
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          timestamp = EXCLUDED.timestamp,
-          actor_id = EXCLUDED.actor_id,
-          actor_name = EXCLUDED.actor_name,
-          actor_role = EXCLUDED.actor_role,
-          action = EXCLUDED.action,
-          details = EXCLUDED.details,
-          ip_address = EXCLUDED.ip_address
-      `;
+      const systemSettings = sysDoc ? {
+        enableDemoAccounts: sysDoc.enableDemoAccounts ?? true,
+        enableRoleSwitcher: sysDoc.enableRoleSwitcher ?? true,
+        enableSelfRegistration: sysDoc.enableSelfRegistration ?? true,
+        institutionName: sysDoc.institutionName || "BIT Leave Portal",
+        institutionLogoUrl: sysDoc.institutionLogoUrl || null,
+        emailSettings: sysDoc.emailSettings || {},
+      } : null;
 
-      return res.json({ success: true, message: "Audit log inserted into Neon DB", logId: a.id });
+      return res.json({
+        success: true,
+        data: {
+          users,
+          leaveRequests,
+          departments,
+          leavePolicies,
+          auditLogs,
+          leaveBalances,
+          permissionMatrix,
+          systemSettings,
+        }
+      });
     } catch (err: any) {
-      if (isNeonQuotaError(err)) {
-        isNeonQuotaExceeded = true;
-        logNeonQuotaNoticeOnce();
-        return res.json({ success: false, quotaExceeded: true, error: "Neon PostgreSQL quota exceeded (HTTP 402)." });
+      console.error("[MongoDB Fetch Data Error]", err);
+      return res.status(500).json({ success: false, error: err?.message || "Failed to fetch data from MongoDB Atlas" });
+    }
+  };
+
+  app.get("/api/mongo/data", handleFetchData);
+  app.get("/api/neon/data", handleFetchData);
+
+  // Single Audit Log endpoint
+  const handleAuditLog = async (req: express.Request, res: express.Response) => {
+    await initMongo();
+    try {
+      const a = req.body?.log || req.body;
+      if (!a || !a.id) {
+        return res.status(400).json({ success: false, error: "Missing log or log.id" });
       }
-      console.error("[Neon Single Audit Log Error]", err?.message || err);
+      await AuditLogModel.findOneAndUpdate(
+        { id: a.id },
+        {
+          id: a.id,
+          timestamp: a.timestamp || new Date().toISOString(),
+          actorId: a.actorId || "sys",
+          actorName: a.actorName || "System",
+          actorRole: a.actorRole || "SUPER_ADMIN",
+          action: a.action || "ACTION",
+          details: a.details || "",
+          ipAddress: a.ipAddress || null,
+        },
+        { upsert: true, new: true }
+      );
+      return res.json({ success: true, message: "Audit log inserted into MongoDB Atlas", logId: a.id });
+    } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message });
     }
-  });
+  };
 
-  // API Route: Delete record from Neon DB
-  app.post("/api/neon/delete", async (req, res) => {
+  app.post("/api/mongo/audit-log", handleAuditLog);
+  app.post("/api/neon/audit-log", handleAuditLog);
+
+  // Delete document endpoint
+  const handleDelete = async (req: express.Request, res: express.Response) => {
+    await initMongo();
     try {
-      const { table, id, email, ids, emails } = req.body || {};
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
+      const { colName, table, id, email, ids, emails } = req.body || {};
+      const targetTable = colName || table;
 
-      if (table === 'users' || table === 'users_batch') {
-        const idList: string[] = Array.isArray(ids)
-          ? ids.map((i: any) => String(i).trim()).filter(Boolean)
-          : (id ? [String(id).trim()] : []);
-        const emailList: string[] = Array.isArray(emails)
-          ? emails.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)
-          : (email ? [String(email).trim().toLowerCase()] : []);
-
-        console.log(`[Neon Delete] DELETE users requested. User IDs received: [${idList.join(', ')}], Emails: [${emailList.join(', ')}]`);
+      if (targetTable === "users" || targetTable === "users_batch") {
+        const idList: string[] = Array.isArray(ids) ? ids.map((i: any) => String(i).trim()) : (id ? [String(id).trim()] : []);
+        const emailList: string[] = Array.isArray(emails) ? emails.map((e: any) => String(e).trim().toLowerCase()) : (email ? [String(email).trim().toLowerCase()] : []);
 
         let deletedCount = 0;
         if (idList.length > 0) {
-          for (const cleanId of idList) {
-            const resRows = await sql`DELETE FROM users WHERE id = ${cleanId} RETURNING id;`;
-            deletedCount += resRows.length;
-          }
+          const res1 = await UserModel.deleteMany({ id: { $in: idList } });
+          deletedCount += res1.deletedCount || 0;
         }
         if (emailList.length > 0) {
-          for (const cleanEmail of emailList) {
-            const resRows = await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail} RETURNING id;`;
-            deletedCount += resRows.length;
-          }
+          const res2 = await UserModel.deleteMany({ email: { $in: emailList } });
+          deletedCount += res2.deletedCount || 0;
         }
-
-        console.log(`[Neon Delete] Database operation successful. Deleted records count: ${deletedCount}`);
-
-        return res.json({
-          success: true,
-          deletedCount,
-          message: `Successfully deleted ${deletedCount} record(s) from users table.`
-        });
+        return res.json({ success: true, deletedCount, message: `Deleted ${deletedCount} user(s) from MongoDB Atlas` });
       }
-      else if (table === 'leaveRequests' && id) {
-        const resRows = await sql`DELETE FROM leave_requests WHERE id = ${id} RETURNING id;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_requests` });
+      else if ((targetTable === "leave_requests" || targetTable === "leaveRequests") && id) {
+        const res1 = await LeaveRequestModel.deleteOne({ id });
+        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from leave_requests" });
       }
-      else if (table === 'departments' && id) {
-        const resRows = await sql`DELETE FROM departments WHERE id = ${id} RETURNING id;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from departments` });
+      else if (targetTable === "departments" && id) {
+        const res1 = await DepartmentModel.deleteOne({ id });
+        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from departments" });
       }
-      else if (table === 'leavePolicies' && id) {
-        const resRows = await sql`DELETE FROM leave_policies WHERE type = ${id} RETURNING type;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_policies` });
+      else if ((targetTable === "leave_policies" || targetTable === "leavePolicies") && id) {
+        const res1 = await LeavePolicyModel.deleteOne({ type: id });
+        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from leave_policies" });
       }
-      else if (table === 'auditLogs' && id) {
-        const resRows = await sql`DELETE FROM audit_logs WHERE id = ${id} RETURNING id;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from audit_logs` });
+      else if ((targetTable === "audit_logs" || targetTable === "auditLogs") && id) {
+        const res1 = await AuditLogModel.deleteOne({ id });
+        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from audit_logs" });
       }
-      else if (table === 'leaveBalances' && id) {
-        const resRows = await sql`DELETE FROM leave_balances WHERE id = ${id} RETURNING id;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `Record deleted from leave_balances` });
-      }
-      else if (table === 'clearAllRequests') {
-        const resRows = await sql`DELETE FROM leave_requests RETURNING id;`;
-        return res.json({ success: true, deletedCount: resRows.length, message: `All leave requests cleared` });
+      else if (targetTable === "clearAllRequests") {
+        const res1 = await LeaveRequestModel.deleteMany({});
+        return res.json({ success: true, deletedCount: res1.deletedCount, message: "All leave requests cleared" });
       }
 
-      return res.status(400).json({ success: false, error: "Invalid table or missing parameters." });
+      return res.status(400).json({ success: false, error: "Invalid collection or missing parameters." });
     } catch (err: any) {
-      console.error("[Neon Delete Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "PostgreSQL deletion failed." });
+      return res.status(500).json({ success: false, error: err?.message || "MongoDB deletion failed" });
     }
-  });
+  };
 
-  // Dedicated API Route: Delete user records directly
+  app.post("/api/mongo/delete", handleDelete);
+  app.post("/api/neon/delete", handleDelete);
+
+  // Dedicated User Delete endpoint
   app.all(["/api/users/delete", "/api/users"], async (req, res) => {
     if (req.method !== 'POST' && req.method !== 'DELETE') {
-      return res.status(405).json({ success: false, error: "Method not allowed. Use POST or DELETE." });
+      return res.status(405).json({ success: false, error: "Method not allowed." });
     }
+    await initMongo();
     try {
       const payload = { ...req.query, ...req.body };
       const { id, email, userIds, ids, emails } = payload;
@@ -755,432 +632,145 @@ async function startServer() {
         ? emails.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)
         : (email ? [String(email).trim().toLowerCase()] : []);
 
-      if (idList.length === 0 && emailList.length === 0) {
-        return res.status(400).json({ success: false, error: "No user IDs or emails provided for deletion." });
-      }
-
-      console.log(`[API /api/users/delete] DELETE users requested. User IDs received: [${idList.join(', ')}], Emails: [${emailList.join(', ')}]`);
-
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-
       let deletedCount = 0;
       if (idList.length > 0) {
-        for (const cleanId of idList) {
-          const resRows = await sql`DELETE FROM users WHERE id = ${cleanId} RETURNING id;`;
-          deletedCount += resRows.length;
-        }
+        const res1 = await UserModel.deleteMany({ id: { $in: idList } });
+        deletedCount += res1.deletedCount || 0;
       }
       if (emailList.length > 0) {
-        for (const cleanEmail of emailList) {
-          const resRows = await sql`DELETE FROM users WHERE LOWER(email) = ${cleanEmail} RETURNING id;`;
-          deletedCount += resRows.length;
-        }
+        const res2 = await UserModel.deleteMany({ email: { $in: emailList } });
+        deletedCount += res2.deletedCount || 0;
       }
-
-      console.log(`[API /api/users/delete] Database operation successful. Deleted records count: ${deletedCount}`);
-
-      return res.json({
-        success: true,
-        deletedCount,
-        message: `Successfully deleted ${deletedCount} record(s) from users table.`
-      });
+      return res.json({ success: true, deletedCount, message: `Successfully deleted ${deletedCount} user(s)` });
     } catch (err: any) {
-      console.error("[API /api/users/delete Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "PostgreSQL deletion failed." });
+      return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
-  // API Route: Fetch all data from Neon DB
-  app.get("/api/neon/data", async (req, res) => {
-    if (isNeonQuotaExceeded) {
-      return res.json({
-        success: false,
-        quotaExceeded: true,
-        error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating on Firestore/LocalStorage."
-      });
-    }
+  // Table Inspector endpoint
+  const handleInspectTable = async (req: express.Request, res: express.Response) => {
+    await initMongo();
+    const tableName = (req.query.table as string) || "users";
+    let rows: any[] = [];
+
     try {
-      const sql = neon(NEON_DB_URL);
-
-      const rawUsers = await sql`SELECT * FROM users ORDER BY id ASC`;
-      const rawRequests = await sql`SELECT * FROM leave_requests ORDER BY applied_on DESC, id DESC`;
-      const rawDepartments = await sql`SELECT * FROM departments ORDER BY id ASC`;
-      const rawPolicies = await sql`SELECT * FROM leave_policies ORDER BY type ASC`;
-      const rawAuditLogs = await sql`SELECT * FROM audit_logs ORDER BY timestamp DESC, id DESC`;
-      let rawBalances: any[] = [];
-      try {
-        rawBalances = await sql`SELECT * FROM leave_balances ORDER BY id ASC`;
-      } catch (_bErr) {}
-
-      let rawPermissionMatrix: any[] = [];
-      try {
-        rawPermissionMatrix = await sql`SELECT * FROM permission_matrix ORDER BY user_id ASC`;
-      } catch (_pmErr) {}
-
-      let systemSettings: any = null;
-      try {
-        const rawSys = await sql`SELECT * FROM system_settings WHERE id = 'default' LIMIT 1`;
-        if (rawSys && rawSys.length > 0) {
-          const s = rawSys[0];
-          systemSettings = {
-            enableDemoAccounts: s.enable_demo_accounts ?? true,
-            enableRoleSwitcher: s.enable_role_switcher ?? true,
-            enableSelfRegistration: s.enable_self_registration ?? true,
-            institutionName: s.institution_name || 'BIT Leave Portal',
-            institutionLogoUrl: s.institution_logo_url || null,
-            emailSettings: typeof s.email_settings === 'string' ? JSON.parse(s.email_settings) : (s.email_settings || {})
-          };
-        }
-      } catch (_sErr) {}
-
-      // Build a map of leave_balances by user_id
-      const userBalancesMap: Record<string, Record<string, { total: number; used: number; pending: number }>> = {};
-      const leaveBalancesList: any[] = [];
-
-      rawBalances.forEach((b: any) => {
-        const uId = b.user_id;
-        const lType = b.leave_type;
-        if (!userBalancesMap[uId]) userBalancesMap[uId] = {};
-        userBalancesMap[uId][lType] = {
-          total: Number(b.total_quota) || 0,
-          used: Number(b.used_days) || 0,
-          pending: Number(b.pending_days) || 0
-        };
-        leaveBalancesList.push({
-          id: b.id,
-          userId: uId,
-          leaveType: lType,
-          totalQuota: Number(b.total_quota) || 0,
-          usedDays: Number(b.used_days) || 0,
-          pendingDays: Number(b.pending_days) || 0,
-          updatedAt: b.updated_at
-        });
-      });
-
-      // Map DB snake_case columns back to frontend camelCase
-      const users = rawUsers.map((u: any) => {
-        const baseBalances = typeof u.leave_balances === 'string' ? JSON.parse(u.leave_balances) : (u.leave_balances || {});
-        const tableBalances = userBalancesMap[u.id];
-        const mergedBalances = { ...baseBalances, ...tableBalances };
-
-        return {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          designation: u.designation,
-          departmentId: u.department_id,
-          departmentName: u.department_name,
-          employeeCode: u.employee_code,
-          joiningDate: u.joining_date,
-          phone: u.phone,
-          avatarUrl: u.avatar_url,
-          accountStatus: u.account_status,
-          password: u.password || 'password123',
-          leaveBalances: mergedBalances
-        };
-      });
-
-      const leaveRequests = rawRequests.map((r: any) => ({
-        id: r.id,
-        applicantId: r.applicant_id,
-        applicantName: r.applicant_name,
-        applicantEmail: r.applicant_email,
-        applicantDesignation: r.applicant_designation,
-        applicantEmployeeCode: r.applicant_employee_code,
-        departmentId: r.department_id,
-        departmentName: r.department_name,
-        leaveType: r.leave_type,
-        startDate: r.start_date,
-        endDate: r.end_date,
-        totalDays: r.total_days,
-        reason: r.reason,
-        contactAddress: r.contact_address,
-        contactPhone: r.contact_phone,
-        documentUrl: r.document_url,
-        status: r.status,
-        appliedOn: r.applied_on,
-        hodApproval: typeof r.hod_approval === 'string' ? JSON.parse(r.hod_approval) : r.hod_approval,
-        registrarApproval: typeof r.registrar_approval === 'string' ? JSON.parse(r.registrar_approval) : r.registrar_approval,
-        classHandovers: typeof r.class_handovers === 'string' ? JSON.parse(r.class_handovers) : r.class_handovers
-      }));
-
-      const departments = rawDepartments.map((d: any) => ({
-        id: d.id,
-        code: d.code,
-        name: d.name,
-        hodId: d.hod_id,
-        hodName: d.hod_name,
-        totalFaculty: d.total_faculty
-      }));
-
-      const leavePolicies = rawPolicies.map((p: any) => ({
-        type: p.type,
-        label: p.label,
-        annualQuota: p.annual_quota,
-        minDaysNotice: p.min_days_notice,
-        requiresDocument: p.requires_document,
-        color: p.color,
-        description: p.description
-      }));
-
-      const auditLogs = rawAuditLogs.map((a: any) => ({
-        id: a.id,
-        timestamp: a.timestamp,
-        actorId: a.actor_id,
-        actorName: a.actor_name,
-        actorRole: a.actor_role,
-        action: a.action,
-        details: a.details,
-        ipAddress: a.ip_address
-      }));
-
-      const permissionMatrix = rawPermissionMatrix.map((pm: any) => ({
-        id: pm.id || pm.user_id,
-        userId: pm.user_id,
-        userName: pm.user_name || '',
-        userEmail: pm.user_email || '',
-        role: pm.role || '',
-        departmentId: pm.department_id || '',
-        permissions: typeof pm.permissions === 'string' ? JSON.parse(pm.permissions) : (pm.permissions || []),
-        updatedAt: pm.updated_at,
-        updatedBy: pm.updated_by
-      }));
-
-      return res.json({
-        success: true,
-        data: {
-          users,
-          leaveRequests,
-          departments,
-          leavePolicies,
-          auditLogs,
-          leaveBalances: leaveBalancesList,
-          permissionMatrix,
-          systemSettings
-        }
-      });
-    } catch (err: any) {
-      if (isNeonQuotaError(err)) {
-        isNeonQuotaExceeded = true;
-        logNeonQuotaNoticeOnce();
-        return res.json({
-          success: false,
-          quotaExceeded: true,
-          error: "Neon PostgreSQL data transfer quota exceeded (HTTP 402). Portal operating on Firestore/LocalStorage."
-        });
-      }
-      console.error("[Neon Fetch Data Error]", err?.message || err);
-      return res.status(500).json({
-        success: false,
-        error: err?.message || "Failed to fetch data from Neon DB"
-      });
-    }
-  });
-
-  // API Route: Inspect Table & Data in Neon DB
-  app.get("/api/neon/inspect-table", async (req, res) => {
-    try {
-      const sql = neon(NEON_DB_URL);
-      const tableName = (req.query.table as string) || "users";
-
-      // Verify table exists to prevent SQL injection
-      const allowedTablesResult = await sql`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
-      `;
-      const allowedTables = allowedTablesResult.map((t: any) => t.table_name);
-
-      if (!allowedTables.includes(tableName)) {
-        return res.status(400).json({
-          success: false,
-          error: `Table '${tableName}' does not exist in public schema. Available tables: ${allowedTables.join(", ")}`
-        });
-      }
-
-      // Fetch columns metadata
-      const columnsResult = await sql`
-        SELECT column_name, data_type, is_nullable
-        FROM information_schema.columns
-        WHERE table_name = ${tableName}
-        ORDER BY column_name
-      `;
-
-      // Fetch top 100 rows safely
-      let rows: any[] = [];
       if (tableName === "users") {
-        rows = await sql`SELECT * FROM users LIMIT 100`;
+        rows = await UserModel.find().limit(100).lean();
       } else if (tableName === "leave_requests") {
-        rows = await sql`SELECT * FROM leave_requests LIMIT 100`;
+        rows = await LeaveRequestModel.find().limit(100).lean();
       } else if (tableName === "departments") {
-        rows = await sql`SELECT * FROM departments LIMIT 100`;
+        rows = await DepartmentModel.find().limit(100).lean();
       } else if (tableName === "leave_policies") {
-        rows = await sql`SELECT * FROM leave_policies LIMIT 100`;
+        rows = await LeavePolicyModel.find().limit(100).lean();
       } else if (tableName === "audit_logs") {
-        rows = await sql`SELECT * FROM audit_logs LIMIT 100`;
+        rows = await AuditLogModel.find().sort({ timestamp: -1 }).limit(100).lean();
       } else if (tableName === "permission_matrix") {
-        rows = await sql`SELECT * FROM permission_matrix LIMIT 100`;
+        rows = await PermissionMatrixModel.find().limit(100).lean();
       } else if (tableName === "system_settings") {
-        rows = await sql`SELECT * FROM system_settings LIMIT 100`;
-      } else {
-        // Fallback for any other custom table
-        rows = await sql`SELECT * FROM information_schema.tables WHERE table_schema = 'public'`;
+        rows = await SystemSettingsModel.find().limit(100).lean();
       }
+
+      const columns = rows.length > 0 ? Object.keys(rows[0]).map(k => ({ column_name: k, data_type: typeof rows[0][k], is_nullable: "YES" })) : [];
 
       return res.json({
         success: true,
         table: tableName,
-        availableTables: allowedTables,
-        columns: columnsResult,
+        availableTables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
+        columns,
         totalRows: rows.length,
         rows
       });
     } catch (err: any) {
-      console.error("[Neon Inspect Table Error]", err);
-      return res.status(500).json({
-        success: false,
-        error: err?.message || "Failed to inspect Neon DB table"
-      });
+      return res.status(500).json({ success: false, error: err?.message });
     }
-  });
+  };
 
-  // Dedicated API Route: Fetch Permission Matrix Table
+  app.get("/api/mongo/inspect-table", handleInspectTable);
+  app.get("/api/neon/inspect-table", handleInspectTable);
+
+  // Permission Matrix endpoint
   app.get("/api/permission-matrix", async (req, res) => {
+    await initMongo();
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      const rows = await sql`SELECT * FROM permission_matrix ORDER BY user_id ASC`;
-      const permissionMatrix = rows.map((pm: any) => ({
-        id: pm.id || pm.user_id,
-        userId: pm.user_id,
-        userName: pm.user_name || '',
-        userEmail: pm.user_email || '',
-        role: pm.role || '',
-        departmentId: pm.department_id || '',
-        permissions: typeof pm.permissions === 'string' ? JSON.parse(pm.permissions) : (pm.permissions || []),
-        updatedAt: pm.updated_at,
-        updatedBy: pm.updated_by
-      }));
+      const permissionMatrix = await PermissionMatrixModel.find().lean();
       return res.json({ success: true, permissionMatrix });
     } catch (err: any) {
-      console.error("[Get Permission Matrix Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to fetch permission matrix" });
+      return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
-  // Dedicated API Route: Save Permission Matrix Entry
   app.post("/api/permission-matrix/save", async (req, res) => {
+    await initMongo();
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      const { userId, userName, userEmail, role, departmentId, permissions, updatedBy } = req.body || {};
-      if (!userId) {
-        return res.status(400).json({ success: false, error: "userId is required" });
+      const payload = req.body || {};
+      const matrixList = Array.isArray(payload.permissionMatrix) ? payload.permissionMatrix : [payload];
+
+      for (const item of matrixList) {
+        if (!item || (!item.userId && !item.id)) continue;
+        const userId = item.userId || item.id;
+        await PermissionMatrixModel.findOneAndUpdate(
+          { userId },
+          {
+            id: userId,
+            userId,
+            userName: item.userName || item.user_name || "",
+            userEmail: item.userEmail || item.user_email || "",
+            role: item.role || "",
+            departmentId: item.departmentId || item.department_id || "",
+            permissions: item.permissions || [],
+            updatedAt: new Date().toISOString(),
+            updatedBy: item.updatedBy || "SUPER_ADMIN",
+          },
+          { upsert: true, new: true }
+        );
       }
-      const recordId = userId;
-      const now = new Date().toISOString();
-      await sql`
-        INSERT INTO permission_matrix (id, user_id, user_name, user_email, role, department_id, permissions, updated_at, updated_by)
-        VALUES (
-          ${recordId},
-          ${userId},
-          ${userName || ''},
-          ${userEmail || ''},
-          ${role || ''},
-          ${departmentId || ''},
-          ${JSON.stringify(permissions || [])},
-          ${now},
-          ${updatedBy || 'SUPER_ADMIN'}
-        )
-        ON CONFLICT (user_id) DO UPDATE SET
-          user_name = EXCLUDED.user_name,
-          user_email = EXCLUDED.user_email,
-          role = EXCLUDED.role,
-          department_id = EXCLUDED.department_id,
-          permissions = EXCLUDED.permissions,
-          updated_at = EXCLUDED.updated_at,
-          updated_by = EXCLUDED.updated_by
-      `;
-      return res.json({ success: true, message: `Permission matrix updated for user ${userId}` });
+      return res.json({ success: true, message: `Permission matrix updated` });
     } catch (err: any) {
-      console.error("[Save Permission Matrix Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to save permission matrix entry" });
+      return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
-  // Dedicated API Route: Fetch System Settings & Privilege Toggles from PostgreSQL
+  // System Settings endpoint
   app.get("/api/system-settings", async (req, res) => {
+    await initMongo();
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      const rows = await sql`SELECT * FROM system_settings WHERE id = 'default' LIMIT 1`;
-      let settings = {
-        enableDemoAccounts: true,
-        enableRoleSwitcher: true,
-        enableSelfRegistration: true,
-        institutionName: 'BIT Leave Portal',
-        institutionLogoUrl: null,
-        emailSettings: {}
+      const s = await SystemSettingsModel.findOne({ id: "default" }).lean();
+      const settings = {
+        enableDemoAccounts: s?.enableDemoAccounts ?? true,
+        enableRoleSwitcher: s?.enableRoleSwitcher ?? true,
+        enableSelfRegistration: s?.enableSelfRegistration ?? true,
+        institutionName: s?.institutionName || "BIT Leave Portal",
+        institutionLogoUrl: s?.institutionLogoUrl || null,
+        emailSettings: s?.emailSettings || {},
       };
-      if (rows && rows.length > 0) {
-        const s = rows[0];
-        settings = {
-          enableDemoAccounts: s.enable_demo_accounts ?? true,
-          enableRoleSwitcher: s.enable_role_switcher ?? true,
-          enableSelfRegistration: s.enable_self_registration ?? true,
-          institutionName: s.institution_name || 'BIT Leave Portal',
-          institutionLogoUrl: s.institution_logo_url || null,
-          emailSettings: typeof s.email_settings === 'string' ? JSON.parse(s.email_settings) : (s.email_settings || {})
-        };
-      }
       return res.json({ success: true, settings });
     } catch (err: any) {
-      console.error("[Get System Settings Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to fetch system settings" });
+      return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
-  // Dedicated API Route: Save System Settings & Privilege Toggles to PostgreSQL
   app.post("/api/system-settings/save", async (req, res) => {
+    await initMongo();
     try {
-      const sql = neon(NEON_DB_URL);
-      await ensureNeonTables(sql);
-      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, updatedBy } = req.body || {};
-      const now = new Date().toISOString();
-      await sql`
-        INSERT INTO system_settings (id, enable_demo_accounts, enable_role_switcher, enable_self_registration, institution_name, institution_logo_url, email_settings, updated_at, updated_by)
-        VALUES (
-          'default',
-          ${enableDemoAccounts ?? true},
-          ${enableRoleSwitcher ?? true},
-          ${enableSelfRegistration ?? true},
-          ${institutionName || 'BIT Leave Portal'},
-          ${institutionLogoUrl || null},
-          ${JSON.stringify(emailSettings || {})},
-          ${now},
-          ${updatedBy || 'SUPER_ADMIN'}
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          enable_demo_accounts = EXCLUDED.enable_demo_accounts,
-          enable_role_switcher = EXCLUDED.enable_role_switcher,
-          enable_self_registration = EXCLUDED.enable_self_registration,
-          institution_name = EXCLUDED.institution_name,
-          institution_logo_url = EXCLUDED.institution_logo_url,
-          email_settings = EXCLUDED.email_settings,
-          updated_at = EXCLUDED.updated_at,
-          updated_by = EXCLUDED.updated_by
-      `;
-      return res.json({ success: true, message: "System privilege & settings updated in PostgreSQL" });
+      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings } = req.body || {};
+      await SystemSettingsModel.findOneAndUpdate(
+        { id: "default" },
+        {
+          id: "default",
+          enableDemoAccounts: enableDemoAccounts ?? true,
+          enableRoleSwitcher: enableRoleSwitcher ?? true,
+          enableSelfRegistration: enableSelfRegistration ?? true,
+          institutionName: institutionName || "BIT Leave Portal",
+          institutionLogoUrl: institutionLogoUrl || null,
+          emailSettings: emailSettings || {},
+          updatedAt: new Date().toISOString(),
+          updatedBy: "SUPER_ADMIN",
+        },
+        { upsert: true, new: true }
+      );
+      return res.json({ success: true, message: "System privilege & settings updated in MongoDB Atlas" });
     } catch (err: any) {
-      if (isNeonQuotaError(err)) {
-        isNeonQuotaExceeded = true;
-        logNeonQuotaNoticeOnce();
-        return res.json({ success: false, quotaExceeded: true, error: "Neon PostgreSQL quota exceeded (HTTP 402)." });
-      }
-      console.error("[Save System Settings Error]", err?.message || err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to save system settings" });
+      return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
@@ -1205,15 +795,14 @@ async function startServer() {
       const senderName = smtpConfig?.senderName || "BIT Leave Portal System";
       const ccEmail = smtpConfig?.sendCopyAdmin ? smtpConfig?.adminCcEmail : undefined;
 
-      // Construct Nodemailer Transporter
       const transporter = nodemailer.createTransport({
         host,
         port,
-        secure: encryption === "SSL", // true for 465, false for other ports
+        secure: encryption === "SSL",
         requireTLS: encryption === "TLS",
         auth: user && pass ? { user, pass } : undefined,
         tls: {
-          rejectUnauthorized: false // Prevents failure on internal/institutional self-signed certs
+          rejectUnauthorized: false
         },
         connectionTimeout: 12000,
         greetingTimeout: 12000,
@@ -1233,9 +822,7 @@ async function startServer() {
       };
 
       console.log(`[SMTP] Attempting dispatch to ${to} via ${host}:${port} (Encryption: ${encryption})...`);
-
       const info = await transporter.sendMail(mailOptions);
-
       console.log(`[SMTP] Success! Message ID: ${info.messageId}`);
 
       return res.json({
@@ -1247,7 +834,6 @@ async function startServer() {
 
     } catch (err: any) {
       console.error("[SMTP Error]", err);
-
       let detailedMsg = err?.message || "Unknown SMTP dispatch error";
       if (err?.code === "ETIMEDOUT") {
         detailedMsg = `Connection timeout connecting to mail server (${req.body?.smtpConfig?.smtpHost}:${req.body?.smtpConfig?.smtpPort}). Ensure host and port are accessible over network.`;
@@ -1268,7 +854,7 @@ async function startServer() {
 
   // Health check
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", database: "mongodb" });
   });
 
   // Vite middleware for development vs static serve for production
