@@ -86,7 +86,7 @@ async function initMongo(customUri?: string) {
 
   // Throttle connection retries to avoid spamming DNS queries
   const now = Date.now();
-  if (lastConnectAttempt && now - lastConnectAttempt < 5000 && !customUri) {
+  if (lastConnectAttempt && now - lastConnectAttempt < 1000 && !customUri) {
     return isMongoConnected;
   }
   lastConnectAttempt = now;
@@ -417,11 +417,14 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  // CORS Middleware for external domains
+  // CORS Middleware for external domains and cache control
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma");
+    res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.header("Pragma", "no-cache");
+    res.header("Expires", "0");
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }

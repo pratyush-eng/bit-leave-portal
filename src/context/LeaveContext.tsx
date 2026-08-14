@@ -634,7 +634,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const handle = applicantEmail.split('@')[0].replace(/[\._-]/g, ' ');
         applicantName = handle.charAt(0).toUpperCase() + handle.slice(1);
       } else {
-        applicantName = '';
+        applicantName = String(raw.applicantName || raw.applicant_name || 'Faculty Member').trim();
       }
     }
 
@@ -723,20 +723,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!Array.isArray(list)) return [];
     const validRequests: LeaveRequest[] = [];
     for (const item of list) {
+      if (!item) continue;
       const normalized = normalizeLeaveRequest(item, usersList, deptsList);
-      const isUnknown = 
-        !normalized.applicantName || 
-        normalized.applicantName === 'Unknown Applicant' || 
-        normalized.applicantName.toLowerCase() === 'unknown' ||
-        normalized.applicantId === 'UNKNOWN_APPLICANT' ||
-        normalized.applicantId === 'UNKNOWN' ||
-        (normalized.applicantEmail && normalized.applicantEmail.toLowerCase().includes('unknown'));
-
-      if (!isUnknown) {
-        validRequests.push(normalized);
-      } else if (item && item.id) {
-        deleteDocFromMongo('leaveRequests', item.id);
-      }
+      validRequests.push(normalized);
     }
     return validRequests;
   };
@@ -822,22 +811,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mongoData = await fetchMongoData();
         if (!mounted || !mongoData) return;
 
-        if (Array.isArray(mongoData.users)) {
-          setAllUsers((prev: User[]) => {
-            const sanitized = sanitizeAndDeduplicateUsers(mongoData.users);
-            return isDeepEqual(sanitized, prev) ? prev : sanitized;
-          });
+        const cleanUsers = Array.isArray(mongoData.users) && mongoData.users.length > 0 ? sanitizeAndDeduplicateUsers(mongoData.users) : [];
+        const cleanDepts = Array.isArray(mongoData.departments) && mongoData.departments.length > 0 ? mongoData.departments : [];
+
+        if (cleanUsers.length > 0) {
+          setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
         }
         if (Array.isArray(mongoData.leaveRequests)) {
           setLeaveRequests((prev) => {
-            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, mongoData.users || allUsers, mongoData.departments || departments);
+            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, cleanUsers.length > 0 ? cleanUsers : allUsers, cleanDepts.length > 0 ? cleanDepts : departments);
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
-        if (Array.isArray(mongoData.departments)) {
-          setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
+        if (cleanDepts.length > 0) {
+          setDepartments((prev) => isDeepEqual(cleanDepts, prev) ? prev : cleanDepts);
         }
-        if (Array.isArray(mongoData.leavePolicies)) {
+        if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
           setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
         }
         if (Array.isArray(mongoData.auditLogs)) {
@@ -847,7 +836,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
         }
         if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
-          setSystemSettings((prev) => isDeepEqual(mongoData.systemSettings, prev) ? prev : { ...prev, ...mongoData.systemSettings });
+          const sys = mongoData.systemSettings;
+          const updatedSys: SystemSettings = {
+            enableDemoAccounts: sys.enableDemoAccounts ?? true,
+            enableRoleSwitcher: sys.enableRoleSwitcher ?? true,
+            enableSelfRegistration: sys.enableSelfRegistration ?? true,
+            institutionName: sys.institutionName || 'BIT Leave Portal',
+            institutionLogoUrl: sys.institutionLogoUrl || '',
+            emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
+          };
+          setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
         }
       } catch (_err) {
         // Soft fallback when offline

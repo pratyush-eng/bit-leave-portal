@@ -32,10 +32,14 @@ export function subscribeToSyncStatus(callback: SyncListener) {
 
 async function safeJsonFetch(url: string, options?: RequestInit) {
   try {
-    const res = await fetch(url, {
+    const timestampUrl = options?.method === 'POST' ? url : (url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`);
+    const res = await fetch(timestampUrl, {
+      cache: 'no-store',
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
         ...(options?.headers || {}),
       },
     });
