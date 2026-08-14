@@ -728,8 +728,8 @@ async function startServer() {
           enableDemoAccounts: mergedSettings.enableDemoAccounts ?? true,
           enableRoleSwitcher: mergedSettings.enableRoleSwitcher ?? true,
           enableSelfRegistration: mergedSettings.enableSelfRegistration ?? true,
-          institutionName: mergedSettings.institutionName || "BIT Leave Portal",
-          institutionLogoUrl: mergedSettings.institutionLogoUrl || null,
+          institutionName: mergedSettings.institutionName !== undefined && mergedSettings.institutionName !== null ? mergedSettings.institutionName : "BIT Leave Portal",
+          institutionLogoUrl: mergedSettings.institutionLogoUrl !== undefined && mergedSettings.institutionLogoUrl !== null ? mergedSettings.institutionLogoUrl : "",
           emailSettings: mergedSettings.emailSettings || {},
         } : inMemoryStore.systemSettings;
 
@@ -1034,8 +1034,8 @@ async function startServer() {
         enableDemoAccounts: enableDemoAccounts ?? true,
         enableRoleSwitcher: enableRoleSwitcher ?? true,
         enableSelfRegistration: enableSelfRegistration ?? true,
-        institutionName: institutionName || "BIT Leave Portal",
-        institutionLogoUrl: institutionLogoUrl || null,
+        institutionName: institutionName !== undefined && institutionName !== null ? institutionName : "BIT Leave Portal",
+        institutionLogoUrl: institutionLogoUrl !== undefined && institutionLogoUrl !== null ? institutionLogoUrl : "",
         emailSettings: emailSettings || {},
         customToggles: customToggles || {},
         updatedAt: new Date().toISOString(),

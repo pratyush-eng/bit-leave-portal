@@ -826,23 +826,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mongoData = await fetchMongoData();
         if (!mounted || !mongoData) return;
 
-        const incomingUsers = Array.isArray(mongoData.users) && mongoData.users.length > 0 ? mongoData.users : [];
-        const cleanUsers = sanitizeAndDeduplicateUsers([...MOCK_USERS, ...incomingUsers], deletedUserIds, deletedUserEmails);
-        const cleanDepts = Array.isArray(mongoData.departments) && mongoData.departments.length > 0 ? mergeById(mongoData.departments, INITIAL_DEPARTMENTS) : INITIAL_DEPARTMENTS;
-
-        if (cleanUsers.length > 0) {
+        if (Array.isArray(mongoData.users)) {
+          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users, deletedUserIds, deletedUserEmails);
           setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
+        }
+        if (Array.isArray(mongoData.departments)) {
+          setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
         }
         if (Array.isArray(mongoData.leaveRequests)) {
           setLeaveRequests((prev) => {
-            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, cleanUsers, cleanDepts);
+            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, mongoData.users || [], mongoData.departments || []);
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
-        if (cleanDepts.length > 0) {
-          setDepartments((prev) => isDeepEqual(cleanDepts, prev) ? prev : cleanDepts);
-        }
-        if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
+        if (Array.isArray(mongoData.leavePolicies)) {
           setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
         }
         if (Array.isArray(mongoData.auditLogs)) {
@@ -857,8 +854,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             enableDemoAccounts: sys.enableDemoAccounts ?? true,
             enableRoleSwitcher: sys.enableRoleSwitcher ?? true,
             enableSelfRegistration: sys.enableSelfRegistration ?? true,
-            institutionName: sys.institutionName || 'BIT Leave Portal',
-            institutionLogoUrl: sys.institutionLogoUrl || '',
+            institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
+            institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
             emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
           };
           setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
@@ -882,7 +879,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const cleanEmail = email.toLowerCase().trim();
-    const candidateUsers = sanitizeAndDeduplicateUsers([...allUsers, ...MOCK_USERS], deletedUserIds, deletedUserEmails);
+    const candidateUsers = sanitizeAndDeduplicateUsers(allUsers, deletedUserIds, deletedUserEmails);
     const matched = candidateUsers.find(u => u.email.toLowerCase().trim() === cleanEmail);
     if (!matched) {
       return { success: false, message: 'No institutional account found with this email address.' };
@@ -1494,7 +1491,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Find Department HOD
-    const deptInfo = departments.find(d => d.id === currentUser.departmentId) || INITIAL_DEPARTMENTS.find(d => d.id === currentUser.departmentId);
+    const deptInfo = departments.find(d => d.id === currentUser.departmentId);
     const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === currentUser.departmentId && u.role === 'HOD'));
 
     if (hodUser) {
@@ -1676,7 +1673,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
 
         // Notify Department HOD
-        const deptInfo = departments.find(d => d.id === req.departmentId) || INITIAL_DEPARTMENTS.find(d => d.id === req.departmentId);
+        const deptInfo = departments.find(d => d.id === req.departmentId);
         const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === req.departmentId && u.role === 'HOD'));
         if (hodUser) {
           addNotification(
