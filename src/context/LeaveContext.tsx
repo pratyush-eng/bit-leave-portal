@@ -6,12 +6,13 @@ import {
   saveSystemSettingsToMongo, 
   savePermissionMatrixToMongo, 
   deleteMongoDoc, 
+  saveDocToMongo,
   saveDocToMongo as saveDocToFirestore,
+  deleteDocFromMongo,
   deleteDocFromMongo as deleteDocFromFirestore,
-  deleteUserFromMongo as deleteUserFromFirestore,
-  resetMongoData as resetFirestoreData
+  deleteUserFromMongo,
+  resetMongoData
 } from '../lib/mongoClient';
-import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc, savePermissionMatrixToNeon, saveSystemSettingsToNeon } from '../lib/neonClient';
 import { 
   User, 
   LeaveRequest, 
@@ -246,7 +247,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19)
     };
     setEmailLogs(prev => [newLog, ...prev]);
-    saveDocToFirestore('emailLogs', newLog.id, newLog);
+    saveDocToMongo('emailLogs', newLog.id, newLog);
 
     // Asynchronously dispatch email via backend Express SMTP server
     if (systemSettings.emailSettings?.enabled !== false) {
@@ -301,7 +302,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem(STORAGE_KEYS.EMAIL_LOGS, JSON.stringify(updated));
       return updated;
     });
-    saveDocToFirestore('emailLogs', newLog.id, newLog);
+    saveDocToMongo('emailLogs', newLog.id, newLog);
 
     addToast({
       title: `Email Notification Sent 📧`,
@@ -572,8 +573,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSystemSettings(prev => {
       const updated = { ...prev, ...newSettings };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
-      saveDocToFirestore('settings', 'global', updated);
-      saveSystemSettingsToNeon(updated);
+      saveDocToMongo('settings', 'global', updated);
       return updated;
     });
     addAuditLog(
@@ -734,8 +734,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!isUnknown) {
         validRequests.push(normalized);
       } else if (item && item.id) {
-        deleteDocFromFirestore('leaveRequests', item.id);
-        deleteNeonDoc('leaveRequests', item.id).catch(() => {});
+        deleteDocFromMongo('leaveRequests', item.id);
       }
     }
     return validRequests;
@@ -822,7 +821,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mongoData = await fetchMongoData();
         if (!mounted || !mongoData) return;
 
-        if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
+        if (Array.isArray(mongoData.users)) {
           setAllUsers((prev: User[]) => {
             const sanitized = sanitizeAndDeduplicateUsers(mongoData.users);
             return isDeepEqual(sanitized, prev) ? prev : sanitized;
@@ -834,10 +833,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
-        if (Array.isArray(mongoData.departments) && mongoData.departments.length > 0) {
+        if (Array.isArray(mongoData.departments)) {
           setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
         }
-        if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
+        if (Array.isArray(mongoData.leavePolicies)) {
           setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
         }
         if (Array.isArray(mongoData.auditLogs)) {
@@ -1057,7 +1056,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToFirestore('users', userId, updatedUser);
-    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
+    syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'USER_UPDATED', `Updated user details for ${updatedUser.name} (${updatedUser.email}).`);
 
     return { success: true, message: `Successfully updated ${updatedUser.name}.` };
@@ -1087,7 +1086,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === activeUser.id ? updatedUser : u));
     saveDocToFirestore('users', activeUser.id, updatedUser);
-    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
+    syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(activeUser, 'PASSWORD_CHANGED', `Changed security login password for ${activeUser.name} (${activeUser.email}).`);
 
     addToast({
@@ -1114,7 +1113,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToFirestore('users', userId, updatedUser);
-    syncDataToNeon({ users: [updatedUser] }).catch(() => {});
+    syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'ADMIN_RESET_PASSWORD', `Admin reset password for user ${target.name} (${target.email}, ${target.role}).`);
 
     addToast({
@@ -1295,7 +1294,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setAllUsers(prev => prev.map(u => u.id === matchedUser!.id ? updatedUser : u));
       saveDocToFirestore('users', matchedUser.id, updatedUser);
-      syncDataToNeon({ users: [updatedUser] }).catch(() => {});
+      syncDataToMongo({ users: [updatedUser] }).catch(() => {});
       addAuditLog(matchedUser, 'SELF_PASSWORD_RESET', `User ${matchedUser.name} (${matchedUser.email}) reset account password via 6-digit email security code.`);
 
       try {
@@ -1341,13 +1340,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 2. Remove from state immediately and save
     const nextUsers = allUsers.filter(u => u.id !== userId && u.email.trim().toLowerCase() !== cleanEmail);
     setAllUsers(nextUsers);
-    try {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(nextUsers));
-    } catch (_e) {}
 
     // 3. Trigger remote database purges
-    deleteUserFromFirestore(userId, cleanEmail);
-    deleteNeonDoc('users', userId, cleanEmail).catch(() => {});
+    deleteUserFromMongo(userId, cleanEmail);
     addAuditLog(currentUser, 'USER_DELETED', `Deleted user account for ${target.name} (${target.email}, ${target.role}).`);
 
     return { success: true, message: `Successfully deleted account for ${target.name} (${target.email}).` };
@@ -1400,8 +1395,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAuditLogs(prev => [newLog, ...prev]);
     saveDocToFirestore('auditLogs', newLog.id, newLog);
 
-    // Sync log to Neon DB PostgreSQL in real-time
-    sendAuditLogToNeon(newLog).catch(err => console.warn('[Neon Audit Log Sync Warning]', err));
+    // Sync log to MongoDB Atlas in real-time
+    sendAuditLogToMongo(newLog).catch(err => console.warn('[MongoDB Audit Log Sync Warning]', err));
   };
 
   const addNotification = (userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {
@@ -1479,7 +1474,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
       saveDocToFirestore('users', currentUser.id, updatedAppUser);
-      syncDataToNeon({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
+      syncDataToMongo({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
     }
 
     // Find Department HOD
@@ -1626,7 +1621,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
             setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
             saveDocToFirestore('users', req.applicantId, updatedTargetUser);
-            syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
+            syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
           }
         }
 
@@ -1713,7 +1708,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToFirestore('users', req.applicantId, updatedTargetUser);
-          syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
+          syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
         }
 
         addAuditLog(currentUser, isApproved ? 'REGISTRAR_APPROVED' : 'REGISTRAR_REJECTED', `${isApproved ? 'Sanctioned' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
@@ -1858,7 +1853,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToFirestore('users', req.applicantId, updatedTargetUser);
-          syncDataToNeon({ users: [updatedTargetUser] }).catch(() => {});
+          syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
         }
 
         addAuditLog(currentUser, 'LEAVE_CANCELLED', `Cancelled leave application ${req.id}.`);
@@ -1873,7 +1868,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         const updatedReq = { ...req, status: 'CANCELLED' as const };
         saveDocToFirestore('leaveRequests', req.id, updatedReq);
-        syncDataToNeon({ leaveRequests: [updatedReq] }).catch(() => {});
+        syncDataToMongo({ leaveRequests: [updatedReq] }).catch(() => {});
         return updatedReq;
       }
       return req;
@@ -1925,8 +1920,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     saveDocToFirestore('users', userId, updatedUser);
     saveDocToFirestore('permission_matrix', userId, pmEntry);
-    savePermissionMatrixToNeon(pmEntry).catch(() => {});
-    syncDataToNeon({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
+    savePermissionMatrixToMongo(pmEntry).catch(() => {});
+    syncDataToMongo({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
     addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permission matrix entry for user ${targetUser.name} (${userId}).`);
   };
 
@@ -1948,7 +1943,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToFirestore('users', userId, updatedUser);
     const pendingDays = updatedUser.leaveBalances[leaveType]?.pending || 0;
-    syncDataToNeon({
+    syncDataToMongo({
       users: [updatedUser],
       leaveBalances: [{
         id: `${userId}_${leaveType}`,
@@ -1959,7 +1954,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         pendingDays,
         updatedAt: new Date().toISOString()
       }]
-    }).catch(err => console.warn('[Neon Direct Balance Sync Warning]', err));
+    }).catch(err => console.warn('[MongoDB Direct Balance Sync Warning]', err));
     addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${targetUser.name} (Total: ${total}, Used: ${used}).`);
   };
 
@@ -2138,9 +2133,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     leaveRequests.forEach(req => {
-      deleteDocFromFirestore('leaveRequests', req.id);
+      deleteDocFromMongo('leaveRequests', req.id);
     });
-    deleteNeonDoc('clearAllRequests', '').catch(() => {});
+    deleteDocFromMongo('clearAllRequests', 'all');
 
     setLeaveRequests([]);
     localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
@@ -2164,13 +2159,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setLeaveRequests(prev => {
       const updated = prev.filter(r => r.id !== requestId);
-      try {
-        localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(updated));
-      } catch (_e) {}
       return updated;
     });
-    deleteDocFromFirestore('leaveRequests', requestId);
-    deleteNeonDoc('leaveRequests', requestId).catch(() => {});
+    deleteDocFromMongo('leaveRequests', requestId);
 
     addAuditLog(currentUser, 'LEAVE_DELETED', `Deleted leave request ${requestId} (${target.applicantName || 'Applicant'}).`);
     addToast({
@@ -2198,8 +2189,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const unknownIds = new Set(unknownReqs.map(r => r.id));
     unknownReqs.forEach(req => {
-      deleteDocFromFirestore('leaveRequests', req.id);
-      deleteNeonDoc('leaveRequests', req.id).catch(() => {});
+      deleteDocFromMongo('leaveRequests', req.id);
     });
 
     setLeaveRequests(prev => prev.filter(r => !unknownIds.has(r.id)));
@@ -2237,7 +2227,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setLeavePolicies(INITIAL_LEAVE_POLICIES);
 
-    resetFirestoreData().catch(err => console.warn('Error resetting Firestore:', err));
+    resetMongoData().catch(err => console.warn('Error resetting MongoDB:', err));
   };
 
   const userNotifications = notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || n.recipientId === currentUser.id));

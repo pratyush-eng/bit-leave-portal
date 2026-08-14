@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
-import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSyncDump';
+import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/mongoSyncDump';
 import { getNeonStatus, inspectNeonTable, syncDataToNeon, connectMongoUri } from '../../lib/neonClient';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
@@ -310,14 +310,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           loading: false,
           connected: false,
           host: data?.host,
-          error: (data as any)?.error || 'Failed to connect to Firebase Firestore database',
+          error: (data as any)?.error || 'Failed to connect to MongoDB Atlas database',
         });
       }
     } catch (err: any) {
       setNeonStatus({
         loading: false,
         connected: false,
-        error: err?.message || 'Network error pinging Firebase Firestore status',
+        error: err?.message || 'Network error pinging MongoDB Atlas status',
       });
     }
   };
@@ -1523,21 +1523,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="space-y-4 pt-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Database ID</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">MongoDB Database Name</span>
                     <p className="text-xs font-mono text-emerald-400 font-bold truncate">
-                      {neonStatus.database || 'ai-studio-bitleaveportal-f2d7361a-752a-4bfb-b964-3bcdd1d53a2b'}
+                      {neonStatus.database || 'bit_leave_portal'}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Audit Logs</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Atlas Audit Logs</span>
                     <p className="text-xs font-mono text-emerald-300 font-bold">
                       {neonStatus.counts?.auditLogs ?? 0} Log Documents
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Users</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Atlas Users</span>
                     <p className="text-xs font-mono text-blue-300 font-bold">
                       {neonStatus.counts?.users ?? 0} User Documents
                     </p>
@@ -1795,7 +1795,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     Vercel Postgres & PostgreSQL Database Migration Guide
                   </h4>
                   <p className="text-xs text-indigo-200/80">
-                    Step-by-step procedure to migrate Firebase Firestore data to Vercel Postgres or PostgreSQL database
+                    Step-by-step procedure to export MongoDB Atlas data to Vercel Postgres or PostgreSQL database
                   </p>
                 </div>
               </div>

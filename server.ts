@@ -234,6 +234,13 @@ const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.mode
 async function seedAndMigrateToMongo() {
   if (!isMongoConnected || mongoose.connection.readyState !== 1) return;
   try {
+    const existingUsers = await UserModel.countDocuments();
+    if (existingUsers > 0) {
+      // MongoDB Atlas already has data; do NOT seed initial JS mock data over it.
+      return;
+    }
+
+    // Initial seed if MongoDB is completely empty
     // 1. Audit Logs
     for (const a of inMemoryStore.auditLogs) {
       if (!a || !a.id) continue;
@@ -458,7 +465,6 @@ async function startServer() {
   };
 
   app.get("/api/mongo/status", handleStatus);
-  app.get("/api/neon/status", handleStatus);
 
   // Update MongoDB URI endpoint
   app.post("/api/mongo/connect", async (req: express.Request, res: express.Response) => {
@@ -680,7 +686,6 @@ async function startServer() {
   };
 
   app.post("/api/mongo/sync", handleSync);
-  app.post("/api/neon/sync", handleSync);
 
   // Fetch all data from MongoDB Atlas (with in-memory fallback)
   const handleFetchData = async (req: express.Request, res: express.Response) => {
@@ -707,28 +712,28 @@ async function startServer() {
           emailSettings: sysDoc.emailSettings || {},
         } : inMemoryStore.systemSettings;
 
-        // Sync fetched data into inMemoryStore cache
-        if (users.length > 0) inMemoryStore.users = users;
-        if (leaveRequests.length > 0) inMemoryStore.leaveRequests = leaveRequests;
-        if (departments.length > 0) inMemoryStore.departments = departments;
-        if (leavePolicies.length > 0) inMemoryStore.leavePolicies = leavePolicies;
-        if (auditLogs.length > 0) inMemoryStore.auditLogs = auditLogs;
-        if (leaveBalances.length > 0) inMemoryStore.leaveBalances = leaveBalances;
-        if (permissionMatrix.length > 0) inMemoryStore.permissionMatrix = permissionMatrix;
+        // Keep inMemoryStore directly synced to MongoDB state
+        inMemoryStore.users = users;
+        inMemoryStore.leaveRequests = leaveRequests;
+        inMemoryStore.departments = departments;
+        inMemoryStore.leavePolicies = leavePolicies;
+        inMemoryStore.auditLogs = auditLogs;
+        inMemoryStore.leaveBalances = leaveBalances;
+        inMemoryStore.permissionMatrix = permissionMatrix;
         if (systemSettings) inMemoryStore.systemSettings = systemSettings;
 
         return res.json({
           success: true,
           mongoConnected: true,
           data: {
-            users: inMemoryStore.users,
-            leaveRequests: inMemoryStore.leaveRequests,
-            departments: inMemoryStore.departments,
-            leavePolicies: inMemoryStore.leavePolicies,
-            auditLogs: inMemoryStore.auditLogs,
-            leaveBalances: inMemoryStore.leaveBalances,
-            permissionMatrix: inMemoryStore.permissionMatrix,
-            systemSettings: inMemoryStore.systemSettings,
+            users,
+            leaveRequests,
+            departments,
+            leavePolicies,
+            auditLogs,
+            leaveBalances,
+            permissionMatrix,
+            systemSettings,
           }
         });
       } catch (err: any) {
@@ -755,7 +760,6 @@ async function startServer() {
   };
 
   app.get("/api/mongo/data", handleFetchData);
-  app.get("/api/neon/data", handleFetchData);
 
   // Single Audit Log endpoint
   const handleAuditLog = async (req: express.Request, res: express.Response) => {
@@ -794,7 +798,6 @@ async function startServer() {
   };
 
   app.post("/api/mongo/audit-log", handleAuditLog);
-  app.post("/api/neon/audit-log", handleAuditLog);
 
   // Delete document endpoint
   const handleDelete = async (req: express.Request, res: express.Response) => {
@@ -859,7 +862,6 @@ async function startServer() {
   };
 
   app.post("/api/mongo/delete", handleDelete);
-  app.post("/api/neon/delete", handleDelete);
 
   // Dedicated User Delete endpoint
   app.all(["/api/users/delete", "/api/users"], async (req, res) => {
@@ -935,7 +937,6 @@ async function startServer() {
   };
 
   app.get("/api/mongo/inspect-table", handleInspectTable);
-  app.get("/api/neon/inspect-table", handleInspectTable);
 
   // Permission Matrix endpoint
   app.get("/api/permission-matrix", async (req, res) => {

@@ -28,7 +28,7 @@ import {
   Database,
   Download
 } from 'lucide-react';
-import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSyncDump';
+import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/mongoSyncDump';
 
 interface AdminDashboardProps {
   onSelectLeaveRequest?: (id: string, printMode?: boolean) => void;

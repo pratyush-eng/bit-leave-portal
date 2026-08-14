@@ -73,10 +73,6 @@ export async function getMongoStatus() {
   if (backendData) {
     return backendData;
   }
-  const legacyData = await safeJsonFetch('/api/neon/status');
-  if (legacyData) {
-    return legacyData;
-  }
   return {
     connected: false,
     database: "bit_leave_portal",
@@ -92,10 +88,6 @@ export async function inspectMongoCollection(tableName: string) {
   const backendData = await safeJsonFetch(`/api/mongo/inspect-table?table=${encodeURIComponent(tableName)}`);
   if (backendData) {
     return backendData;
-  }
-  const legacyData = await safeJsonFetch(`/api/neon/inspect-table?table=${encodeURIComponent(tableName)}`);
-  if (legacyData) {
-    return legacyData;
   }
   return {
     success: false,
@@ -124,13 +116,7 @@ export async function deleteMongoDoc(colName: string, idOrPayload?: any, emailEx
     body: JSON.stringify(bodyPayload),
   });
   notifySyncListeners({ isSyncing: false, message: 'Record deleted from MongoDB', opType: 'IDLE' });
-  if (backendData && backendData.success) {
-    return backendData;
-  }
-  return await safeJsonFetch('/api/neon/delete', {
-    method: 'POST',
-    body: JSON.stringify(bodyPayload),
-  });
+  return backendData || { success: false, error: 'Failed to delete record from MongoDB' };
 }
 
 export const deleteDocFromMongo = deleteMongoDoc;
@@ -160,13 +146,7 @@ export async function syncDataToMongo(payload: {
     body: JSON.stringify(payload),
   });
   notifySyncListeners({ isSyncing: false, message: 'MongoDB Atlas Saved', opType: 'IDLE' });
-  if (backendData && backendData.success) {
-    return backendData;
-  }
-  return await safeJsonFetch('/api/neon/sync', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return backendData || { success: false, error: 'Failed to sync data to MongoDB Atlas' };
 }
 
 /**
@@ -177,13 +157,7 @@ export async function sendAuditLogToMongo(log: any) {
     method: 'POST',
     body: JSON.stringify({ log }),
   });
-  if (backendData && backendData.success) {
-    return backendData;
-  }
-  return await safeJsonFetch('/api/neon/audit-log', {
-    method: 'POST',
-    body: JSON.stringify({ log }),
-  });
+  return backendData || { success: false, error: 'Failed to send audit log to MongoDB' };
 }
 
 /**
@@ -246,10 +220,6 @@ export async function fetchMongoData() {
   }
   if (backendData && Array.isArray(backendData.users)) {
     return backendData;
-  }
-  const legacyData = await safeJsonFetch('/api/neon/data');
-  if (legacyData && legacyData.success && legacyData.data) {
-    return legacyData.data;
   }
   return null;
 }
