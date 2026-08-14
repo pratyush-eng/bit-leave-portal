@@ -22,6 +22,9 @@ mongoose.set("bufferCommands", false);
 mongoose.set("strictQuery", false);
 
 // In-Memory fallback store to ensure zero downtime and instant response if Atlas SRV DNS or network fails
+const deletedUserIdsSet = new Set<string>();
+const deletedUserEmailsSet = new Set<string>();
+
 let inMemoryStore: {
   users: any[];
   leaveRequests: any[];
@@ -533,6 +536,10 @@ async function startServer() {
     for (const u of users) {
       if (!u || !u.email) continue;
       const cleanEmail = String(u.email).trim().toLowerCase();
+      const uId = String(u.id || '').trim();
+      if (deletedUserIdsSet.has(uId) || deletedUserEmailsSet.has(cleanEmail)) {
+        continue;
+      }
       const idx = inMemoryStore.users.findIndex(item => item.email?.toLowerCase() === cleanEmail || item.id === u.id);
       if (idx >= 0) inMemoryStore.users[idx] = { ...inMemoryStore.users[idx], ...u, email: cleanEmail };
       else inMemoryStore.users.push({ ...u, email: cleanEmail });
@@ -592,6 +599,10 @@ async function startServer() {
         for (const u of users) {
           if (!u || !u.email) continue;
           const cleanEmail = String(u.email).trim().toLowerCase();
+          const uId = String(u.id || '').trim();
+          if (deletedUserIdsSet.has(uId) || deletedUserEmailsSet.has(cleanEmail)) {
+            continue;
+          }
           await UserModel.findOneAndUpdate(
             { email: cleanEmail },
             {
@@ -734,26 +745,36 @@ async function startServer() {
         } : inMemoryStore.systemSettings;
 
         // Keep inMemoryStore directly synced to MongoDB state
-        inMemoryStore.users = users;
+        const filteredMongoUsers = (users || []).filter((u: any) => {
+          const uId = String(u.id || '').trim();
+          const uEmail = String(u.email || '').trim().toLowerCase();
+          return !deletedUserIdsSet.has(uId) && !deletedUserEmailsSet.has(uEmail);
+        });
+
+        inMemoryStore.users = filteredMongoUsers;
         inMemoryStore.leaveRequests = leaveRequests;
         inMemoryStore.departments = departments;
         inMemoryStore.leavePolicies = leavePolicies;
         inMemoryStore.auditLogs = auditLogs;
         inMemoryStore.leaveBalances = leaveBalances;
-        inMemoryStore.permissionMatrix = permissionMatrix;
+        inMemoryStore.permissionMatrix = (permissionMatrix || []).filter((p: any) => {
+          const pId = String(p.userId || p.id || '').trim();
+          const pEmail = String(p.userEmail || '').trim().toLowerCase();
+          return !deletedUserIdsSet.has(pId) && !deletedUserEmailsSet.has(pEmail);
+        });
         if (systemSettings) inMemoryStore.systemSettings = systemSettings;
 
         return res.json({
           success: true,
           mongoConnected: true,
           data: {
-            users,
+            users: filteredMongoUsers,
             leaveRequests,
             departments,
             leavePolicies,
             auditLogs,
             leaveBalances,
-            permissionMatrix,
+            permissionMatrix: inMemoryStore.permissionMatrix,
             systemSettings,
             systemPrivileges: mergedSettings ? [mergedSettings] : [],
           }
@@ -764,12 +785,18 @@ async function startServer() {
     }
 
     // Return in-memory cached state if Atlas is unreachable or DNS resolution fails
+    const filteredMemUsers = (inMemoryStore.users || []).filter((u: any) => {
+      const uId = String(u.id || '').trim();
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      return !deletedUserIdsSet.has(uId) && !deletedUserEmailsSet.has(uEmail);
+    });
+
     return res.json({
       success: true,
       mongoConnected: false,
       warning: mongoConnectError || "MongoDB Atlas offline, using active memory store",
       data: {
-        users: inMemoryStore.users,
+        users: filteredMemUsers,
         leaveRequests: inMemoryStore.leaveRequests,
         departments: inMemoryStore.departments,
         leavePolicies: inMemoryStore.leavePolicies,
@@ -831,13 +858,31 @@ async function startServer() {
       const idList: string[] = Array.isArray(ids) ? ids.map((i: any) => String(i).trim()) : (id ? [String(id).trim()] : []);
       const emailList: string[] = Array.isArray(emails) ? emails.map((e: any) => String(e).trim().toLowerCase()) : (email ? [String(email).trim().toLowerCase()] : []);
 
-      inMemoryStore.users = inMemoryStore.users.filter(u => !idList.includes(u.id) && !emailList.includes(u.email?.toLowerCase()));
+      idList.forEach(i => i && deletedUserIdsSet.add(i));
+      emailList.forEach(e => e && deletedUserEmailsSet.add(e));
+
+      inMemoryStore.users = inMemoryStore.users.filter(u => {
+        const uId = String(u.id || '').trim();
+        const uEmail = String(u.email || '').trim().toLowerCase();
+        return !idList.includes(uId) && !emailList.includes(uEmail);
+      });
+      inMemoryStore.permissionMatrix = inMemoryStore.permissionMatrix.filter(p => {
+        const pId = String(p.userId || p.id || '').trim();
+        const pEmail = String(p.userEmail || '').trim().toLowerCase();
+        return !idList.includes(pId) && !emailList.includes(pEmail);
+      });
 
       let deletedCount = idList.length + emailList.length;
       if (connected && mongoose.connection.readyState === 1) {
         try {
-          if (idList.length > 0) await UserModel.deleteMany({ id: { $in: idList } });
-          if (emailList.length > 0) await UserModel.deleteMany({ email: { $in: emailList } });
+          if (idList.length > 0) {
+            await UserModel.deleteMany({ id: { $in: idList } });
+            await PermissionMatrixModel.deleteMany({ userId: { $in: idList } });
+          }
+          if (emailList.length > 0) {
+            await UserModel.deleteMany({ email: { $in: emailList } });
+            await PermissionMatrixModel.deleteMany({ userEmail: { $in: emailList } });
+          }
         } catch (err: any) {
           // Deleted in-memory
         }
@@ -905,13 +950,29 @@ async function startServer() {
         ? emails.map((e: any) => String(e).trim().toLowerCase()).filter(Boolean)
         : (email ? [String(email).trim().toLowerCase()] : []);
 
+      idList.forEach(i => i && deletedUserIdsSet.add(i));
+      emailList.forEach(e => e && deletedUserEmailsSet.add(e));
+
+      inMemoryStore.users = inMemoryStore.users.filter(u => {
+        const uId = String(u.id || '').trim();
+        const uEmail = String(u.email || '').trim().toLowerCase();
+        return !idList.includes(uId) && !emailList.includes(uEmail);
+      });
+      inMemoryStore.permissionMatrix = inMemoryStore.permissionMatrix.filter(p => {
+        const pId = String(p.userId || p.id || '').trim();
+        const pEmail = String(p.userEmail || '').trim().toLowerCase();
+        return !idList.includes(pId) && !emailList.includes(pEmail);
+      });
+
       let deletedCount = 0;
       if (idList.length > 0) {
         const res1 = await UserModel.deleteMany({ id: { $in: idList } });
+        await PermissionMatrixModel.deleteMany({ userId: { $in: idList } });
         deletedCount += res1.deletedCount || 0;
       }
       if (emailList.length > 0) {
         const res2 = await UserModel.deleteMany({ email: { $in: emailList } });
+        await PermissionMatrixModel.deleteMany({ userEmail: { $in: emailList } });
         deletedCount += res2.deletedCount || 0;
       }
       return res.json({ success: true, deletedCount, message: `Successfully deleted ${deletedCount} user(s)` });

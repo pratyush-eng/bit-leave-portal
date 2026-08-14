@@ -153,6 +153,11 @@ function sanitizeAndDeduplicateUsers(
     const uId = String(u.id || '').trim();
     if (!cleanEmail) continue;
 
+    // Filter out deleted user tombstones
+    if (delIds.has(uId) || delEmails.has(cleanEmail)) {
+      continue;
+    }
+
     if (!map.has(cleanEmail)) {
       map.set(cleanEmail, u);
     } else {
@@ -182,8 +187,27 @@ function sanitizeAndDeduplicateUsers(
 }
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(new Set<string>());
-  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(new Set<string>());
+  const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(DELETED_USER_IDS_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+  const [deletedUserEmails, setDeletedUserEmails] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(DELETED_USER_EMAILS_KEY);
+      return raw ? new Set(JSON.parse(raw)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const deletedUserIdsRef = React.useRef(deletedUserIds);
+  deletedUserIdsRef.current = deletedUserIds;
+  const deletedUserEmailsRef = React.useRef(deletedUserEmails);
+  deletedUserEmailsRef.current = deletedUserEmails;
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     enableDemoAccounts: true,
@@ -194,9 +218,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emailSettings: DEFAULT_EMAIL_SETTINGS
   });
 
-  const [allUsers, setAllUsers] = useState<User[]>(() => 
-    sanitizeAndDeduplicateUsers(MOCK_USERS)
-  );
+  const [allUsers, setAllUsers] = useState<User[]>(() => {
+    try {
+      const rawIds = localStorage.getItem(DELETED_USER_IDS_KEY);
+      const rawEmails = localStorage.getItem(DELETED_USER_EMAILS_KEY);
+      const initIds = rawIds ? new Set<string>(JSON.parse(rawIds)) : new Set<string>();
+      const initEmails = rawEmails ? new Set<string>(JSON.parse(rawEmails)) : new Set<string>();
+      return sanitizeAndDeduplicateUsers(MOCK_USERS, initIds, initEmails);
+    } catch {
+      return sanitizeAndDeduplicateUsers(MOCK_USERS);
+    }
+  });
   const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([
     {
       id: 'usr_5',
@@ -338,7 +370,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Dynamically reconcile leave balances and permission matrix entries for all users
   const effectiveAllUsers = useMemo(() => {
-    const sanitized = sanitizeAndDeduplicateUsers(allUsers);
+    const sanitized = sanitizeAndDeduplicateUsers(allUsers, deletedUserIds, deletedUserEmails);
     return sanitized.map(u => {
       // 0. Synchronize permission matrix entry onto user's assignedPermissions and role
       const pmEntry = permissionMatrix.find(
@@ -827,7 +859,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!mounted || !mongoData) return;
 
         if (Array.isArray(mongoData.users)) {
-          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users, deletedUserIds, deletedUserEmails);
+          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users, deletedUserIdsRef.current, deletedUserEmailsRef.current);
           setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
         }
         if (Array.isArray(mongoData.departments)) {
@@ -1331,32 +1363,42 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (userId === currentUserId) {
       return { success: false, message: 'Cannot delete your own currently active account.' };
     }
-    const target = allUsers.find(u => u.id === userId);
-    if (!target) return { success: false, message: 'User not found.' };
+    const target = allUsers.find(u => u.id === userId || (u.email && u.email.trim().toLowerCase() === userId.trim().toLowerCase()));
+    if (!target) return { success: false, message: 'User not found in system directory.' };
 
     if (target.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN') {
       return { success: false, message: 'Department Admin Restriction: Super Admin accounts cannot be deleted by Department Admins.' };
     }
 
     const cleanEmail = target.email.trim().toLowerCase();
+    const targetId = target.id;
 
     // 1. Record persistent tombstones
-    const nextDelIds = new Set(deletedUserIds).add(userId);
+    const nextDelIds = new Set(deletedUserIds).add(targetId);
     const nextDelEmails = new Set(deletedUserEmails).add(cleanEmail);
     setDeletedUserIds(nextDelIds);
     setDeletedUserEmails(nextDelEmails);
+    deletedUserIdsRef.current = nextDelIds;
+    deletedUserEmailsRef.current = nextDelEmails;
     try {
       localStorage.setItem(DELETED_USER_IDS_KEY, JSON.stringify(Array.from(nextDelIds)));
       localStorage.setItem(DELETED_USER_EMAILS_KEY, JSON.stringify(Array.from(nextDelEmails)));
     } catch (_e) {}
 
-    // 2. Remove from state immediately and save
-    const nextUsers = allUsers.filter(u => u.id !== userId && u.email.trim().toLowerCase() !== cleanEmail);
-    setAllUsers(nextUsers);
+    // 2. Remove from local state immediately
+    setAllUsers(prev => prev.filter(u => u.id !== targetId && u.email.trim().toLowerCase() !== cleanEmail));
+    setPermissionMatrix(prev => prev.filter(p => p.userId !== targetId && p.id !== targetId && (!p.userEmail || p.userEmail.trim().toLowerCase() !== cleanEmail)));
 
     // 3. Trigger remote database purges
-    deleteUserFromMongo(userId, cleanEmail);
+    deleteUserFromMongo(targetId, cleanEmail);
+    deleteDocFromMongo('permission_matrix', targetId, cleanEmail);
+
     addAuditLog(currentUser, 'USER_DELETED', `Deleted user account for ${target.name} (${target.email}, ${target.role}).`);
+    addToast({
+      title: 'User Deleted 🗑️',
+      message: `Account for ${target.name} (${cleanEmail}) was successfully removed.`,
+      type: 'SUCCESS'
+    });
 
     return { success: true, message: `Successfully deleted account for ${target.name} (${target.email}).` };
   };
