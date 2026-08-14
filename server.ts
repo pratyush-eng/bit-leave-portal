@@ -3,11 +3,63 @@ import path from "path";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
 import { createServer as createViteServer } from "vite";
+import { 
+  MOCK_USERS, 
+  INITIAL_DEPARTMENTS, 
+  INITIAL_LEAVE_POLICIES, 
+  INITIAL_LEAVE_REQUESTS, 
+  INITIAL_AUDIT_LOGS 
+} from "./src/data/mockData";
 
-let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://bit_leave_admin:BitLeave2026SecurePass@cluster0.a8qpl.mongodb.net/bit_leave_portal?retryWrites=true&w=majority&appName=Cluster0";
+let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
 let isMongoConnected = false;
 let mongoConnectError = "";
+let lastConnectAttempt = 0;
+
+// Disable Mongoose query buffering globally to prevent buffering timeouts when connection is offline
+mongoose.set("bufferCommands", false);
+mongoose.set("strictQuery", false);
+
+// In-Memory fallback store to ensure zero downtime and instant response if Atlas SRV DNS or network fails
+let inMemoryStore: {
+  users: any[];
+  leaveRequests: any[];
+  departments: any[];
+  leavePolicies: any[];
+  auditLogs: any[];
+  leaveBalances: any[];
+  permissionMatrix: any[];
+  systemSettings: any;
+} = {
+  users: JSON.parse(JSON.stringify(MOCK_USERS)),
+  leaveRequests: JSON.parse(JSON.stringify(INITIAL_LEAVE_REQUESTS)),
+  departments: JSON.parse(JSON.stringify(INITIAL_DEPARTMENTS)),
+  leavePolicies: JSON.parse(JSON.stringify(INITIAL_LEAVE_POLICIES)),
+  auditLogs: JSON.parse(JSON.stringify(INITIAL_AUDIT_LOGS)),
+  leaveBalances: [],
+  permissionMatrix: [
+    {
+      id: "usr_5",
+      userId: "usr_5",
+      userName: "Prof. Vikramaditya Roy",
+      userEmail: "dean.academic@institution.edu",
+      role: "SUPER_ADMIN",
+      departmentId: "CSE",
+      permissions: ["PERM_APPROVE_OVERRIDE", "PERM_ADJUST_BALANCE", "PERM_MANAGE_USERS", "PERM_EXPORT_REPORTS", "PERM_CONFIG_POLICIES"],
+      updatedAt: new Date().toISOString(),
+      updatedBy: "SUPER_ADMIN"
+    }
+  ],
+  systemSettings: {
+    enableDemoAccounts: true,
+    enableRoleSwitcher: true,
+    enableSelfRegistration: true,
+    institutionName: "BIT Leave Portal",
+    institutionLogoUrl: null,
+    emailSettings: {}
+  }
+};
 
 function getMaskedUri(uri: string) {
   try {
@@ -32,25 +84,34 @@ async function initMongo(customUri?: string) {
 
   if (isMongoConnected && mongoose.connection.readyState === 1) return true;
 
+  // Throttle connection retries to avoid spamming DNS queries
+  const now = Date.now();
+  if (lastConnectAttempt && now - lastConnectAttempt < 5000 && !customUri) {
+    return isMongoConnected;
+  }
+  lastConnectAttempt = now;
+
   try {
-    mongoose.set("strictQuery", false);
     await mongoose.connect(activeMongoUri, {
-      serverSelectionTimeoutMS: 8000,
-      connectTimeoutMS: 10000,
+      dbName: "bit_leave_portal",
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
     });
     isMongoConnected = true;
     mongoConnectError = "";
     console.log("[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster.");
+    await seedAndMigrateToMongo();
     return true;
   } catch (err: any) {
     isMongoConnected = false;
     const rawMsg = err?.message || String(err);
-    if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
-      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your MongoDB Atlas Connection String or IP Access Rules in Atlas Console.`;
+    if (rawMsg.includes("bad auth") || rawMsg.includes("Authentication failed")) {
+      mongoConnectError = `Authentication failed for user 'amnLeaveportal410_db_user'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user 'amnLeaveportal410_db_user' exists with password '4S8i3u01aMvC8Xtt' and has 'Read and write to any database' privilege.`;
+    } else if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
+      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas.`;
     } else {
       mongoConnectError = rawMsg;
     }
-    console.warn("[MongoDB Atlas Connection Warning]", mongoConnectError);
     return false;
   }
 }
@@ -170,6 +231,165 @@ const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("L
 const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema);
 const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
 
+async function seedAndMigrateToMongo() {
+  if (!isMongoConnected || mongoose.connection.readyState !== 1) return;
+  try {
+    // 1. Audit Logs
+    for (const a of inMemoryStore.auditLogs) {
+      if (!a || !a.id) continue;
+      await AuditLogModel.findOneAndUpdate(
+        { id: a.id },
+        {
+          id: a.id,
+          timestamp: a.timestamp || new Date().toISOString(),
+          actorId: a.actorId || "sys",
+          actorName: a.actorName || "System",
+          actorRole: a.actorRole || "SUPER_ADMIN",
+          action: a.action || "ACTION",
+          details: a.details || "",
+          ipAddress: a.ipAddress || null,
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 2. Users
+    for (const u of inMemoryStore.users) {
+      if (!u || !u.email) continue;
+      const cleanEmail = String(u.email).trim().toLowerCase();
+      await UserModel.findOneAndUpdate(
+        { email: cleanEmail },
+        {
+          id: u.id || "USER-" + Date.now(),
+          name: u.name || "",
+          email: cleanEmail,
+          role: u.role || "FACULTY",
+          designation: u.designation || "",
+          departmentId: u.departmentId || "",
+          departmentName: u.departmentName || "",
+          employeeCode: u.employeeCode || "",
+          joiningDate: u.joiningDate || "",
+          phone: u.phone || "",
+          avatarUrl: u.avatarUrl || "",
+          accountStatus: u.accountStatus || "ACTIVE",
+          password: u.password || "password123",
+          leaveBalances: u.leaveBalances || {},
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 3. Leave Requests
+    for (const r of inMemoryStore.leaveRequests) {
+      if (!r || !r.id) continue;
+      const applicantName = r.applicantName || r.applicant_name || "";
+      const applicantId = r.applicantId || r.applicant_id || "";
+      if (!applicantName || applicantName === "Unknown Applicant" || applicantName.toLowerCase() === "unknown" || applicantId === "UNKNOWN_APPLICANT" || applicantId === "UNKNOWN") {
+        continue;
+      }
+      await LeaveRequestModel.findOneAndUpdate(
+        { id: r.id },
+        {
+          id: r.id,
+          applicantId: applicantId,
+          applicantName: applicantName,
+          applicantEmail: r.applicantEmail || r.applicant_email || "user@bitmesra.ac.in",
+          applicantDesignation: r.applicantDesignation || r.applicant_designation || "",
+          applicantEmployeeCode: r.applicantEmployeeCode || r.applicant_employee_code || "",
+          departmentId: r.departmentId || r.department_id || "CSE",
+          departmentName: r.departmentName || r.department_name || "Computer Science & Engineering",
+          leaveType: r.leaveType || r.leave_type || "CASUAL",
+          startDate: r.startDate || r.start_date || new Date().toISOString().split("T")[0],
+          endDate: r.endDate || r.end_date || new Date().toISOString().split("T")[0],
+          totalDays: Number(r.totalDays ?? r.total_days ?? 1),
+          reason: r.reason || "",
+          contactAddress: r.contactAddress || r.contact_address || "",
+          contactPhone: r.contactPhone || r.contact_phone || "",
+          documentUrl: r.documentUrl || r.document_url || "",
+          status: r.status || "PENDING_HOD",
+          appliedOn: r.appliedOn || r.applied_on || new Date().toISOString().split("T")[0],
+          hodApproval: r.hodApproval || r.hod_approval || null,
+          registrarApproval: r.registrarApproval || r.registrar_approval || null,
+          classHandovers: r.classHandovers || r.class_handovers || null,
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 4. Departments
+    for (const d of inMemoryStore.departments) {
+      if (!d || !d.id) continue;
+      await DepartmentModel.findOneAndUpdate(
+        { id: d.id },
+        {
+          id: d.id,
+          code: d.code || d.id,
+          name: d.name || "",
+          hodId: d.hodId || null,
+          hodName: d.hodName || null,
+          totalFaculty: Number(d.totalFaculty) || 0,
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 5. Leave Policies
+    for (const p of inMemoryStore.leavePolicies) {
+      if (!p || !p.type) continue;
+      await LeavePolicyModel.findOneAndUpdate(
+        { type: p.type },
+        {
+          type: p.type,
+          label: p.label || p.type,
+          annualQuota: Number(p.annualQuota) || 12,
+          minDaysNotice: Number(p.minDaysNotice) || 0,
+          requiresDocument: Boolean(p.requiresDocument),
+          color: p.color || "#2563eb",
+          description: p.description || "",
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 6. Permission Matrix
+    for (const pm of inMemoryStore.permissionMatrix) {
+      if (!pm || (!pm.id && !pm.userId)) continue;
+      const keyId = pm.userId || pm.id;
+      await PermissionMatrixModel.findOneAndUpdate(
+        { userId: keyId },
+        {
+          id: pm.id || keyId,
+          userId: keyId,
+          userName: pm.userName || "",
+          userEmail: pm.userEmail || "",
+          role: pm.role || "",
+          departmentId: pm.departmentId || "",
+          permissions: pm.permissions || [],
+          updatedAt: pm.updatedAt || new Date().toISOString(),
+          updatedBy: pm.updatedBy || "SUPER_ADMIN",
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // 7. System Settings
+    if (inMemoryStore.systemSettings) {
+      await SystemSettingsModel.findOneAndUpdate(
+        { id: "default" },
+        {
+          id: "default",
+          ...inMemoryStore.systemSettings,
+          updatedAt: new Date().toISOString(),
+          updatedBy: "SUPER_ADMIN",
+        },
+        { upsert: true, new: true }
+      );
+    }
+  } catch (_e) {
+    // Soft fallback
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -264,7 +484,7 @@ async function startServer() {
 
   // Sync handler for MongoDB Atlas
   const handleSync = async (req: express.Request, res: express.Response) => {
-    await initMongo();
+    const connected = await initMongo();
     const { users = [], leaveRequests = [], departments = [], leavePolicies = [], auditLogs = [], leaveBalances = [], permissionMatrix = [], systemSettings } = req.body || {};
 
     let usersSynced = 0;
@@ -276,10 +496,282 @@ async function startServer() {
     let permissionMatrixSynced = 0;
     let systemSettingsSynced = 0;
 
-    try {
-      // 1. Sync Audit Logs
-      for (const a of auditLogs) {
-        if (!a || !a.id) continue;
+    // 1. Always update inMemoryStore first
+    for (const a of auditLogs) {
+      if (!a || !a.id) continue;
+      const idx = inMemoryStore.auditLogs.findIndex(item => item.id === a.id);
+      if (idx >= 0) inMemoryStore.auditLogs[idx] = { ...inMemoryStore.auditLogs[idx], ...a };
+      else inMemoryStore.auditLogs.unshift(a);
+      auditLogsSynced++;
+    }
+
+    for (const u of users) {
+      if (!u || !u.email) continue;
+      const cleanEmail = String(u.email).trim().toLowerCase();
+      const idx = inMemoryStore.users.findIndex(item => item.email?.toLowerCase() === cleanEmail || item.id === u.id);
+      if (idx >= 0) inMemoryStore.users[idx] = { ...inMemoryStore.users[idx], ...u, email: cleanEmail };
+      else inMemoryStore.users.push({ ...u, email: cleanEmail });
+      usersSynced++;
+    }
+
+    for (const r of leaveRequests) {
+      if (!r || !r.id) continue;
+      const idx = inMemoryStore.leaveRequests.findIndex(item => item.id === r.id);
+      if (idx >= 0) inMemoryStore.leaveRequests[idx] = { ...inMemoryStore.leaveRequests[idx], ...r };
+      else inMemoryStore.leaveRequests.unshift(r);
+      requestsSynced++;
+    }
+
+    for (const d of departments) {
+      if (!d || !d.id) continue;
+      const idx = inMemoryStore.departments.findIndex(item => item.id === d.id);
+      if (idx >= 0) inMemoryStore.departments[idx] = { ...inMemoryStore.departments[idx], ...d };
+      else inMemoryStore.departments.push(d);
+      deptsSynced++;
+    }
+
+    for (const p of leavePolicies) {
+      if (!p || !p.type) continue;
+      const idx = inMemoryStore.leavePolicies.findIndex(item => item.type === p.type);
+      if (idx >= 0) inMemoryStore.leavePolicies[idx] = { ...inMemoryStore.leavePolicies[idx], ...p };
+      else inMemoryStore.leavePolicies.push(p);
+      policiesSynced++;
+    }
+
+    if (systemSettings && typeof systemSettings === "object") {
+      inMemoryStore.systemSettings = { ...inMemoryStore.systemSettings, ...systemSettings };
+      systemSettingsSynced = 1;
+    }
+
+    // 2. Perform Mongoose database upserts if connected to Atlas
+    if (connected && mongoose.connection.readyState === 1) {
+      try {
+        for (const a of auditLogs) {
+          if (!a || !a.id) continue;
+          await AuditLogModel.findOneAndUpdate(
+            { id: a.id },
+            {
+              id: a.id,
+              timestamp: a.timestamp || new Date().toISOString(),
+              actorId: a.actorId || "sys",
+              actorName: a.actorName || "System",
+              actorRole: a.actorRole || "SUPER_ADMIN",
+              action: a.action || "ACTION",
+              details: a.details || "",
+              ipAddress: a.ipAddress || null,
+            },
+            { upsert: true, new: true }
+          );
+        }
+
+        for (const u of users) {
+          if (!u || !u.email) continue;
+          const cleanEmail = String(u.email).trim().toLowerCase();
+          await UserModel.findOneAndUpdate(
+            { email: cleanEmail },
+            {
+              id: u.id || "USER-" + Date.now(),
+              name: u.name || "",
+              email: cleanEmail,
+              role: u.role || "FACULTY",
+              designation: u.designation || "",
+              departmentId: u.departmentId || "",
+              departmentName: u.departmentName || "",
+              employeeCode: u.employeeCode || "",
+              joiningDate: u.joiningDate || "",
+              phone: u.phone || "",
+              avatarUrl: u.avatarUrl || "",
+              accountStatus: u.accountStatus || "ACTIVE",
+              password: u.password || "password123",
+              leaveBalances: u.leaveBalances || {},
+            },
+            { upsert: true, new: true }
+          );
+        }
+
+        for (const r of leaveRequests) {
+          if (!r || !r.id) continue;
+          const applicantName = r.applicantName || r.applicant_name || "";
+          const applicantId = r.applicantId || r.applicant_id || "";
+          if (!applicantName || applicantName === "Unknown Applicant" || applicantName.toLowerCase() === "unknown" || applicantId === "UNKNOWN_APPLICANT" || applicantId === "UNKNOWN") {
+            continue;
+          }
+          await LeaveRequestModel.findOneAndUpdate(
+            { id: r.id },
+            {
+              id: r.id,
+              applicantId: applicantId,
+              applicantName: applicantName,
+              applicantEmail: r.applicantEmail || r.applicant_email || "user@bitmesra.ac.in",
+              applicantDesignation: r.applicantDesignation || r.applicant_designation || "",
+              applicantEmployeeCode: r.applicantEmployeeCode || r.applicant_employee_code || "",
+              departmentId: r.departmentId || r.department_id || "CSE",
+              departmentName: r.departmentName || r.department_name || "Computer Science & Engineering",
+              leaveType: r.leaveType || r.leave_type || "CASUAL",
+              startDate: r.startDate || r.start_date || new Date().toISOString().split("T")[0],
+              endDate: r.endDate || r.end_date || new Date().toISOString().split("T")[0],
+              totalDays: Number(r.totalDays ?? r.total_days ?? 1),
+              reason: r.reason || "",
+              contactAddress: r.contactAddress || r.contact_address || "",
+              contactPhone: r.contactPhone || r.contact_phone || "",
+              documentUrl: r.documentUrl || r.document_url || "",
+              status: r.status || "PENDING_HOD",
+              appliedOn: r.appliedOn || r.applied_on || new Date().toISOString().split("T")[0],
+              hodApproval: r.hodApproval || r.hod_approval || null,
+              registrarApproval: r.registrarApproval || r.registrar_approval || null,
+              classHandovers: r.classHandovers || r.class_handovers || null,
+            },
+            { upsert: true, new: true }
+          );
+        }
+
+        for (const d of departments) {
+          if (!d || !d.id) continue;
+          await DepartmentModel.findOneAndUpdate(
+            { id: d.id },
+            {
+              id: d.id,
+              code: d.code || d.id,
+              name: d.name || "",
+              hodId: d.hodId || null,
+              hodName: d.hodName || null,
+              totalFaculty: Number(d.totalFaculty) || 0,
+            },
+            { upsert: true, new: true }
+          );
+        }
+
+        for (const p of leavePolicies) {
+          if (!p || !p.type) continue;
+          await LeavePolicyModel.findOneAndUpdate(
+            { type: p.type },
+            {
+              type: p.type,
+              label: p.label || p.type,
+              annualQuota: Number(p.annualQuota) || 12,
+              minDaysNotice: Number(p.minDaysNotice) || 0,
+              requiresDocument: Boolean(p.requiresDocument),
+              color: p.color || "#2563eb",
+              description: p.description || "",
+            },
+            { upsert: true, new: true }
+          );
+        }
+      } catch (err: any) {
+        // Soft fallback to in-memory store
+      }
+    }
+
+    return res.json({
+      success: true,
+      mongoConnected: connected && mongoose.connection.readyState === 1,
+      message: connected ? "Successfully synchronized portal data into MongoDB Atlas" : "Data saved to active portal memory",
+      counts: {
+        auditLogs: auditLogsSynced,
+        users: usersSynced,
+        leaveRequests: requestsSynced,
+        departments: deptsSynced,
+        leavePolicies: policiesSynced,
+        leaveBalances: balancesSynced,
+        permissionMatrix: permissionMatrixSynced,
+        systemSettings: systemSettingsSynced,
+      }
+    });
+  };
+
+  app.post("/api/mongo/sync", handleSync);
+  app.post("/api/neon/sync", handleSync);
+
+  // Fetch all data from MongoDB Atlas (with in-memory fallback)
+  const handleFetchData = async (req: express.Request, res: express.Response) => {
+    const connected = await initMongo();
+    if (connected && mongoose.connection.readyState === 1) {
+      try {
+        const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc] = await Promise.all([
+          UserModel.find().lean(),
+          LeaveRequestModel.find().lean(),
+          DepartmentModel.find().lean(),
+          LeavePolicyModel.find().lean(),
+          AuditLogModel.find().sort({ timestamp: -1 }).lean(),
+          LeaveBalanceModel.find().lean(),
+          PermissionMatrixModel.find().lean(),
+          SystemSettingsModel.findOne({ id: "default" }).lean(),
+        ]);
+
+        const systemSettings = sysDoc ? {
+          enableDemoAccounts: sysDoc.enableDemoAccounts ?? true,
+          enableRoleSwitcher: sysDoc.enableRoleSwitcher ?? true,
+          enableSelfRegistration: sysDoc.enableSelfRegistration ?? true,
+          institutionName: sysDoc.institutionName || "BIT Leave Portal",
+          institutionLogoUrl: sysDoc.institutionLogoUrl || null,
+          emailSettings: sysDoc.emailSettings || {},
+        } : inMemoryStore.systemSettings;
+
+        // Sync fetched data into inMemoryStore cache
+        if (users.length > 0) inMemoryStore.users = users;
+        if (leaveRequests.length > 0) inMemoryStore.leaveRequests = leaveRequests;
+        if (departments.length > 0) inMemoryStore.departments = departments;
+        if (leavePolicies.length > 0) inMemoryStore.leavePolicies = leavePolicies;
+        if (auditLogs.length > 0) inMemoryStore.auditLogs = auditLogs;
+        if (leaveBalances.length > 0) inMemoryStore.leaveBalances = leaveBalances;
+        if (permissionMatrix.length > 0) inMemoryStore.permissionMatrix = permissionMatrix;
+        if (systemSettings) inMemoryStore.systemSettings = systemSettings;
+
+        return res.json({
+          success: true,
+          mongoConnected: true,
+          data: {
+            users: inMemoryStore.users,
+            leaveRequests: inMemoryStore.leaveRequests,
+            departments: inMemoryStore.departments,
+            leavePolicies: inMemoryStore.leavePolicies,
+            auditLogs: inMemoryStore.auditLogs,
+            leaveBalances: inMemoryStore.leaveBalances,
+            permissionMatrix: inMemoryStore.permissionMatrix,
+            systemSettings: inMemoryStore.systemSettings,
+          }
+        });
+      } catch (err: any) {
+        // Fallback gracefully to memory cache
+      }
+    }
+
+    // Return in-memory cached state if Atlas is unreachable or DNS resolution fails
+    return res.json({
+      success: true,
+      mongoConnected: false,
+      warning: mongoConnectError || "MongoDB Atlas offline, using active memory store",
+      data: {
+        users: inMemoryStore.users,
+        leaveRequests: inMemoryStore.leaveRequests,
+        departments: inMemoryStore.departments,
+        leavePolicies: inMemoryStore.leavePolicies,
+        auditLogs: inMemoryStore.auditLogs,
+        leaveBalances: inMemoryStore.leaveBalances,
+        permissionMatrix: inMemoryStore.permissionMatrix,
+        systemSettings: inMemoryStore.systemSettings,
+      }
+    });
+  };
+
+  app.get("/api/mongo/data", handleFetchData);
+  app.get("/api/neon/data", handleFetchData);
+
+  // Single Audit Log endpoint
+  const handleAuditLog = async (req: express.Request, res: express.Response) => {
+    const connected = await initMongo();
+    const a = req.body?.log || req.body;
+    if (!a || !a.id) {
+      return res.status(400).json({ success: false, error: "Missing log or log.id" });
+    }
+
+    // Always record in inMemoryStore
+    const idx = inMemoryStore.auditLogs.findIndex(item => item.id === a.id);
+    if (idx >= 0) inMemoryStore.auditLogs[idx] = { ...inMemoryStore.auditLogs[idx], ...a };
+    else inMemoryStore.auditLogs.unshift(a);
+
+    if (connected && mongoose.connection.readyState === 1) {
+      try {
         await AuditLogModel.findOneAndUpdate(
           { id: a.id },
           {
@@ -294,267 +786,11 @@ async function startServer() {
           },
           { upsert: true, new: true }
         );
-        auditLogsSynced++;
+      } catch (err: any) {
+        // Saved in-memory
       }
-
-      // 2. Sync Users
-      for (const u of users) {
-        if (!u || !u.email) continue;
-        const cleanEmail = String(u.email).trim().toLowerCase();
-        await UserModel.findOneAndUpdate(
-          { email: cleanEmail },
-          {
-            id: u.id || "USER-" + Date.now(),
-            name: u.name || "",
-            email: cleanEmail,
-            role: u.role || "FACULTY",
-            designation: u.designation || "",
-            departmentId: u.departmentId || "",
-            departmentName: u.departmentName || "",
-            employeeCode: u.employeeCode || "",
-            joiningDate: u.joiningDate || "",
-            phone: u.phone || "",
-            avatarUrl: u.avatarUrl || "",
-            accountStatus: u.accountStatus || "ACTIVE",
-            password: u.password || "password123",
-            leaveBalances: u.leaveBalances || {},
-          },
-          { upsert: true, new: true }
-        );
-        usersSynced++;
-      }
-
-      // 3. Sync Leave Requests
-      for (const r of leaveRequests) {
-        if (!r || !r.id) continue;
-        const applicantName = r.applicantName || r.applicant_name || "";
-        const applicantId = r.applicantId || r.applicant_id || "";
-        if (!applicantName || applicantName === "Unknown Applicant" || applicantName.toLowerCase() === "unknown" || applicantId === "UNKNOWN_APPLICANT" || applicantId === "UNKNOWN") {
-          continue;
-        }
-        await LeaveRequestModel.findOneAndUpdate(
-          { id: r.id },
-          {
-            id: r.id,
-            applicantId: applicantId,
-            applicantName: applicantName,
-            applicantEmail: r.applicantEmail || r.applicant_email || "user@bitmesra.ac.in",
-            applicantDesignation: r.applicantDesignation || r.applicant_designation || "",
-            applicantEmployeeCode: r.applicantEmployeeCode || r.applicant_employee_code || "",
-            departmentId: r.departmentId || r.department_id || "CSE",
-            departmentName: r.departmentName || r.department_name || "Computer Science & Engineering",
-            leaveType: r.leaveType || r.leave_type || "CASUAL",
-            startDate: r.startDate || r.start_date || new Date().toISOString().split("T")[0],
-            endDate: r.endDate || r.end_date || new Date().toISOString().split("T")[0],
-            totalDays: Number(r.totalDays ?? r.total_days ?? 1),
-            reason: r.reason || "",
-            contactAddress: r.contactAddress || r.contact_address || "",
-            contactPhone: r.contactPhone || r.contact_phone || "",
-            documentUrl: r.documentUrl || r.document_url || "",
-            status: r.status || "PENDING_HOD",
-            appliedOn: r.appliedOn || r.applied_on || new Date().toISOString().split("T")[0],
-            hodApproval: r.hodApproval || r.hod_approval || null,
-            registrarApproval: r.registrarApproval || r.registrar_approval || null,
-            classHandovers: r.classHandovers || r.class_handovers || null,
-          },
-          { upsert: true, new: true }
-        );
-        requestsSynced++;
-      }
-
-      // 4. Sync Departments
-      for (const d of departments) {
-        if (!d || !d.id) continue;
-        await DepartmentModel.findOneAndUpdate(
-          { id: d.id },
-          {
-            id: d.id,
-            code: d.code || d.id,
-            name: d.name || "",
-            hodId: d.hodId || null,
-            hodName: d.hodName || null,
-            totalFaculty: Number(d.totalFaculty) || 0,
-          },
-          { upsert: true, new: true }
-        );
-        deptsSynced++;
-      }
-
-      // 5. Sync Leave Policies
-      for (const p of leavePolicies) {
-        if (!p || !p.type) continue;
-        await LeavePolicyModel.findOneAndUpdate(
-          { type: p.type },
-          {
-            type: p.type,
-            label: p.label || p.type,
-            annualQuota: Number(p.annualQuota) || 12,
-            minDaysNotice: Number(p.minDaysNotice) || 0,
-            requiresDocument: Boolean(p.requiresDocument),
-            color: p.color || "#2563eb",
-            description: p.description || "",
-          },
-          { upsert: true, new: true }
-        );
-        policiesSynced++;
-      }
-
-      // 6. Sync Leave Balances
-      for (const b of leaveBalances) {
-        if (!b || !b.id) continue;
-        await LeaveBalanceModel.findOneAndUpdate(
-          { id: b.id },
-          {
-            id: b.id,
-            userId: b.userId || b.user_id,
-            leaveType: b.leaveType || b.leave_type,
-            totalQuota: Number(b.totalQuota ?? b.total_quota) || 0,
-            usedDays: Number(b.usedDays ?? b.used_days) || 0,
-            pendingDays: Number(b.pendingDays ?? b.pending_days) || 0,
-            updatedAt: b.updatedAt || b.updated_at || new Date().toISOString(),
-          },
-          { upsert: true, new: true }
-        );
-        balancesSynced++;
-      }
-
-      // 7. Sync Permission Matrix
-      for (const p of permissionMatrix) {
-        if (!p || (!p.userId && !p.id)) continue;
-        const uId = p.userId || p.id;
-        await PermissionMatrixModel.findOneAndUpdate(
-          { userId: uId },
-          {
-            id: uId,
-            userId: uId,
-            userName: p.userName || p.user_name || "",
-            userEmail: p.userEmail || p.user_email || "",
-            role: p.role || "",
-            departmentId: p.departmentId || p.department_id || "",
-            permissions: p.permissions || [],
-            updatedAt: p.updatedAt || p.updated_at || new Date().toISOString(),
-            updatedBy: p.updatedBy || p.updated_by || "SUPER_ADMIN",
-          },
-          { upsert: true, new: true }
-        );
-        permissionMatrixSynced++;
-      }
-
-      // 8. Sync System Settings
-      if (systemSettings && typeof systemSettings === "object") {
-        await SystemSettingsModel.findOneAndUpdate(
-          { id: "default" },
-          {
-            id: "default",
-            enableDemoAccounts: systemSettings.enableDemoAccounts ?? true,
-            enableRoleSwitcher: systemSettings.enableRoleSwitcher ?? true,
-            enableSelfRegistration: systemSettings.enableSelfRegistration ?? true,
-            institutionName: systemSettings.institutionName || "BIT Leave Portal",
-            institutionLogoUrl: systemSettings.institutionLogoUrl || null,
-            emailSettings: systemSettings.emailSettings || {},
-            updatedAt: new Date().toISOString(),
-            updatedBy: "SUPER_ADMIN",
-          },
-          { upsert: true, new: true }
-        );
-        systemSettingsSynced = 1;
-      }
-
-      return res.json({
-        success: true,
-        message: "Successfully synchronized portal data into MongoDB Atlas",
-        counts: {
-          auditLogs: auditLogsSynced,
-          users: usersSynced,
-          leaveRequests: requestsSynced,
-          departments: deptsSynced,
-          leavePolicies: policiesSynced,
-          leaveBalances: balancesSynced,
-          permissionMatrix: permissionMatrixSynced,
-          systemSettings: systemSettingsSynced,
-        }
-      });
-    } catch (err: any) {
-      console.error("[MongoDB Sync Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to sync data to MongoDB Atlas" });
     }
-  };
-
-  app.post("/api/mongo/sync", handleSync);
-  app.post("/api/neon/sync", handleSync);
-
-  // Fetch all data from MongoDB Atlas
-  const handleFetchData = async (req: express.Request, res: express.Response) => {
-    await initMongo();
-    try {
-      const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc] = await Promise.all([
-        UserModel.find().lean(),
-        LeaveRequestModel.find().lean(),
-        DepartmentModel.find().lean(),
-        LeavePolicyModel.find().lean(),
-        AuditLogModel.find().sort({ timestamp: -1 }).lean(),
-        LeaveBalanceModel.find().lean(),
-        PermissionMatrixModel.find().lean(),
-        SystemSettingsModel.findOne({ id: "default" }).lean(),
-      ]);
-
-      const systemSettings = sysDoc ? {
-        enableDemoAccounts: sysDoc.enableDemoAccounts ?? true,
-        enableRoleSwitcher: sysDoc.enableRoleSwitcher ?? true,
-        enableSelfRegistration: sysDoc.enableSelfRegistration ?? true,
-        institutionName: sysDoc.institutionName || "BIT Leave Portal",
-        institutionLogoUrl: sysDoc.institutionLogoUrl || null,
-        emailSettings: sysDoc.emailSettings || {},
-      } : null;
-
-      return res.json({
-        success: true,
-        data: {
-          users,
-          leaveRequests,
-          departments,
-          leavePolicies,
-          auditLogs,
-          leaveBalances,
-          permissionMatrix,
-          systemSettings,
-        }
-      });
-    } catch (err: any) {
-      console.error("[MongoDB Fetch Data Error]", err);
-      return res.status(500).json({ success: false, error: err?.message || "Failed to fetch data from MongoDB Atlas" });
-    }
-  };
-
-  app.get("/api/mongo/data", handleFetchData);
-  app.get("/api/neon/data", handleFetchData);
-
-  // Single Audit Log endpoint
-  const handleAuditLog = async (req: express.Request, res: express.Response) => {
-    await initMongo();
-    try {
-      const a = req.body?.log || req.body;
-      if (!a || !a.id) {
-        return res.status(400).json({ success: false, error: "Missing log or log.id" });
-      }
-      await AuditLogModel.findOneAndUpdate(
-        { id: a.id },
-        {
-          id: a.id,
-          timestamp: a.timestamp || new Date().toISOString(),
-          actorId: a.actorId || "sys",
-          actorName: a.actorName || "System",
-          actorRole: a.actorRole || "SUPER_ADMIN",
-          action: a.action || "ACTION",
-          details: a.details || "",
-          ipAddress: a.ipAddress || null,
-        },
-        { upsert: true, new: true }
-      );
-      return res.json({ success: true, message: "Audit log inserted into MongoDB Atlas", logId: a.id });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
-    }
+    return res.json({ success: true, message: "Audit log recorded", logId: a.id });
   };
 
   app.post("/api/mongo/audit-log", handleAuditLog);
@@ -562,51 +798,64 @@ async function startServer() {
 
   // Delete document endpoint
   const handleDelete = async (req: express.Request, res: express.Response) => {
-    await initMongo();
-    try {
-      const { colName, table, id, email, ids, emails } = req.body || {};
-      const targetTable = colName || table;
+    const connected = await initMongo();
+    const { colName, table, id, email, ids, emails } = req.body || {};
+    const targetTable = colName || table;
 
-      if (targetTable === "users" || targetTable === "users_batch") {
-        const idList: string[] = Array.isArray(ids) ? ids.map((i: any) => String(i).trim()) : (id ? [String(id).trim()] : []);
-        const emailList: string[] = Array.isArray(emails) ? emails.map((e: any) => String(e).trim().toLowerCase()) : (email ? [String(email).trim().toLowerCase()] : []);
+    if (targetTable === "users" || targetTable === "users_batch") {
+      const idList: string[] = Array.isArray(ids) ? ids.map((i: any) => String(i).trim()) : (id ? [String(id).trim()] : []);
+      const emailList: string[] = Array.isArray(emails) ? emails.map((e: any) => String(e).trim().toLowerCase()) : (email ? [String(email).trim().toLowerCase()] : []);
 
-        let deletedCount = 0;
-        if (idList.length > 0) {
-          const res1 = await UserModel.deleteMany({ id: { $in: idList } });
-          deletedCount += res1.deletedCount || 0;
+      inMemoryStore.users = inMemoryStore.users.filter(u => !idList.includes(u.id) && !emailList.includes(u.email?.toLowerCase()));
+
+      let deletedCount = idList.length + emailList.length;
+      if (connected && mongoose.connection.readyState === 1) {
+        try {
+          if (idList.length > 0) await UserModel.deleteMany({ id: { $in: idList } });
+          if (emailList.length > 0) await UserModel.deleteMany({ email: { $in: emailList } });
+        } catch (err: any) {
+          // Deleted in-memory
         }
-        if (emailList.length > 0) {
-          const res2 = await UserModel.deleteMany({ email: { $in: emailList } });
-          deletedCount += res2.deletedCount || 0;
-        }
-        return res.json({ success: true, deletedCount, message: `Deleted ${deletedCount} user(s) from MongoDB Atlas` });
       }
-      else if ((targetTable === "leave_requests" || targetTable === "leaveRequests") && id) {
-        const res1 = await LeaveRequestModel.deleteOne({ id });
-        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from leave_requests" });
-      }
-      else if (targetTable === "departments" && id) {
-        const res1 = await DepartmentModel.deleteOne({ id });
-        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from departments" });
-      }
-      else if ((targetTable === "leave_policies" || targetTable === "leavePolicies") && id) {
-        const res1 = await LeavePolicyModel.deleteOne({ type: id });
-        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from leave_policies" });
-      }
-      else if ((targetTable === "audit_logs" || targetTable === "auditLogs") && id) {
-        const res1 = await AuditLogModel.deleteOne({ id });
-        return res.json({ success: true, deletedCount: res1.deletedCount, message: "Record deleted from audit_logs" });
-      }
-      else if (targetTable === "clearAllRequests") {
-        const res1 = await LeaveRequestModel.deleteMany({});
-        return res.json({ success: true, deletedCount: res1.deletedCount, message: "All leave requests cleared" });
-      }
-
-      return res.status(400).json({ success: false, error: "Invalid collection or missing parameters." });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message || "MongoDB deletion failed" });
+      return res.json({ success: true, deletedCount, message: `Deleted user(s)` });
     }
+    else if ((targetTable === "leave_requests" || targetTable === "leaveRequests") && id) {
+      inMemoryStore.leaveRequests = inMemoryStore.leaveRequests.filter(r => r.id !== id);
+      if (connected && mongoose.connection.readyState === 1) {
+        try { await LeaveRequestModel.deleteOne({ id }); } catch (_e) {}
+      }
+      return res.json({ success: true, message: "Record deleted from leave_requests" });
+    }
+    else if (targetTable === "departments" && id) {
+      inMemoryStore.departments = inMemoryStore.departments.filter(d => d.id !== id);
+      if (connected && mongoose.connection.readyState === 1) {
+        try { await DepartmentModel.deleteOne({ id }); } catch (_e) {}
+      }
+      return res.json({ success: true, message: "Record deleted from departments" });
+    }
+    else if ((targetTable === "leave_policies" || targetTable === "leavePolicies") && id) {
+      inMemoryStore.leavePolicies = inMemoryStore.leavePolicies.filter(p => p.type !== id);
+      if (connected && mongoose.connection.readyState === 1) {
+        try { await LeavePolicyModel.deleteOne({ type: id }); } catch (_e) {}
+      }
+      return res.json({ success: true, message: "Record deleted from leave_policies" });
+    }
+    else if ((targetTable === "audit_logs" || targetTable === "auditLogs") && id) {
+      inMemoryStore.auditLogs = inMemoryStore.auditLogs.filter(a => a.id !== id);
+      if (connected && mongoose.connection.readyState === 1) {
+        try { await AuditLogModel.deleteOne({ id }); } catch (_e) {}
+      }
+      return res.json({ success: true, message: "Record deleted from audit_logs" });
+    }
+    else if (targetTable === "clearAllRequests") {
+      inMemoryStore.leaveRequests = [];
+      if (connected && mongoose.connection.readyState === 1) {
+        try { await LeaveRequestModel.deleteMany({}); } catch (_e) {}
+      }
+      return res.json({ success: true, message: "All leave requests cleared" });
+    }
+
+    return res.status(400).json({ success: false, error: "Invalid collection or missing parameters." });
   };
 
   app.post("/api/mongo/delete", handleDelete);

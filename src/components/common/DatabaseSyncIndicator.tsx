@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { subscribeToSyncStatus, SyncStatus } from '../../lib/firestoreSync';
+import { subscribeToSyncStatus, SyncStatus } from '../../lib/mongoClient';
 import { Database, RefreshCw, CheckCircle2, ArrowUpRight, Trash2, Edit3, PlusCircle } from 'lucide-react';
 
 export const DatabaseSyncIndicator: React.FC = () => {

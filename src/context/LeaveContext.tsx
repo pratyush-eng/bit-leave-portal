@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { loadOrSeedFirestoreData, saveDocToFirestore, deleteDocFromFirestore, deleteUserFromFirestore, subscribeToSystemSettings, subscribeToCollection, resetFirestoreData } from '../lib/firestoreSync';
+import { 
+  fetchMongoData, 
+  syncDataToMongo, 
+  sendAuditLogToMongo, 
+  saveSystemSettingsToMongo, 
+  savePermissionMatrixToMongo, 
+  deleteMongoDoc, 
+  saveDocToMongo as saveDocToFirestore,
+  deleteDocFromMongo as deleteDocFromFirestore,
+  deleteUserFromMongo as deleteUserFromFirestore,
+  resetMongoData as resetFirestoreData
+} from '../lib/mongoClient';
 import { sendAuditLogToNeon, syncDataToNeon, fetchNeonData, deleteNeonDoc, savePermissionMatrixToNeon, saveSystemSettingsToNeon } from '../lib/neonClient';
 import { 
   User, 
@@ -802,84 +813,56 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   }
 
-  // Subscribe to real-time Firebase Firestore data changes across all global devices
+  // Subscribe to real-time MongoDB Atlas data changes across all global devices
   useEffect(() => {
     let mounted = true;
 
-    // Trigger seed repair check asynchronously on app start
-    loadOrSeedFirestoreData(false).catch(_err => {});
+    const syncWithMongo = async () => {
+      try {
+        const mongoData = await fetchMongoData();
+        if (!mounted || !mongoData) return;
 
-    // 1. Users real-time subscription
-    const unsubUsers = subscribeToCollection<User>('users', (users) => {
-      if (!mounted) return;
-      if (Array.isArray(users) && users.length > 0) {
-        setAllUsers((prev: User[]) => {
-          const sanitized = sanitizeAndDeduplicateUsers(users);
-          return isDeepEqual(sanitized, prev) ? prev : sanitized;
-        });
+        if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
+          setAllUsers((prev: User[]) => {
+            const sanitized = sanitizeAndDeduplicateUsers(mongoData.users);
+            return isDeepEqual(sanitized, prev) ? prev : sanitized;
+          });
+        }
+        if (Array.isArray(mongoData.leaveRequests)) {
+          setLeaveRequests((prev) => {
+            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, mongoData.users || allUsers, mongoData.departments || departments);
+            return isDeepEqual(normalized, prev) ? prev : normalized;
+          });
+        }
+        if (Array.isArray(mongoData.departments) && mongoData.departments.length > 0) {
+          setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
+        }
+        if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
+          setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
+        }
+        if (Array.isArray(mongoData.auditLogs)) {
+          setAuditLogs((prev) => isDeepEqual(mongoData.auditLogs, prev) ? prev : mongoData.auditLogs);
+        }
+        if (Array.isArray(mongoData.permissionMatrix)) {
+          setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
+        }
+        if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
+          setSystemSettings((prev) => isDeepEqual(mongoData.systemSettings, prev) ? prev : { ...prev, ...mongoData.systemSettings });
+        }
+      } catch (_err) {
+        // Soft fallback when offline
       }
-    });
+    };
 
-    // 2. Leave Requests real-time subscription
-    const unsubRequests = subscribeToCollection<LeaveRequest>('leaveRequests', (reqs) => {
-      if (!mounted) return;
-      if (Array.isArray(reqs)) {
-        setLeaveRequests((prev) => {
-          const normalized = normalizeLeaveRequests(reqs, allUsers, departments);
-          return isDeepEqual(normalized, prev) ? prev : normalized;
-        });
-      }
-    });
+    // Initial sync
+    syncWithMongo();
 
-    // 3. Departments real-time subscription
-    const unsubDepts = subscribeToCollection<Department>('departments', (depts) => {
-      if (!mounted) return;
-      if (Array.isArray(depts) && depts.length > 0) {
-        setDepartments((prev) => isDeepEqual(depts, prev) ? prev : depts);
-      }
-    });
-
-    // 4. Leave Policies real-time subscription
-    const unsubPolicies = subscribeToCollection<LeavePolicy>('leavePolicies', (policies) => {
-      if (!mounted) return;
-      if (Array.isArray(policies) && policies.length > 0) {
-        setLeavePolicies((prev) => isDeepEqual(policies, prev) ? prev : policies);
-      }
-    });
-
-    // 5. Audit Logs real-time subscription
-    const unsubLogs = subscribeToCollection<AuditLog>('auditLogs', (logs) => {
-      if (!mounted) return;
-      if (Array.isArray(logs)) {
-        setAuditLogs((prev) => isDeepEqual(logs, prev) ? prev : logs);
-      }
-    });
-
-    // 6. Permission Matrix real-time subscription
-    const unsubPM = subscribeToCollection<PermissionMatrixEntry>('permissionMatrix', (pm) => {
-      if (!mounted) return;
-      if (Array.isArray(pm)) {
-        setPermissionMatrix((prev) => isDeepEqual(pm, prev) ? prev : pm);
-      }
-    });
-
-    // 7. System Settings real-time subscription
-    const unsubSettings = subscribeToSystemSettings((settings) => {
-      if (!mounted) return;
-      if (settings && typeof settings === 'object') {
-        setSystemSettings((prev) => isDeepEqual(settings, prev) ? prev : { ...prev, ...settings });
-      }
-    });
+    // Poll MongoDB every 3 seconds for instant multi-device synchronization
+    const interval = setInterval(syncWithMongo, 3000);
 
     return () => {
       mounted = false;
-      unsubUsers();
-      unsubRequests();
-      unsubDepts();
-      unsubPolicies();
-      unsubLogs();
-      unsubPM();
-      unsubSettings();
+      clearInterval(interval);
     };
   }, []);
 

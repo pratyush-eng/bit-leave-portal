@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
-import { subscribeToSyncStatus, SyncStatus } from '../../lib/firestoreSync';
+import { subscribeToSyncStatus, SyncStatus } from '../../lib/mongoClient';
 import { 
   Bell, 
   Search, 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
-import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSync';
+import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/firestoreSyncDump';
 import { getNeonStatus, inspectNeonTable, syncDataToNeon, connectMongoUri } from '../../lib/neonClient';
 import { MaterialChip } from '../common/MaterialChip';
 import { EditUserModal } from './EditUserModal';
@@ -221,20 +221,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       if (data && data.success) {
         setNeonSyncMsg({
           type: 'success',
-          text: `Firebase Firestore Synced! Transferred ${data.count ?? 0} documents into Firestore.`
+          text: `MongoDB Atlas Migrated! Successfully synchronized data records into cluster bit-leave-portal.`
         });
         await checkNeonConnection();
-        await fetchInspectTable(selectedInspectTable || 'auditLogs');
+        await fetchInspectTable(selectedInspectTable || 'audit_logs');
       } else {
         setNeonSyncMsg({
           type: 'error',
-          text: (data as any)?.error || 'Failed to sync portal data into Firebase Firestore.'
+          text: (data as any)?.error || 'Failed to sync portal data into MongoDB Atlas.'
         });
       }
     } catch (err: any) {
       setNeonSyncMsg({
         type: 'error',
-        text: err?.message || 'Network error syncing to Firebase Firestore.'
+        text: err?.message || 'Network error syncing to MongoDB Atlas.'
       });
     } finally {
       setSyncingNeon(false);
@@ -250,20 +250,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       if (res && res.success) {
         setNeonSyncMsg({
           type: 'success',
-          text: `Successfully connected to Firebase Firestore!`
+          text: `Successfully connected to MongoDB Atlas cluster bit-leave-portal!`
         });
         setShowMongoConfig(false);
         await checkNeonConnection();
       } else {
         setNeonSyncMsg({
           type: 'error',
-          text: (res as any)?.error || 'Failed to connect to Firebase Firestore.'
+          text: (res as any)?.error || 'Failed to connect to MongoDB Atlas cluster.'
         });
       }
     } catch (err: any) {
       setNeonSyncMsg({
         type: 'error',
-        text: err?.message || 'Error connecting to Firebase Firestore.'
+        text: err?.message || 'Error connecting to MongoDB Atlas cluster.'
       });
     } finally {
       setSavingMongoUri(false);
@@ -457,12 +457,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   };
 
   const targetUser = allUsers.find(u => u.id === selectedUserId) || allUsers[0];
-  const pmEntry = permissionMatrix.find(p => p.userId === targetUser.id || p.id === targetUser.id);
-  const currentAssigned = pmEntry ? (Array.isArray(pmEntry.permissions) ? pmEntry.permissions : []) : (targetUser.assignedPermissions || []);
+  const pmEntry = targetUser ? permissionMatrix.find(p => p.userId === targetUser.id || p.id === targetUser.id) : undefined;
+  const currentAssigned = pmEntry ? (Array.isArray(pmEntry.permissions) ? pmEntry.permissions : []) : (targetUser?.assignedPermissions || []);
 
   const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
 
   const handleTogglePermission = (permId: string) => {
+    if (!targetUser) return;
     let updated: string[];
     if (currentAssigned.includes(permId)) {
       updated = currentAssigned.filter(p => p !== permId);
@@ -901,7 +902,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
             <div className="space-y-2 max-h-[450px] overflow-y-auto">
               {allUsers.map((u, idx) => {
-                const isSelected = u.id === targetUser.id;
+                const isSelected = targetUser && u.id === targetUser.id;
                 return (
                   <div
                     key={`usr-sel-${u.id}-${idx}`}
@@ -929,7 +930,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-slate-900">
-                    Assigned Permissions for {targetUser.name}
+                    Assigned Permissions for {targetUser?.name || 'User'}
                   </h3>
                   <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
                     <Database className="w-3 h-3 text-emerald-600" />
@@ -937,21 +938,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Role: {targetUser.role} • Department: {targetUser.departmentName} ({targetUser.email})
+                  Role: {targetUser?.role || 'N/A'} • Department: {targetUser?.departmentName || 'N/A'} ({targetUser?.email || ''})
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <MaterialChip label={targetUser.role} variant="role" role={targetUser.role} />
-                <button
-                  type="button"
-                  onClick={() => setSelectedUserToEdit(targetUser)}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                  Modify / Delete Account
-                </button>
-              </div>
+              {targetUser && (
+                <div className="flex items-center gap-2">
+                  <MaterialChip label={targetUser.role} variant="role" role={targetUser.role} />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserToEdit(targetUser)}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                    Modify / Delete Account
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -1399,18 +1402,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </span>
           </div>
 
-          {/* Firebase Firestore Live Connection Diagnostic Card */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white border border-amber-900/60 shadow-xl space-y-4">
+          {/* MongoDB Atlas Live Connection Diagnostic Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white border border-emerald-900/60 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 font-bold text-xl">
-                  🔥
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-bold text-xl">
+                  🍃
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white tracking-tight">Firebase Firestore Database</h3>
+                    <h3 className="text-base font-bold text-white tracking-tight">MongoDB Atlas Cluster (<code className="text-emerald-400 font-mono text-xs">bit-leave-portal</code>)</h3>
                     {neonStatus.loading ? (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" /> Checking...
                       </span>
                     ) : neonStatus.connected ? (
@@ -1423,8 +1426,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-amber-200/80">
-                    Database Host: <code className="text-amber-300 font-mono text-[11px]">{neonStatus.host || 'Firebase Firestore Cluster'}</code>
+                  <p className="text-xs text-emerald-200/80">
+                    Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{neonStatus.host || 'bit-leave-portal.a8qpl.mongodb.net'}</code>
                   </p>
                 </div>
               </div>
@@ -1434,10 +1437,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   type="button"
                   onClick={syncAllDataToNeon}
                   disabled={syncingNeon}
-                  className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-amber-400/30 active:scale-98"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-emerald-400/30 active:scale-98"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${syncingNeon ? 'animate-spin' : ''}`} />
-                  {syncingNeon ? 'Syncing Data...' : `Transfer All Tables & Data to Firebase Firestore`}
+                  {syncingNeon ? 'Migrating Data...' : `Migrate All Data to bit-leave-portal DB`}
                 </button>
                 <button
                   type="button"
@@ -1446,10 +1449,57 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-indigo-400/30 active:scale-98"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${neonStatus.loading ? 'animate-spin' : ''}`} />
-                  Ping Firestore
+                  Ping Cluster
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!customMongoUriInput) {
+                      setCustomMongoUriInput("mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal");
+                    }
+                    setShowMongoConfig(!showMongoConfig);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-slate-700 active:scale-98"
+                >
+                  <Database className="w-3.5 h-3.5 text-emerald-400" />
+                  {showMongoConfig ? 'Hide URI Config' : 'Configure URI'}
                 </button>
               </div>
             </div>
+
+            {/* Mongo URI Config Drawer */}
+            {(showMongoConfig || !neonStatus.connected) && (
+              <div className="p-4 rounded-xl bg-slate-850/90 border border-slate-700 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                    <Database className="w-4 h-4 text-emerald-400" />
+                    MongoDB Atlas Connection URI (Cluster: bit-leave-portal)
+                  </label>
+                  <span className="text-[10px] font-mono text-slate-400">mongodb+srv://...</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    value={customMongoUriInput || "mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"}
+                    onChange={(e) => setCustomMongoUriInput(e.target.value)}
+                    placeholder="mongodb+srv://username:password@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"
+                    className="flex-1 px-3 py-2 rounded-lg bg-slate-950 text-emerald-300 border border-slate-700 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveMongoUri}
+                    disabled={savingMongoUri}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${savingMongoUri ? 'animate-spin' : ''}`} />
+                    {savingMongoUri ? 'Connecting...' : 'Connect & Sync'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Note: Please ensure Network Access IP is set to allow connections from anywhere (<code className="text-emerald-300">0.0.0.0/0</code>) in your MongoDB Atlas Security settings.
+                </p>
+              </div>
+            )}
 
             {/* Sync Feedback Message */}
             {neonSyncMsg && (
@@ -1494,18 +1544,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Firestore Leave Requests</span>
-                    <p className="text-xs font-mono text-amber-300 font-bold">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">Atlas Leave Requests</span>
+                    <p className="text-xs font-mono text-emerald-300 font-bold">
                       {neonStatus.counts?.leaveRequests ?? 0} Request Documents
                     </p>
                   </div>
                 </div>
 
                 {/* Live Collection & Document Inspector Section */}
-                <div className="p-4 rounded-xl bg-slate-850 border border-amber-900/80 bg-slate-900/90 space-y-3">
+                <div className="p-4 rounded-xl border border-emerald-900/80 bg-slate-900/90 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Firebase Firestore Collection Explorer:</span>
+                      <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">MongoDB Atlas Collection Explorer:</span>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'system_settings', 'permission_matrix'].map((tbl) => (
                           <button
@@ -1514,7 +1564,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                             onClick={() => fetchInspectTable(tbl)}
                             className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border ${
                               selectedInspectTable === tbl
-                                ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm'
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-sm'
                                 : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                             }`}
                           >
@@ -1528,7 +1578,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       type="button"
                       onClick={() => fetchInspectTable(selectedInspectTable)}
                       disabled={inspectLoading}
-                      className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-amber-500/30"
+                      className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1 self-start sm:self-auto cursor-pointer border border-emerald-500/30"
                     >
                       <RefreshCw className={`w-3 h-3 ${inspectLoading ? 'animate-spin' : ''}`} />
                       Inspect {selectedInspectTable}
@@ -1537,9 +1587,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
                   {/* Inspector Results */}
                   {inspectLoading ? (
-                    <div className="py-6 text-center text-xs text-amber-300 flex items-center justify-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-                      Loading collection documents from Firebase Firestore...
+                    <div className="py-6 text-center text-xs text-emerald-300 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                      Loading collection documents from MongoDB Atlas cluster...
                     </div>
                   ) : inspectError ? (
                     <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs">
@@ -1547,18 +1597,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     </div>
                   ) : inspectData ? (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs text-amber-200">
-                        <span>Firestore Collection: <strong className="font-mono text-emerald-400">{selectedInspectTable}</strong></span>
-                        <span>Documents Loaded: <strong className="font-mono text-amber-300">{inspectData.totalRows}</strong></span>
+                      <div className="flex items-center justify-between text-xs text-emerald-200">
+                        <span>Collection: <strong className="font-mono text-emerald-400">{selectedInspectTable}</strong></span>
+                        <span>Documents Loaded: <strong className="font-mono text-emerald-300">{inspectData.totalRows}</strong></span>
                       </div>
 
                       {/* Fields Schema Bar */}
                       <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto">
-                        <strong className="text-amber-400 block mb-1 text-[10px] uppercase tracking-wider font-sans font-bold">Document Fields Schema:</strong>
+                        <strong className="text-emerald-400 block mb-1 text-[10px] uppercase tracking-wider font-sans font-bold">Document Fields Schema:</strong>
                         <div className="flex flex-wrap gap-2">
                           {inspectData.columns.map((c, cIdx) => (
                             <span key={`col-schema-${c.column_name}-${cIdx}`} className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
-                              {c.column_name}: <span className="text-amber-300">{c.data_type}</span>
+                              {c.column_name}: <span className="text-emerald-300">{c.data_type}</span>
                             </span>
                           ))}
                         </div>
@@ -1568,12 +1618,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       <div className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950/90 font-mono text-[11px]">
                         {inspectData.rows.length === 0 ? (
                           <div className="p-4 text-center text-slate-400 text-xs font-sans">
-                            Collection <code className="text-amber-300 font-bold">{selectedInspectTable}</code> currently has 0 documents in Firebase Firestore.
+                            Collection <code className="text-emerald-300 font-bold">{selectedInspectTable}</code> currently has 0 documents in MongoDB Atlas cluster bit-leave-portal.
                           </div>
                         ) : (
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="border-b border-slate-800 bg-slate-900 text-amber-300 sticky top-0">
+                              <tr className="border-b border-slate-800 bg-slate-900 text-emerald-300 sticky top-0">
                                 {inspectData.columns.map((col, colIdx) => (
                                   <th key={`col-head-${col.column_name}-${colIdx}`} className="p-2 font-semibold whitespace-nowrap">
                                     {col.column_name}
@@ -1583,7 +1633,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                             </thead>
                             <tbody className="divide-y divide-slate-800/60 text-slate-300">
                               {inspectData.rows.map((row, rowIdx) => (
-                                <tr key={`inspect-row-${row.id ?? rowIdx}-${rowIdx}`} className="hover:bg-amber-950/30 transition-colors">
+                                <tr key={`inspect-row-${row.id ?? rowIdx}-${rowIdx}`} className="hover:bg-emerald-950/30 transition-colors">
                                   {inspectData.columns.map((col, cellIdx) => {
                                     const val = row[col.column_name];
                                     const formattedVal = typeof val === 'object' ? JSON.stringify(val) : String(val ?? 'NULL');
@@ -1601,8 +1651,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       </div>
                     </div>
                   ) : (
-                    <div className="py-3 text-center text-xs text-amber-300/80 font-sans">
-                      Select a collection above to inspect its live Firebase Firestore documents and fields.
+                    <div className="py-3 text-center text-xs text-emerald-300/80 font-sans">
+                      Select a collection above to inspect its live MongoDB Atlas cluster documents and fields.
                     </div>
                   )}
                 </div>
@@ -1611,7 +1661,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="space-y-3">
                 <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span><strong>Firebase Firestore Connection Issue:</strong> {neonStatus.error}</span>
+                  <span><strong>MongoDB Atlas Connection Issue:</strong> {neonStatus.error}</span>
                 </div>
               </div>
             ) : null}

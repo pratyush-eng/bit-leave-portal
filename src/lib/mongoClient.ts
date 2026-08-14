@@ -1,5 +1,35 @@
 import { SystemSettings, PermissionMatrixEntry } from '../types';
 
+export interface SyncStatus {
+  isSyncing: boolean;
+  message: string;
+  opType?: 'INSERT' | 'UPDATE' | 'DELETE' | 'RESET' | 'SYNC' | 'IDLE';
+  activeCount?: number;
+}
+
+type SyncListener = (status: SyncStatus) => void;
+const listeners: Set<SyncListener> = new Set();
+
+let currentStatus: SyncStatus = {
+  isSyncing: false,
+  message: 'MongoDB Atlas Connected',
+  opType: 'IDLE',
+  activeCount: 0,
+};
+
+export function notifySyncListeners(status: Partial<SyncStatus>) {
+  currentStatus = { ...currentStatus, ...status };
+  listeners.forEach((fn) => fn(currentStatus));
+}
+
+export function subscribeToSyncStatus(callback: SyncListener) {
+  listeners.add(callback);
+  callback(currentStatus);
+  return () => {
+    listeners.delete(callback);
+  };
+}
+
 async function safeJsonFetch(url: string, options?: RequestInit) {
   try {
     const res = await fetch(url, {
@@ -26,10 +56,12 @@ async function safeJsonFetch(url: string, options?: RequestInit) {
  * Update MongoDB Atlas connection URI
  */
 export async function connectMongoUri(uri: string) {
+  notifySyncListeners({ isSyncing: true, message: 'Connecting to MongoDB Atlas...', opType: 'SYNC' });
   const res = await safeJsonFetch('/api/mongo/connect', {
     method: 'POST',
     body: JSON.stringify({ uri }),
   });
+  notifySyncListeners({ isSyncing: false, message: res?.success ? 'MongoDB Connected' : 'Connection Failed', opType: 'IDLE' });
   return res || { success: false, error: 'Failed to update MongoDB URI endpoint.' };
 }
 
@@ -78,6 +110,7 @@ export async function inspectMongoCollection(tableName: string) {
  * Delete document(s) from a MongoDB collection
  */
 export async function deleteMongoDoc(colName: string, idOrPayload?: any, emailExtra?: string) {
+  notifySyncListeners({ isSyncing: true, message: `Deleting record from MongoDB ${colName}...`, opType: 'DELETE' });
   let bodyPayload: any = { colName };
   if (typeof idOrPayload === 'string') {
     bodyPayload.id = idOrPayload;
@@ -90,6 +123,7 @@ export async function deleteMongoDoc(colName: string, idOrPayload?: any, emailEx
     method: 'POST',
     body: JSON.stringify(bodyPayload),
   });
+  notifySyncListeners({ isSyncing: false, message: 'Record deleted from MongoDB', opType: 'IDLE' });
   if (backendData && backendData.success) {
     return backendData;
   }
@@ -99,8 +133,16 @@ export async function deleteMongoDoc(colName: string, idOrPayload?: any, emailEx
   });
 }
 
+export const deleteDocFromMongo = deleteMongoDoc;
+export async function deleteUserFromMongo(id: string, email?: string) {
+  return await deleteMongoDoc('users', id, email);
+}
+export async function resetMongoData() {
+  return await deleteMongoDoc('clearAllRequests', 'all');
+}
+
 /**
- * Bulk sync all local state and Firestore records to MongoDB Atlas
+ * Bulk sync all local state and records to MongoDB Atlas
  */
 export async function syncDataToMongo(payload: {
   users?: any[];
@@ -112,10 +154,12 @@ export async function syncDataToMongo(payload: {
   permissionMatrix?: PermissionMatrixEntry[];
   systemSettings?: SystemSettings;
 }) {
+  notifySyncListeners({ isSyncing: true, message: 'Saving records to MongoDB Atlas...', opType: 'UPDATE' });
   const backendData = await safeJsonFetch('/api/mongo/sync', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  notifySyncListeners({ isSyncing: false, message: 'MongoDB Atlas Saved', opType: 'IDLE' });
   if (backendData && backendData.success) {
     return backendData;
   }
@@ -146,10 +190,12 @@ export async function sendAuditLogToMongo(log: any) {
  * Save System Settings into MongoDB Atlas
  */
 export async function saveSystemSettingsToMongo(settings: SystemSettings) {
+  notifySyncListeners({ isSyncing: true, message: 'Saving System Settings to MongoDB...', opType: 'UPDATE' });
   const backendData = await safeJsonFetch('/api/system-settings/save', {
     method: 'POST',
     body: JSON.stringify(settings),
   });
+  notifySyncListeners({ isSyncing: false, message: 'System Settings Saved in MongoDB', opType: 'IDLE' });
   return backendData;
 }
 
@@ -157,12 +203,37 @@ export async function saveSystemSettingsToMongo(settings: SystemSettings) {
  * Save Permission Matrix into MongoDB Atlas
  */
 export async function savePermissionMatrixToMongo(permissionMatrix: PermissionMatrixEntry[] | PermissionMatrixEntry | any) {
+  notifySyncListeners({ isSyncing: true, message: 'Updating Permission Matrix in MongoDB...', opType: 'UPDATE' });
   const payload = Array.isArray(permissionMatrix) ? { permissionMatrix } : (permissionMatrix.userId ? permissionMatrix : { permissionMatrix: [permissionMatrix] });
   const backendData = await safeJsonFetch('/api/permission-matrix/save', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  notifySyncListeners({ isSyncing: false, message: 'Permission Matrix Updated in MongoDB', opType: 'IDLE' });
   return backendData;
+}
+
+/**
+ * Save single document into MongoDB
+ */
+export async function saveDocToMongo(colName: string, _id: string, doc: any) {
+  if (colName === 'users') {
+    return await syncDataToMongo({ users: [doc] });
+  } else if (colName === 'leaveRequests' || colName === 'leave_requests') {
+    return await syncDataToMongo({ leaveRequests: [doc] });
+  } else if (colName === 'departments') {
+    return await syncDataToMongo({ departments: [doc] });
+  } else if (colName === 'leavePolicies' || colName === 'leave_policies') {
+    return await syncDataToMongo({ leavePolicies: [doc] });
+  } else if (colName === 'auditLogs' || colName === 'audit_logs') {
+    return await sendAuditLogToMongo(doc);
+  } else if (colName === 'permission_matrix' || colName === 'permissionMatrix') {
+    return await savePermissionMatrixToMongo(doc);
+  } else if (colName === 'settings' || colName === 'systemSettings') {
+    return await saveSystemSettingsToMongo(doc);
+  } else {
+    return await syncDataToMongo({ [colName]: [doc] });
+  }
 }
 
 /**
@@ -182,3 +253,4 @@ export async function fetchMongoData() {
   }
   return null;
 }
+
