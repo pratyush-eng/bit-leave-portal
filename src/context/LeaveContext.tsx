@@ -573,6 +573,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSystemSettings(prev => {
       const updated = { ...prev, ...newSettings };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+      saveDocToMongo('system_privileges', 'global', updated);
       saveDocToMongo('settings', 'global', updated);
       return updated;
     });
@@ -582,8 +583,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       `Updated system configuration: Demo Accounts=${newSettings.enableDemoAccounts ?? systemSettings.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${newSettings.enableRoleSwitcher ?? systemSettings.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}.`
     );
     addToast({
-      title: 'System Settings Saved ⚙️',
-      message: 'Institutional system privileges and configuration updated.',
+      title: 'System Privileges Saved ⚙️',
+      message: 'System privileges and toggles updated in database (system_privileges).',
       type: 'SUCCESS'
     });
   };

@@ -174,6 +174,19 @@ export async function saveSystemSettingsToMongo(settings: SystemSettings) {
 }
 
 /**
+ * Save System Privileges & Feature Toggles into MongoDB Atlas (system_privileges collection)
+ */
+export async function saveSystemPrivilegesToMongo(privileges: any) {
+  notifySyncListeners({ isSyncing: true, message: 'Saving System Privileges & Toggles to MongoDB Atlas...', opType: 'UPDATE' });
+  const backendData = await safeJsonFetch('/api/system-privileges/save', {
+    method: 'POST',
+    body: JSON.stringify(privileges),
+  });
+  notifySyncListeners({ isSyncing: false, message: 'System Privileges & Toggles Saved in MongoDB Atlas', opType: 'IDLE' });
+  return backendData;
+}
+
+/**
  * Save Permission Matrix into MongoDB Atlas
  */
 export async function savePermissionMatrixToMongo(permissionMatrix: PermissionMatrixEntry[] | PermissionMatrixEntry | any) {
@@ -203,6 +216,8 @@ export async function saveDocToMongo(colName: string, _id: string, doc: any) {
     return await sendAuditLogToMongo(doc);
   } else if (colName === 'permission_matrix' || colName === 'permissionMatrix') {
     return await savePermissionMatrixToMongo(doc);
+  } else if (colName === 'system_privileges' || colName === 'systemPrivileges') {
+    return await saveSystemPrivilegesToMongo(doc);
   } else if (colName === 'settings' || colName === 'systemSettings') {
     return await saveSystemSettingsToMongo(doc);
   } else {

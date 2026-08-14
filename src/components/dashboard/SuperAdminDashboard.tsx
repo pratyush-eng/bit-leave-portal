@@ -1557,7 +1557,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">MongoDB Atlas Collection Explorer:</span>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'system_settings', 'permission_matrix'].map((tbl) => (
+                        {['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'permission_matrix', 'system_settings', 'system_privileges'].map((tbl) => (
                           <button
                             key={tbl}
                             type="button"
@@ -2052,14 +2052,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {/* Tab: System Privileges & Feature Toggles */}
       {activeTab === 'settings' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-6 space-y-6">
-          <div className="border-b border-slate-200 pb-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-[#3F51B5]" />
-              Institutional System Controls & Feature Privileges
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Super Admin privilege controls to enable or disable public demo accounts, role switcher guides, and workflow simulation elements across the portal.
-            </p>
+          <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-[#3F51B5]" />
+                Institutional System Controls & Feature Privileges
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Super Admin privilege controls to enable or disable public demo accounts, role switcher guides, and workflow simulation elements across the portal.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <span className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-mono font-bold flex items-center gap-1.5 shadow-2xs">
+                <Database className="w-3.5 h-3.5 text-indigo-600" />
+                DB Table: <code className="font-extrabold text-indigo-900">system_privileges</code>
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

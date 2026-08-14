@@ -222,6 +222,20 @@ const SystemSettingsSchema = new mongoose.Schema({
   updatedBy: { type: String, default: "SUPER_ADMIN" },
 }, { timestamps: true });
 
+const SystemPrivilegeSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, default: "default" },
+  privilegeName: { type: String, default: "System Privileges & Feature Toggles" },
+  enableDemoAccounts: { type: Boolean, default: true },
+  enableRoleSwitcher: { type: Boolean, default: true },
+  enableSelfRegistration: { type: Boolean, default: true },
+  institutionName: { type: String, default: "BIT Leave Portal" },
+  institutionLogoUrl: { type: String, default: null },
+  emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
+  customToggles: { type: mongoose.Schema.Types.Mixed, default: {} },
+  updatedAt: { type: String, default: "" },
+  updatedBy: { type: String, default: "SUPER_ADMIN" },
+}, { timestamps: true });
+
 const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema);
 const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema);
 const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
@@ -230,6 +244,7 @@ const AuditLogModel: any = mongoose.models.AuditLog || mongoose.model("AuditLog"
 const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("LeaveBalance", LeaveBalanceSchema);
 const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema);
 const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
+const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mongoose.model("SystemPrivilege", SystemPrivilegeSchema, "system_privileges");
 
 async function seedAndMigrateToMongo() {
   if (!isMongoConnected || mongoose.connection.readyState !== 1) return;
@@ -379,18 +394,17 @@ async function seedAndMigrateToMongo() {
       );
     }
 
-    // 7. System Settings
+    // 7. System Settings & System Privileges
     if (inMemoryStore.systemSettings) {
-      await SystemSettingsModel.findOneAndUpdate(
-        { id: "default" },
-        {
-          id: "default",
-          ...inMemoryStore.systemSettings,
-          updatedAt: new Date().toISOString(),
-          updatedBy: "SUPER_ADMIN",
-        },
-        { upsert: true, new: true }
-      );
+      const sysPayload = {
+        id: "default",
+        privilegeName: "System Privileges & Feature Toggles",
+        ...inMemoryStore.systemSettings,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "SUPER_ADMIN",
+      };
+      await SystemSettingsModel.findOneAndUpdate({ id: "default" }, sysPayload, { upsert: true, new: true });
+      await SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, sysPayload, { upsert: true, new: true });
     }
   } catch (_e) {
     // Soft fallback
@@ -428,31 +442,33 @@ async function startServer() {
         database: "bit_leave_portal",
         host: maskedUri,
         error: mongoConnectError || "Connecting to MongoDB Atlas...",
-        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
-        counts: { users: 0, leaveRequests: 0, departments: 0, auditLogs: 0, leaveBalances: 0 }
+        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
+        counts: { users: 0, leaveRequests: 0, departments: 0, auditLogs: 0, leaveBalances: 0, systemPrivileges: 0 }
       });
     }
 
     try {
-      const [userCount, requestCount, deptCount, auditLogCount, balanceCount] = await Promise.all([
+      const [userCount, requestCount, deptCount, auditLogCount, balanceCount, privilegeCount] = await Promise.all([
         UserModel.countDocuments(),
         LeaveRequestModel.countDocuments(),
         DepartmentModel.countDocuments(),
         AuditLogModel.countDocuments(),
         LeaveBalanceModel.countDocuments(),
+        SystemPrivilegeModel.countDocuments(),
       ]);
 
       return res.json({
         connected: true,
         database: "bit_leave_portal",
         host: maskedUri,
-        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
+        tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
         counts: {
           users: userCount,
           leaveRequests: requestCount,
           departments: deptCount,
           auditLogs: auditLogCount,
-          leaveBalances: balanceCount
+          leaveBalances: balanceCount,
+          systemPrivileges: privilegeCount,
         }
       });
     } catch (err: any) {
@@ -692,7 +708,7 @@ async function startServer() {
     const connected = await initMongo();
     if (connected && mongoose.connection.readyState === 1) {
       try {
-        const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc] = await Promise.all([
+        const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc, privDoc] = await Promise.all([
           UserModel.find().lean(),
           LeaveRequestModel.find().lean(),
           DepartmentModel.find().lean(),
@@ -701,15 +717,17 @@ async function startServer() {
           LeaveBalanceModel.find().lean(),
           PermissionMatrixModel.find().lean(),
           SystemSettingsModel.findOne({ id: "default" }).lean(),
+          SystemPrivilegeModel.findOne({ id: "default" }).lean(),
         ]);
 
-        const systemSettings = sysDoc ? {
-          enableDemoAccounts: sysDoc.enableDemoAccounts ?? true,
-          enableRoleSwitcher: sysDoc.enableRoleSwitcher ?? true,
-          enableSelfRegistration: sysDoc.enableSelfRegistration ?? true,
-          institutionName: sysDoc.institutionName || "BIT Leave Portal",
-          institutionLogoUrl: sysDoc.institutionLogoUrl || null,
-          emailSettings: sysDoc.emailSettings || {},
+        const mergedSettings = privDoc || sysDoc;
+        const systemSettings = mergedSettings ? {
+          enableDemoAccounts: mergedSettings.enableDemoAccounts ?? true,
+          enableRoleSwitcher: mergedSettings.enableRoleSwitcher ?? true,
+          enableSelfRegistration: mergedSettings.enableSelfRegistration ?? true,
+          institutionName: mergedSettings.institutionName || "BIT Leave Portal",
+          institutionLogoUrl: mergedSettings.institutionLogoUrl || null,
+          emailSettings: mergedSettings.emailSettings || {},
         } : inMemoryStore.systemSettings;
 
         // Keep inMemoryStore directly synced to MongoDB state
@@ -734,6 +752,7 @@ async function startServer() {
             leaveBalances,
             permissionMatrix,
             systemSettings,
+            systemPrivileges: mergedSettings ? [mergedSettings] : [],
           }
         });
       } catch (err: any) {
@@ -919,6 +938,8 @@ async function startServer() {
         rows = await PermissionMatrixModel.find().limit(100).lean();
       } else if (tableName === "system_settings") {
         rows = await SystemSettingsModel.find().limit(100).lean();
+      } else if (tableName === "system_privileges") {
+        rows = await SystemPrivilegeModel.find().limit(100).lean();
       }
 
       const columns = rows.length > 0 ? Object.keys(rows[0]).map(k => ({ column_name: k, data_type: typeof rows[0][k], is_nullable: "YES" })) : [];
@@ -926,7 +947,7 @@ async function startServer() {
       return res.json({
         success: true,
         table: tableName,
-        availableTables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings"],
+        availableTables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
         columns,
         totalRows: rows.length,
         rows
@@ -980,11 +1001,12 @@ async function startServer() {
     }
   });
 
-  // System Settings endpoint
-  app.get("/api/system-settings", async (req, res) => {
+  // System Privileges & Settings endpoints
+  app.all(["/api/system-privileges", "/api/system-settings"], async (req, res) => {
     await initMongo();
     try {
-      const s = await SystemSettingsModel.findOne({ id: "default" }).lean();
+      const privDoc = await SystemPrivilegeModel.findOne({ id: "default" }).lean();
+      const s = privDoc || (await SystemSettingsModel.findOne({ id: "default" }).lean());
       const settings = {
         enableDemoAccounts: s?.enableDemoAccounts ?? true,
         enableRoleSwitcher: s?.enableRoleSwitcher ?? true,
@@ -993,32 +1015,34 @@ async function startServer() {
         institutionLogoUrl: s?.institutionLogoUrl || null,
         emailSettings: s?.emailSettings || {},
       };
-      return res.json({ success: true, settings });
+      return res.json({ success: true, settings, systemPrivileges: s });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message });
     }
   });
 
-  app.post("/api/system-settings/save", async (req, res) => {
+  app.all(["/api/system-privileges/save", "/api/system-settings/save"], async (req, res) => {
     await initMongo();
     try {
-      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings } = req.body || {};
-      await SystemSettingsModel.findOneAndUpdate(
-        { id: "default" },
-        {
-          id: "default",
-          enableDemoAccounts: enableDemoAccounts ?? true,
-          enableRoleSwitcher: enableRoleSwitcher ?? true,
-          enableSelfRegistration: enableSelfRegistration ?? true,
-          institutionName: institutionName || "BIT Leave Portal",
-          institutionLogoUrl: institutionLogoUrl || null,
-          emailSettings: emailSettings || {},
-          updatedAt: new Date().toISOString(),
-          updatedBy: "SUPER_ADMIN",
-        },
-        { upsert: true, new: true }
-      );
-      return res.json({ success: true, message: "System privilege & settings updated in MongoDB Atlas" });
+      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, customToggles } = req.body || {};
+      const payload = {
+        id: "default",
+        privilegeName: "System Privileges & Feature Toggles",
+        enableDemoAccounts: enableDemoAccounts ?? true,
+        enableRoleSwitcher: enableRoleSwitcher ?? true,
+        enableSelfRegistration: enableSelfRegistration ?? true,
+        institutionName: institutionName || "BIT Leave Portal",
+        institutionLogoUrl: institutionLogoUrl || null,
+        emailSettings: emailSettings || {},
+        customToggles: customToggles || {},
+        updatedAt: new Date().toISOString(),
+        updatedBy: "SUPER_ADMIN",
+      };
+
+      await SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true });
+      await SystemSettingsModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true });
+
+      return res.json({ success: true, message: "System privileges and toggles updated in MongoDB Atlas (system_privileges collection)" });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err?.message });
     }
