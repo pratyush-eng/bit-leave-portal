@@ -11,7 +11,7 @@ import {
   INITIAL_AUDIT_LOGS 
 } from "./src/data/mockData";
 
-let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
+let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
 let isMongoConnected = false;
 let mongoConnectError = "";
