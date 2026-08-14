@@ -40,6 +40,7 @@ import {
   buildTestEmail
 } from '../lib/emailTemplates';
 import { 
+  MOCK_USERS,
   INITIAL_LEAVE_REQUESTS, 
   INITIAL_NOTIFICATIONS, 
   INITIAL_AUDIT_LOGS, 
@@ -193,8 +194,22 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     emailSettings: DEFAULT_EMAIL_SETTINGS
   });
 
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(() => 
+    sanitizeAndDeduplicateUsers(MOCK_USERS)
+  );
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([
+    {
+      id: 'usr_5',
+      userId: 'usr_5',
+      userName: 'Prof. Vikramaditya Roy',
+      userEmail: 'dean.academic@institution.edu',
+      role: 'SUPER_ADMIN',
+      departmentId: 'CSE',
+      permissions: ['PERM_APPROVE_OVERRIDE', 'PERM_ADJUST_BALANCE', 'PERM_MANAGE_USERS', 'PERM_EXPORT_REPORTS', 'PERM_CONFIG_POLICIES'],
+      updatedAt: new Date().toISOString(),
+      updatedBy: 'SUPER_ADMIN'
+    }
+  ]);
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
     try {
@@ -221,12 +236,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
-  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>([]);
+  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(INITIAL_LEAVE_POLICIES);
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -811,15 +826,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mongoData = await fetchMongoData();
         if (!mounted || !mongoData) return;
 
-        const cleanUsers = Array.isArray(mongoData.users) && mongoData.users.length > 0 ? sanitizeAndDeduplicateUsers(mongoData.users) : [];
-        const cleanDepts = Array.isArray(mongoData.departments) && mongoData.departments.length > 0 ? mongoData.departments : [];
+        const incomingUsers = Array.isArray(mongoData.users) && mongoData.users.length > 0 ? mongoData.users : [];
+        const cleanUsers = sanitizeAndDeduplicateUsers([...MOCK_USERS, ...incomingUsers], deletedUserIds, deletedUserEmails);
+        const cleanDepts = Array.isArray(mongoData.departments) && mongoData.departments.length > 0 ? mergeById(mongoData.departments, INITIAL_DEPARTMENTS) : INITIAL_DEPARTMENTS;
 
         if (cleanUsers.length > 0) {
           setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
         }
         if (Array.isArray(mongoData.leaveRequests)) {
           setLeaveRequests((prev) => {
-            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, cleanUsers.length > 0 ? cleanUsers : allUsers, cleanDepts.length > 0 ? cleanDepts : departments);
+            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, cleanUsers, cleanDepts);
             return isDeepEqual(normalized, prev) ? prev : normalized;
           });
         }
@@ -866,7 +882,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const login = (email: string, password?: string): { success: boolean; message?: string } => {
     const cleanEmail = email.toLowerCase().trim();
-    const matched = allUsers.find(u => u.email.toLowerCase().trim() === cleanEmail);
+    const candidateUsers = sanitizeAndDeduplicateUsers([...allUsers, ...MOCK_USERS], deletedUserIds, deletedUserEmails);
+    const matched = candidateUsers.find(u => u.email.toLowerCase().trim() === cleanEmail);
     if (!matched) {
       return { success: false, message: 'No institutional account found with this email address.' };
     }
