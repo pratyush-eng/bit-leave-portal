@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
 import { subscribeToSyncStatus, SyncStatus } from '../../lib/mongoClient';
+import { BitLogo } from '../common/BitLogo';
 import { 
   Bell, 
   Search, 
@@ -61,19 +62,19 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#3F51B5] text-white flex items-center justify-center font-bold text-xs shadow-xs overflow-hidden shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white p-0.5 flex items-center justify-center font-bold text-xs shadow-xs border border-slate-200 overflow-hidden shrink-0">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
                   alt="Logo" 
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full object-contain" 
                   onError={(e) => {
-                    // Fallback to icon if image fails to load
+                    // Fallback to logo if image fails to load
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
               ) : (
-                <GraduationCap className="w-4 h-4 text-white" />
+                <BitLogo className="w-full h-full" />
               )}
             </div>
             <div className="min-w-0">

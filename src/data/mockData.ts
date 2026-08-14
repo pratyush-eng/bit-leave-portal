@@ -239,6 +239,30 @@ export const MOCK_USERS: User[] = [
       MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
       SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
     }
+  },
+  {
+    id: 'usr_webmaster',
+    name: 'Webmaster BIT Mesra',
+    email: 'webmaster@bitmesra.ac.in',
+    role: 'SUPER_ADMIN',
+    designation: 'Portal Administrator & Webmaster',
+    departmentId: 'CSE',
+    departmentName: 'Computer Science & Engineering',
+    employeeCode: 'BIT-ADM-001',
+    joiningDate: '2010-01-01',
+    phone: '+91 98888 77766',
+    password: 'password123',
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
+    assignedPermissions: ['PERM_APPROVE_OVERRIDE', 'PERM_ADJUST_BALANCE', 'PERM_MANAGE_USERS', 'PERM_EXPORT_REPORTS', 'PERM_CONFIG_POLICIES'],
+    leaveBalances: {
+      CASUAL: { total: 12, used: 0, pending: 0 },
+      SICK: { total: 10, used: 0, pending: 0 },
+      EARNED: { total: 30, used: 0, pending: 0 },
+      DUTY: { total: 15, used: 0, pending: 0 },
+      STUDY: { total: 90, used: 0, pending: 0 },
+      MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
+      SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
+    }
   }
 ];
 

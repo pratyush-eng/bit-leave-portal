@@ -32,7 +32,10 @@ export function subscribeToSyncStatus(callback: SyncListener) {
 
 async function safeJsonFetch(url: string, options?: RequestInit) {
   try {
-    const timestampUrl = options?.method === 'POST' ? url : (url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`);
+    const timestampUrl = options?.method === 'POST' 
+      ? url 
+      : (url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`);
+      
     const res = await fetch(timestampUrl, {
       cache: 'no-store',
       ...options,
@@ -43,15 +46,19 @@ async function safeJsonFetch(url: string, options?: RequestInit) {
         ...(options?.headers || {}),
       },
     });
+
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await res.json();
+      return data;
+    }
+
     if (!res.ok) {
       return null;
     }
-    const contentType = res.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await res.json();
-    }
     return null;
-  } catch (_err) {
+  } catch (err: any) {
+    console.warn(`[API Fetch Warning] ${url}:`, err?.message || err);
     return null;
   }
 }

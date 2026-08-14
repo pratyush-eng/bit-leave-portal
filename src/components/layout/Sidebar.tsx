@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
+import { BitLogo } from '../common/BitLogo';
 import { 
   LayoutDashboard, 
   FilePlus, 
@@ -95,26 +96,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Sidebar Header */}
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center font-bold text-white shadow-xs text-sm overflow-hidden shrink-0">
+            <div className="w-10 h-10 bg-white p-0.5 rounded-xl flex items-center justify-center font-bold text-white shadow-sm text-sm overflow-hidden shrink-0 border border-white/30">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
                   alt="Logo" 
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full object-contain" 
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
               ) : (
-                'LP'
+                <BitLogo className="w-full h-full" />
               )}
             </div>
             <div className="min-w-0">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight whitespace-nowrap truncate">
                 {systemSettings?.institutionName || 'BIT Leave Portal'}
               </h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-60 text-indigo-100 mt-0.5 whitespace-nowrap truncate">
-                University Portal
+              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-75 text-indigo-100 mt-0.5 whitespace-nowrap truncate">
+                Birla Institute of Technology
               </p>
             </div>
           </div>

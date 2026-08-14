@@ -5,6 +5,7 @@ import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
 import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/mongoSyncDump';
 import { getNeonStatus, inspectNeonTable, syncDataToNeon, connectMongoUri } from '../../lib/neonClient';
 import { MaterialChip } from '../common/MaterialChip';
+import { BitLogo } from '../common/BitLogo';
 import { EditUserModal } from './EditUserModal';
 import { 
   ShieldCheck, 
@@ -2294,23 +2295,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   
                   {/* Login Header Mockup */}
                   <div className="bg-[#3F51B5] text-white p-4 rounded-xl flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-white/20">
+                    <div className="w-10 h-10 rounded-xl bg-white p-0.5 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-white/30 shadow-xs">
                       {logoUrlInput ? (
                         <img 
                           src={logoUrlInput} 
                           alt="Preview" 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-contain" 
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = 'none';
                           }}
                         />
                       ) : (
-                        <Image className="w-5 h-5 text-white" />
+                        <BitLogo className="w-full h-full" />
                       )}
                     </div>
                     <div>
                       <p className="text-sm font-bold leading-tight">{institutionNameInput || 'BIT Leave Portal'}</p>
-                      <p className="text-[10px] text-blue-100 opacity-90">Fully Managed Leave Portal</p>
+                      <p className="text-[10px] text-blue-100 opacity-90">Birla Institute of Technology, Mesra</p>
                     </div>
                   </div>
                 </div>

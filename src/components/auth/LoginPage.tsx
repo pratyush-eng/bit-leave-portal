@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { Role } from '../../types';
+import { BitLogo } from '../common/BitLogo';
 import { 
   Building2, 
   ShieldCheck, 
@@ -40,7 +41,8 @@ export const LoginPage: React.FC = () => {
     systemSettings.enableDemoAccounts ? 'password123' : ''
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [showDemoAccounts, setShowDemoAccounts] = useState<boolean>(false);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [showDemoAccounts, setShowDemoAccounts] = useState<boolean>(true);
 
   // Forgot Password State
   const [forgotStep, setForgotStep] = useState<'request' | 'verify'>('request');
@@ -94,16 +96,23 @@ export const LoginPage: React.FC = () => {
   const [regSuccessMsg, setRegSuccessMsg] = useState<string | null>(null);
   const [regErrorMsg, setRegErrorMsg] = useState<string | null>(null);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     if (!email || !password) {
       setErrorMsg('Please enter both email address and password.');
       return;
     }
-    const result = login(email, password);
-    if (!result.success) {
-      setErrorMsg(result.message || 'Invalid user credentials. Please check your institutional account.');
+    setIsLoggingIn(true);
+    try {
+      const result = await login(email, password);
+      if (!result.success) {
+        setErrorMsg(result.message || 'Invalid user credentials. Please check your institutional account.');
+      }
+    } catch (_err) {
+      setErrorMsg('Unable to reach institutional authentication service. Please try again.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -266,12 +275,22 @@ export const LoginPage: React.FC = () => {
     },
     {
       role: 'SUPER_ADMIN',
-      title: 'Institutional Super Admin',
+      title: 'Dean Academic Affairs',
       name: 'Prof. Vikramaditya Roy',
       email: 'dean.academic@institution.edu',
       dept: 'Dean Academic Affairs',
       color: 'bg-slate-100 border-slate-300 text-slate-900 hover:border-slate-500',
       badgeBg: 'bg-slate-900 text-white'
+    },
+    {
+      role: 'WEBMASTER',
+      title: 'Webmaster Super Admin',
+      name: 'Webmaster BIT Mesra',
+      email: 'webmaster@bitmesra.ac.in',
+      dept: 'IT & Systems Admin',
+      color: 'bg-indigo-50 border-indigo-300 text-indigo-900 hover:border-indigo-500',
+      badgeBg: 'bg-[#3F51B5] text-white',
+      customPassword: 'password123'
     },
   ];
 
@@ -281,20 +300,20 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-xl px-4">
         <div className="bg-white shadow-lg rounded-2xl border border-slate-200 overflow-hidden">
           
-          {/* Blue Header inside Login Box Card */}
+          {/* Header inside Login Box Card */}
           <div className="bg-[#3F51B5] text-white px-6 py-5 sm:px-8 flex items-center gap-3.5 border-b border-indigo-700">
-            <div className="w-11 h-11 rounded-xl bg-white/15 text-white flex items-center justify-center font-bold shrink-0 border border-white/20 shadow-xs overflow-hidden">
+            <div className="w-12 h-12 rounded-xl bg-white p-1 text-white flex items-center justify-center font-bold shrink-0 border border-white/30 shadow-sm overflow-hidden">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
                   alt="Logo" 
-                  className="w-full h-full object-cover" 
+                  className="w-full h-full object-contain" 
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
               ) : (
-                <GraduationCap className="w-6 h-6 text-white" />
+                <BitLogo className="w-full h-full" />
               )}
             </div>
             <div>
@@ -302,7 +321,7 @@ export const LoginPage: React.FC = () => {
                 {systemSettings?.institutionName || 'BIT Leave Portal'}
               </h1>
               <p className="text-xs text-blue-100 font-medium opacity-90 mt-0.5">
-                Fully Managed Leave Portal
+                Birla Institute of Technology, Mesra • Automated Portal
               </p>
             </div>
           </div>
@@ -401,10 +420,20 @@ export const LoginPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-md text-xs font-bold uppercase tracking-widest text-white bg-[#3F51B5] hover:bg-[#303F9F] focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-[#3F51B5] transition-all cursor-pointer active:scale-98"
+                  disabled={isLoggingIn}
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl shadow-md text-xs font-bold uppercase tracking-widest text-white bg-[#3F51B5] hover:bg-[#303F9F] focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-[#3F51B5] transition-all cursor-pointer active:scale-98 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <LogIn className="w-4 h-4" />
-                  Sign In to Dashboard
+                  {isLoggingIn ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Authenticating with Database...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      Sign In to Dashboard
+                    </>
+                  )}
                 </button>
               </form>
 
@@ -435,7 +464,7 @@ export const LoginPage: React.FC = () => {
                             type="button"
                             onClick={() => {
                               setEmail(qr.email);
-                              setPassword('password123');
+                              setPassword((qr as any).customPassword || 'password123');
                               setErrorMsg(null);
                             }}
                             className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
