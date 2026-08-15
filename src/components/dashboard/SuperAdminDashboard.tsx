@@ -271,23 +271,88 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     }
   };
 
+  const getFallbackTableData = (tableName: string) => {
+    const raw = (tableName || 'users').toLowerCase().trim();
+    let rows: any[] = [];
+    if (raw === 'users') {
+      rows = allUsers || [];
+    } else if (raw === 'leave_requests' || raw === 'leaverequests') {
+      rows = leaveRequests || [];
+    } else if (raw === 'departments') {
+      rows = departments || [];
+    } else if (raw === 'leave_policies' || raw === 'leavepolicies') {
+      rows = leavePolicies || [];
+    } else if (raw === 'audit_logs' || raw === 'auditlogs') {
+      rows = auditLogs || [];
+    } else if (raw === 'permission_matrix' || raw === 'permissionmatrix') {
+      rows = permissionMatrix || [];
+    } else if (raw === 'system_settings' || raw === 'systemsettings') {
+      rows = systemSettings ? [systemSettings] : [];
+    } else if (raw === 'system_privileges' || raw === 'systemprivileges') {
+      rows = systemSettings ? [{
+        id: 'default',
+        privilegeName: 'System Privileges & Feature Toggles',
+        ...systemSettings
+      }] : [];
+    }
+
+    const colKeys = new Set<string>();
+    for (const r of rows) {
+      if (r && typeof r === 'object') {
+        Object.keys(r).forEach(k => {
+          if (k !== '__v') colKeys.add(k);
+        });
+      }
+    }
+
+    let columns: Array<{ column_name: string; data_type: string; is_nullable: string }> = [];
+    if (colKeys.size > 0) {
+      columns = Array.from(colKeys).map(k => ({
+        column_name: k,
+        data_type: typeof rows[0]?.[k] || 'text',
+        is_nullable: 'YES'
+      }));
+    } else {
+      const defaultCols: Record<string, string[]> = {
+        users: ['id', 'name', 'email', 'role', 'designation', 'departmentId', 'employeeCode', 'phone', 'accountStatus'],
+        leave_requests: ['id', 'applicantName', 'applicantEmail', 'leaveType', 'startDate', 'endDate', 'totalDays', 'status', 'appliedOn'],
+        departments: ['id', 'code', 'name', 'hodId', 'hodName', 'totalFaculty'],
+        leave_policies: ['type', 'label', 'annualQuota', 'minDaysNotice', 'requiresDocument', 'color'],
+        audit_logs: ['id', 'timestamp', 'actorName', 'actorRole', 'action', 'details'],
+        permission_matrix: ['id', 'userId', 'userName', 'userEmail', 'role', 'permissions', 'updatedAt'],
+        system_settings: ['id', 'institutionName', 'enableDemoAccounts', 'enableRoleSwitcher', 'enableSelfRegistration'],
+        system_privileges: ['id', 'privilegeName', 'enableDemoAccounts', 'enableRoleSwitcher', 'enableSelfRegistration']
+      };
+      const defs = defaultCols[raw] || ['id', 'name', 'status'];
+      columns = defs.map(k => ({ column_name: k, data_type: 'text', is_nullable: 'YES' }));
+    }
+
+    return {
+      columns,
+      rows,
+      totalRows: rows.length
+    };
+  };
+
   const fetchInspectTable = async (tableName: string) => {
     setSelectedInspectTable(tableName);
     setInspectLoading(true);
     setInspectError(null);
     try {
       const data = await inspectNeonTable(tableName);
-      if (data && data.success) {
+      if (data && data.success && Array.isArray(data.rows) && data.rows.length > 0) {
         setInspectData({
           columns: data.columns || [],
           rows: data.rows || [],
-          totalRows: data.totalRows || 0,
+          totalRows: data.totalRows !== undefined ? data.totalRows : data.rows.length,
         });
       } else {
-        setInspectError(data?.error || 'Failed to inspect collection.');
+        const fallback = getFallbackTableData(tableName);
+        setInspectData(fallback);
       }
-    } catch (err: any) {
-      setInspectError(err?.message || 'Error fetching collection data.');
+    } catch (_err) {
+      const fallback = getFallbackTableData(tableName);
+      setInspectData(fallback);
     } finally {
       setInspectLoading(false);
     }

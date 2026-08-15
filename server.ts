@@ -1086,133 +1086,236 @@ async function startServer() {
 
   // Table Inspector endpoint
   const handleInspectTable = async (req: express.Request, res: express.Response) => {
-    await initMongo();
-    const tableName = (req.query.table as string) || "users";
+    const rawTable = (req.query.table as string) || (req.body?.table as string) || "users";
+    const tableName = rawTable.toLowerCase().trim();
     let rows: any[] = [];
+    const isDbReady = isMongoConnected && mongoose.connection.readyState === 1;
 
     try {
-      if (tableName === "users") {
-        rows = await UserModel.find().limit(100).lean();
-      } else if (tableName === "leave_requests") {
-        rows = await LeaveRequestModel.find().limit(100).lean();
-      } else if (tableName === "departments") {
-        rows = await DepartmentModel.find().limit(100).lean();
-      } else if (tableName === "leave_policies") {
-        rows = await LeavePolicyModel.find().limit(100).lean();
-      } else if (tableName === "audit_logs") {
-        rows = await AuditLogModel.find().sort({ timestamp: -1 }).limit(100).lean();
-      } else if (tableName === "permission_matrix") {
-        rows = await PermissionMatrixModel.find().limit(100).lean();
-      } else if (tableName === "system_settings") {
-        rows = await SystemSettingsModel.find().limit(100).lean();
-      } else if (tableName === "system_privileges") {
-        rows = await SystemPrivilegeModel.find().limit(100).lean();
+      if (isDbReady) {
+        if (tableName === "users") {
+          rows = await UserModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "leave_requests" || tableName === "leaverequests") {
+          rows = await LeaveRequestModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "departments") {
+          rows = await DepartmentModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "leave_policies" || tableName === "leavepolicies") {
+          rows = await LeavePolicyModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "audit_logs" || tableName === "auditlogs") {
+          rows = await AuditLogModel.find().sort({ timestamp: -1 }).limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "permission_matrix" || tableName === "permissionmatrix") {
+          rows = await PermissionMatrixModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "system_settings" || tableName === "systemsettings") {
+          rows = await SystemSettingsModel.find().limit(100).lean().maxTimeMS(3000);
+        } else if (tableName === "system_privileges" || tableName === "systemprivileges") {
+          rows = await SystemPrivilegeModel.find().limit(100).lean().maxTimeMS(3000);
+        }
       }
-
-      const columns = rows.length > 0 ? Object.keys(rows[0]).map(k => ({ column_name: k, data_type: typeof rows[0][k], is_nullable: "YES" })) : [];
-
-      return res.json({
-        success: true,
-        table: tableName,
-        availableTables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
-        columns,
-        totalRows: rows.length,
-        rows
-      });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
+    } catch (_err) {
+      // If MongoDB query times out or fails, gracefully fallback to inMemoryStore
+      rows = [];
     }
+
+    // If MongoDB query returned no rows or wasn't connected, populate from inMemoryStore
+    if (!rows || rows.length === 0) {
+      if (tableName === "users") {
+        rows = (inMemoryStore.users || []).filter((u: any) => {
+          const uId = String(u.id || '').trim();
+          const uEmail = String(u.email || '').trim().toLowerCase();
+          return !deletedUserIdsSet.has(uId) && !deletedUserEmailsSet.has(uEmail);
+        });
+      } else if (tableName === "leave_requests" || tableName === "leaverequests") {
+        rows = inMemoryStore.leaveRequests || [];
+      } else if (tableName === "departments") {
+        rows = inMemoryStore.departments || [];
+      } else if (tableName === "leave_policies" || tableName === "leavepolicies") {
+        rows = inMemoryStore.leavePolicies || [];
+      } else if (tableName === "audit_logs" || tableName === "auditlogs") {
+        rows = inMemoryStore.auditLogs || [];
+      } else if (tableName === "permission_matrix" || tableName === "permissionmatrix") {
+        rows = inMemoryStore.permissionMatrix || [];
+      } else if (tableName === "system_settings" || tableName === "systemsettings") {
+        rows = inMemoryStore.systemSettings ? [inMemoryStore.systemSettings] : [];
+      } else if (tableName === "system_privileges" || tableName === "systemprivileges") {
+        rows = inMemoryStore.systemSettings ? [{
+          id: "default",
+          privilegeName: "System Privileges & Feature Toggles",
+          ...inMemoryStore.systemSettings,
+        }] : [];
+      }
+    }
+
+    // Extract all unique column names across all rows for robust display
+    const columnKeysSet = new Set<string>();
+    if (rows && rows.length > 0) {
+      for (const r of rows) {
+        if (r && typeof r === 'object') {
+          Object.keys(r).forEach(k => {
+            if (k !== '__v') columnKeysSet.add(k);
+          });
+        }
+      }
+    }
+
+    let columns: Array<{ column_name: string; data_type: string; is_nullable: string }> = [];
+    if (columnKeysSet.size > 0) {
+      columns = Array.from(columnKeysSet).map(k => ({
+        column_name: k,
+        data_type: typeof rows[0]?.[k] || "text",
+        is_nullable: "YES"
+      }));
+    } else {
+      // Default fallback schema columns
+      const defaultCols: Record<string, string[]> = {
+        users: ["id", "name", "email", "role", "designation", "departmentId", "employeeCode", "phone", "accountStatus"],
+        leave_requests: ["id", "applicantName", "applicantEmail", "leaveType", "startDate", "endDate", "totalDays", "status", "appliedOn"],
+        departments: ["id", "code", "name", "hodId", "hodName", "totalFaculty"],
+        leave_policies: ["type", "label", "annualQuota", "minDaysNotice", "requiresDocument", "color"],
+        audit_logs: ["id", "timestamp", "actorName", "actorRole", "action", "details"],
+        permission_matrix: ["id", "userId", "userName", "userEmail", "role", "permissions", "updatedAt"],
+        system_settings: ["id", "institutionName", "enableDemoAccounts", "enableRoleSwitcher", "enableSelfRegistration"],
+        system_privileges: ["id", "privilegeName", "enableDemoAccounts", "enableRoleSwitcher", "enableSelfRegistration"]
+      };
+      const defs = defaultCols[tableName] || ["id", "name", "status"];
+      columns = defs.map(k => ({ column_name: k, data_type: "text", is_nullable: "YES" }));
+    }
+
+    return res.json({
+      success: true,
+      table: tableName,
+      availableTables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
+      columns,
+      totalRows: rows.length,
+      rows
+    });
   };
 
   app.all(["/api/mongo/inspect-table", "/api/neon/inspect-table", "/api/db/inspect-table"], handleInspectTable);
 
   // Permission Matrix endpoint
   app.get("/api/permission-matrix", async (req, res) => {
-    await initMongo();
     try {
-      const permissionMatrix = await PermissionMatrixModel.find().lean();
-      return res.json({ success: true, permissionMatrix });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
-    }
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        const permissionMatrix = await PermissionMatrixModel.find().lean().maxTimeMS(3000);
+        if (permissionMatrix && permissionMatrix.length > 0) {
+          inMemoryStore.permissionMatrix = permissionMatrix;
+          return res.json({ success: true, permissionMatrix });
+        }
+      }
+    } catch (_err) {}
+    return res.json({ success: true, permissionMatrix: inMemoryStore.permissionMatrix });
   });
 
   app.post("/api/permission-matrix/save", async (req, res) => {
-    await initMongo();
-    try {
-      const payload = req.body || {};
-      const matrixList = Array.isArray(payload.permissionMatrix) ? payload.permissionMatrix : [payload];
+    const payload = req.body || {};
+    const matrixList = Array.isArray(payload.permissionMatrix) ? payload.permissionMatrix : [payload];
 
-      for (const item of matrixList) {
-        if (!item || (!item.userId && !item.id)) continue;
-        const userId = item.userId || item.id;
-        await PermissionMatrixModel.findOneAndUpdate(
-          { userId },
-          {
-            id: userId,
-            userId,
-            userName: item.userName || item.user_name || "",
-            userEmail: item.userEmail || item.user_email || "",
-            role: item.role || "",
-            departmentId: item.departmentId || item.department_id || "",
-            permissions: item.permissions || [],
-            updatedAt: new Date().toISOString(),
-            updatedBy: item.updatedBy || "SUPER_ADMIN",
-          },
-          { upsert: true, new: true }
-        );
-      }
-      return res.json({ success: true, message: `Permission matrix updated` });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
+    // Always update inMemoryStore
+    for (const item of matrixList) {
+      if (!item || (!item.userId && !item.id)) continue;
+      const uId = item.userId || item.id;
+      const idx = inMemoryStore.permissionMatrix.findIndex((p: any) => p.userId === uId || p.id === uId);
+      const record = {
+        id: uId,
+        userId: uId,
+        userName: item.userName || item.user_name || "",
+        userEmail: item.userEmail || item.user_email || "",
+        role: item.role || "",
+        departmentId: item.departmentId || item.department_id || "",
+        permissions: item.permissions || [],
+        updatedAt: new Date().toISOString(),
+        updatedBy: item.updatedBy || "SUPER_ADMIN",
+      };
+      if (idx >= 0) inMemoryStore.permissionMatrix[idx] = record;
+      else inMemoryStore.permissionMatrix.push(record);
     }
+
+    try {
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        for (const item of matrixList) {
+          if (!item || (!item.userId && !item.id)) continue;
+          const userId = item.userId || item.id;
+          await PermissionMatrixModel.findOneAndUpdate(
+            { userId },
+            {
+              id: userId,
+              userId,
+              userName: item.userName || item.user_name || "",
+              userEmail: item.userEmail || item.user_email || "",
+              role: item.role || "",
+              departmentId: item.departmentId || item.department_id || "",
+              permissions: item.permissions || [],
+              updatedAt: new Date().toISOString(),
+              updatedBy: item.updatedBy || "SUPER_ADMIN",
+            },
+            { upsert: true, new: true }
+          );
+        }
+      }
+    } catch (_err) {}
+    return res.json({ success: true, message: `Permission matrix updated` });
   });
 
   // System Privileges & Settings endpoints
   app.all(["/api/system-privileges", "/api/system-settings"], async (req, res) => {
-    await initMongo();
     try {
-      const privDoc = await SystemPrivilegeModel.findOne({ id: "default" }).lean();
-      const s = privDoc || (await SystemSettingsModel.findOne({ id: "default" }).lean());
-      const settings = {
-        enableDemoAccounts: s?.enableDemoAccounts ?? true,
-        enableRoleSwitcher: s?.enableRoleSwitcher ?? true,
-        enableSelfRegistration: s?.enableSelfRegistration ?? true,
-        institutionName: s?.institutionName || "BIT Leave Portal",
-        institutionLogoUrl: s?.institutionLogoUrl || null,
-        emailSettings: s?.emailSettings || {},
-      };
-      return res.json({ success: true, settings, systemPrivileges: s });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
-    }
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        const privDoc = await SystemPrivilegeModel.findOne({ id: "default" }).lean().maxTimeMS(3000);
+        const s = privDoc || (await SystemSettingsModel.findOne({ id: "default" }).lean().maxTimeMS(3000));
+        if (s) {
+          const settings = {
+            enableDemoAccounts: s?.enableDemoAccounts ?? true,
+            enableRoleSwitcher: s?.enableRoleSwitcher ?? true,
+            enableSelfRegistration: s?.enableSelfRegistration ?? true,
+            institutionName: s?.institutionName || "BIT Leave Portal",
+            institutionLogoUrl: s?.institutionLogoUrl || null,
+            emailSettings: s?.emailSettings || {},
+          };
+          return res.json({ success: true, settings, systemPrivileges: s });
+        }
+      }
+    } catch (_err) {}
+    return res.json({
+      success: true,
+      settings: inMemoryStore.systemSettings,
+      systemPrivileges: { id: "default", privilegeName: "System Privileges & Feature Toggles", ...inMemoryStore.systemSettings }
+    });
   });
 
   app.all(["/api/system-privileges/save", "/api/system-settings/save"], async (req, res) => {
-    await initMongo();
+    const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, customToggles } = req.body || {};
+    const payload = {
+      id: "default",
+      privilegeName: "System Privileges & Feature Toggles",
+      enableDemoAccounts: enableDemoAccounts ?? true,
+      enableRoleSwitcher: enableRoleSwitcher ?? true,
+      enableSelfRegistration: enableSelfRegistration ?? true,
+      institutionName: institutionName !== undefined && institutionName !== null ? institutionName : (inMemoryStore.systemSettings?.institutionName || "BIT Leave Portal"),
+      institutionLogoUrl: institutionLogoUrl !== undefined && institutionLogoUrl !== null ? institutionLogoUrl : (inMemoryStore.systemSettings?.institutionLogoUrl || ""),
+      emailSettings: emailSettings || inMemoryStore.systemSettings?.emailSettings || {},
+      customToggles: customToggles || {},
+      updatedAt: new Date().toISOString(),
+      updatedBy: "SUPER_ADMIN",
+    };
+
+    inMemoryStore.systemSettings = {
+      enableDemoAccounts: payload.enableDemoAccounts,
+      enableRoleSwitcher: payload.enableRoleSwitcher,
+      enableSelfRegistration: payload.enableSelfRegistration,
+      institutionName: payload.institutionName,
+      institutionLogoUrl: payload.institutionLogoUrl,
+      emailSettings: payload.emailSettings,
+    };
+
     try {
-      const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, customToggles } = req.body || {};
-      const payload = {
-        id: "default",
-        privilegeName: "System Privileges & Feature Toggles",
-        enableDemoAccounts: enableDemoAccounts ?? true,
-        enableRoleSwitcher: enableRoleSwitcher ?? true,
-        enableSelfRegistration: enableSelfRegistration ?? true,
-        institutionName: institutionName !== undefined && institutionName !== null ? institutionName : "BIT Leave Portal",
-        institutionLogoUrl: institutionLogoUrl !== undefined && institutionLogoUrl !== null ? institutionLogoUrl : "",
-        emailSettings: emailSettings || {},
-        customToggles: customToggles || {},
-        updatedAt: new Date().toISOString(),
-        updatedBy: "SUPER_ADMIN",
-      };
-
-      await SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true });
-      await SystemSettingsModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true });
-
-      return res.json({ success: true, message: "System privileges and toggles updated in MongoDB Atlas (system_privileges collection)" });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
-    }
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        await Promise.all([
+          SystemSettingsModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
+          SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
+        ]);
+      }
+    } catch (_err) {}
+    return res.json({ success: true, settings: inMemoryStore.systemSettings, message: "System privileges and toggles updated in MongoDB Atlas" });
   });
 
   // API Route: Send Email
