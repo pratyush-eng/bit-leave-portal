@@ -239,7 +239,7 @@ export const LoginPage: React.FC = () => {
   const quickRoles = [
     {
       role: 'FACULTY',
-      title: 'Faculty / Staff Applicant',
+      title: 'Faculty Applicant',
       name: 'Prof. Rajesh Kumar',
       email: 'rajesh.kumar@institution.edu',
       dept: 'Computer Science & Engg.',
@@ -256,15 +256,6 @@ export const LoginPage: React.FC = () => {
       badgeBg: 'bg-purple-600 text-white'
     },
     {
-      role: 'REGISTRAR',
-      title: 'University Registrar',
-      name: 'Dr. A. K. Kapoor',
-      email: 'registrar@institution.edu',
-      dept: 'Sanction Authority',
-      color: 'bg-indigo-50 border-indigo-200 text-indigo-900 hover:border-indigo-400',
-      badgeBg: 'bg-[#3F51B5] text-white'
-    },
-    {
       role: 'ADMIN',
       title: 'Department / User Admin',
       name: 'Meera Sharma',
@@ -274,16 +265,25 @@ export const LoginPage: React.FC = () => {
       badgeBg: 'bg-amber-600 text-white'
     },
     {
-      role: 'SUPER_ADMIN',
-      title: 'Dean Academic Affairs',
-      name: 'Prof. Vikramaditya Roy',
-      email: 'dean.academic@institution.edu',
-      dept: 'Dean Academic Affairs',
-      color: 'bg-slate-100 border-slate-300 text-slate-900 hover:border-slate-500',
-      badgeBg: 'bg-slate-900 text-white'
+      role: 'STAFF',
+      title: 'Technical Staff',
+      name: 'Mr. Suresh Patil',
+      email: 'suresh.patil@institution.edu',
+      dept: 'Mechanical Engineering',
+      color: 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:border-emerald-400',
+      badgeBg: 'bg-emerald-600 text-white'
     },
     {
-      role: 'WEBMASTER',
+      role: 'FACULTY',
+      title: 'Assistant Professor',
+      name: 'Dr. Ananya Sen',
+      email: 'ananya.sen@institution.edu',
+      dept: 'Electronics & Comm.',
+      color: 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:border-cyan-400',
+      badgeBg: 'bg-cyan-600 text-white'
+    },
+    {
+      role: 'SUPER_ADMIN',
       title: 'Webmaster Super Admin',
       name: 'Webmaster BIT Mesra',
       email: 'webmaster@bitmesra.ac.in',

@@ -185,7 +185,7 @@ function sanitizeAndDeduplicateUsers(
 }
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Permanently purge any legacy Firebase / Firestore / Postgres / Neon cache entries
+  // Permanently purge any legacy Firebase / Firestore / Postgres / Neon or stale mock user cache entries
   useEffect(() => {
     try {
       const keysToRemove: string[] = [];
@@ -201,6 +201,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
+
+      // Also clean up obsolete cached user entries (e.g. registrar@institution.edu or dean.academic@institution.edu)
+      const cachedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (cachedUsersRaw) {
+        try {
+          const cached = JSON.parse(cachedUsersRaw);
+          if (Array.isArray(cached) && cached.some((u: any) => u.email === 'registrar@institution.edu' || u.email === 'dean.academic@institution.edu')) {
+            localStorage.removeItem(STORAGE_KEYS.USERS);
+          }
+        } catch (_e) {}
+      }
     } catch (_e) {}
   }, []);
 
@@ -253,8 +264,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     {
       id: 'usr_5',
       userId: 'usr_5',
-      userName: 'Prof. Vikramaditya Roy',
-      userEmail: 'dean.academic@institution.edu',
+      userName: 'Webmaster BIT Mesra',
+      userEmail: 'webmaster@bitmesra.ac.in',
       role: 'SUPER_ADMIN',
       departmentId: 'CSE',
       permissions: ['PERM_APPROVE_OVERRIDE', 'PERM_ADJUST_BALANCE', 'PERM_MANAGE_USERS', 'PERM_EXPORT_REPORTS', 'PERM_CONFIG_POLICIES'],
@@ -273,9 +284,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentUserEmail, setCurrentUserEmail] = useState<string>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_EMAIL) || 'dean.academic@institution.edu';
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_EMAIL) || 'webmaster@bitmesra.ac.in';
     } catch {
-      return 'dean.academic@institution.edu';
+      return 'webmaster@bitmesra.ac.in';
     }
   });
 
@@ -512,24 +523,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return found;
     }
 
-    // 5. If authenticated, NEVER fall back to Staff (usr_1)! Construct a stable session user matching currentUserEmail / currentUserId
+    // 5. If authenticated and no user found in DB, return first available user in DB or Webmaster
     if (isAuthenticated && (cleanEmail || currentUserId)) {
       const isWebmaster = cleanEmail === 'webmaster@bitmesra.ac.in';
-      const isSuperAdmin = isWebmaster || cleanEmail.includes('dean') || cleanEmail.includes('super') || cleanEmail.includes('admin') || cleanEmail === 'dean.academic@institution.edu';
-      const isRegistrar = cleanEmail.includes('registrar');
       const isHod = cleanEmail.includes('sunita') || cleanEmail.includes('hod');
-      const role = isSuperAdmin ? 'SUPER_ADMIN' : isRegistrar ? 'REGISTRAR' : isHod ? 'HOD' : 'FACULTY';
+      const isAdmin = cleanEmail.includes('meera') || cleanEmail.includes('admin');
+      const role = isWebmaster ? 'SUPER_ADMIN' : isHod ? 'HOD' : isAdmin ? 'ADMIN' : 'FACULTY';
 
       const fallbackSessionUser: User = {
-        id: currentUserId || (isWebmaster ? 'usr_webmaster' : 'usr_5'),
-        name: isWebmaster ? 'Webmaster BIT Mesra' : isSuperAdmin ? 'Prof. Vikramaditya Roy' : isRegistrar ? 'Dr. A. K. Kapoor' : 'Portal Session User',
-        email: cleanEmail || 'dean.academic@institution.edu',
+        id: currentUserId || 'usr_5',
+        name: isWebmaster ? 'Webmaster BIT Mesra' : 'Portal User',
+        email: cleanEmail || 'webmaster@bitmesra.ac.in',
         role: role as Role,
-        designation: isWebmaster ? 'Portal Administrator & Webmaster' : isSuperAdmin ? 'Dean Academic Affairs & Super Admin' : 'Academic Officer',
+        designation: isWebmaster ? 'Portal Administrator & Webmaster' : 'Academic Officer',
         departmentId: 'CSE',
         departmentName: 'Computer Science & Engineering',
-        employeeCode: isWebmaster ? 'BIT-ADM-001' : 'EXEC-2005-002',
-        joiningDate: '2005-06-01',
+        employeeCode: isWebmaster ? 'BIT-ADM-001' : 'EMP-2026-001',
+        joiningDate: '2010-01-01',
         phone: '+91 98888 77766',
         leaveBalances: {
           CASUAL: { total: 12, used: 0, pending: 0 },

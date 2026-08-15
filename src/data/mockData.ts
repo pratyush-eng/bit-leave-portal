@@ -2,11 +2,11 @@ import { Department, LeavePolicy, User, LeaveRequest, Notification, AuditLog, Gr
 
 export const INITIAL_DEPARTMENTS: Department[] = [
   { id: 'CSE', name: 'Computer Science & Engineering', code: 'CSE', hodName: 'Dr. Sunita Verma', hodId: 'usr_2', totalFaculty: 24 },
-  { id: 'ECE', name: 'Electronics & Communication', code: 'ECE', hodName: 'Dr. Ramesh Iyer', hodId: 'usr_8', totalFaculty: 18 },
-  { id: 'MECH', name: 'Mechanical Engineering', code: 'MECH', hodName: 'Dr. Prakash Deshmukh', hodId: 'usr_9', totalFaculty: 20 },
-  { id: 'PHYSICS', name: 'Physics & Applied Sciences', code: 'PHY', hodName: 'Dr. Shalini Gupta', hodId: 'usr_10', totalFaculty: 12 },
-  { id: 'MATHS', name: 'Mathematics & Data Science', code: 'MATH', hodName: 'Dr. Tarun Mehta', hodId: 'usr_11', totalFaculty: 10 },
-  { id: 'ADMIN', name: 'General Administration & Registrar Office', code: 'ADM', hodName: 'Dr. A. K. Kapoor', hodId: 'usr_3', totalFaculty: 15 },
+  { id: 'ECE', name: 'Electronics & Communication', code: 'ECE', hodName: 'Dr. Ananya Sen', hodId: 'usr_6', totalFaculty: 18 },
+  { id: 'MECH', name: 'Mechanical Engineering', code: 'MECH', hodName: 'Mr. Suresh Patil', hodId: 'usr_7', totalFaculty: 20 },
+  { id: 'PHYSICS', name: 'Physics & Applied Sciences', code: 'PHY', hodName: 'Prof. Rajesh Kumar', hodId: 'usr_1', totalFaculty: 12 },
+  { id: 'MATHS', name: 'Mathematics & Data Science', code: 'MATH', hodName: 'Dr. Sunita Verma', hodId: 'usr_2', totalFaculty: 10 },
+  { id: 'ADMIN', name: 'General Administration & Registrar Office', code: 'ADM', hodName: 'Meera Sharma', hodId: 'usr_4', totalFaculty: 15 },
 ];
 
 export const INITIAL_LEAVE_POLICIES: LeavePolicy[] = [
@@ -129,28 +129,6 @@ export const MOCK_USERS: User[] = [
     }
   },
   {
-    id: 'usr_3',
-    name: 'Dr. A. K. Kapoor',
-    email: 'registrar@institution.edu',
-    role: 'REGISTRAR',
-    designation: 'University Registrar',
-    departmentId: 'ADMIN',
-    departmentName: 'General Administration',
-    employeeCode: 'ADM-2008-001',
-    joiningDate: '2008-03-01',
-    phone: '+91 99000 11223',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
-    leaveBalances: {
-      CASUAL: { total: 12, used: 1, pending: 0 },
-      SICK: { total: 10, used: 0, pending: 0 },
-      EARNED: { total: 30, used: 12, pending: 0 },
-      DUTY: { total: 15, used: 8, pending: 0 },
-      STUDY: { total: 90, used: 0, pending: 0 },
-      MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
-      SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
-    }
-  },
-  {
     id: 'usr_4',
     name: 'Meera Sharma',
     email: 'meera.sharma@institution.edu',
@@ -171,29 +149,6 @@ export const MOCK_USERS: User[] = [
       STUDY: { total: 90, used: 0, pending: 0 },
       MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
       SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
-    }
-  },
-  {
-    id: 'usr_5',
-    name: 'Prof. Vikramaditya Roy',
-    email: 'dean.academic@institution.edu',
-    role: 'SUPER_ADMIN',
-    designation: 'Dean Academic Affairs & Super Admin',
-    departmentId: 'CSE',
-    departmentName: 'Computer Science & Engineering',
-    employeeCode: 'EXEC-2005-002',
-    joiningDate: '2005-06-01',
-    phone: '+91 98888 77766',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80',
-    assignedPermissions: ['PERM_APPROVE_OVERRIDE', 'PERM_ADJUST_BALANCE', 'PERM_MANAGE_USERS', 'PERM_EXPORT_REPORTS', 'PERM_CONFIG_POLICIES'],
-    leaveBalances: {
-      CASUAL: { total: 12, used: 0, pending: 0 },
-      SICK: { total: 10, used: 0, pending: 0 },
-      EARNED: { total: 30, used: 4, pending: 0 },
-      DUTY: { total: 15, used: 10, pending: 0 },
-      STUDY: { total: 90, used: 0, pending: 0 },
-      MATERNITY_PATERNITY: { total: 180, used: 0, pending: 0 },
-      SPECIAL_CASUAL: { total: 7, used: 1, pending: 0 },
     }
   },
   {
@@ -241,7 +196,7 @@ export const MOCK_USERS: User[] = [
     }
   },
   {
-    id: 'usr_webmaster',
+    id: 'usr_5',
     name: 'Webmaster BIT Mesra',
     email: 'webmaster@bitmesra.ac.in',
     role: 'SUPER_ADMIN',
@@ -300,7 +255,7 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
         courseCode: 'CS504',
         courseName: 'Machine Learning Lab',
         substituteStaffId: 'usr_5',
-        substituteStaffName: 'Prof. Vikramaditya Roy',
+        substituteStaffName: 'Webmaster BIT Mesra',
         date: '2026-08-05',
         timeSlot: '02:00 PM - 04:00 PM'
       }
@@ -326,15 +281,15 @@ export const INITIAL_LEAVE_REQUESTS: LeaveRequest[] = [
     status: 'APPROVED',
     appliedOn: '2026-07-19',
     hodApproval: {
-      actionBy: 'usr_9',
-      actionByName: 'Dr. Prakash Deshmukh (MECH HOD)',
+      actionBy: 'usr_2',
+      actionByName: 'Dr. Sunita Verma (HOD CSE)',
       actionDate: '2026-07-19 02:15 PM',
       status: 'RECOMMENDED',
       comments: 'Forwarded for approval with medical certificate attached.'
     },
     registrarApproval: {
-      actionBy: 'usr_3',
-      actionByName: 'Dr. A. K. Kapoor (Registrar)',
+      actionBy: 'usr_5',
+      actionByName: 'Webmaster BIT Mesra (Super Admin)',
       actionDate: '2026-07-20 09:45 AM',
       status: 'APPROVED',
       comments: 'Sanctioned under Sick Leave rules.'
@@ -355,23 +310,13 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
   },
   {
     id: 'ntf_2',
-    userId: 'usr_3',
-    title: 'HOD Recommendation Forwarded',
-    message: 'Dr. Ramesh Iyer (HOD ECE) recommended Duty Leave application LV-2026-103 for Dr. Ananya Sen.',
-    timestamp: '2026-07-29 11:32 AM',
+    userId: 'usr_5',
+    title: 'Leave Sanction Notice',
+    message: 'Sick Leave application LV-2026-102 for Mr. Suresh Patil was approved.',
+    timestamp: '2026-07-20 09:45 AM',
     read: false,
-    type: 'HOD_ENDORSED',
-    relatedLeaveId: 'LV-2026-103'
-  },
-  {
-    id: 'ntf_3',
-    userId: 'usr_1',
-    title: 'Leave Application Sanctioned',
-    message: 'Your Earned Leave request LV-2026-101 (5 days) has been formally sanctioned by Registrar Dr. A. K. Kapoor.',
-    timestamp: '2026-06-03 04:21 PM',
-    read: true,
     type: 'REGISTRAR_APPROVED',
-    relatedLeaveId: 'LV-2026-101'
+    relatedLeaveId: 'LV-2026-102'
   }
 ];
 
@@ -382,24 +327,14 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
     actorName: 'Prof. Rajesh Kumar',
     actorRole: 'FACULTY',
     action: 'LEAVE_APPLIED',
-    details: 'Submitted Casual Leave application LV-2026-104 for 2 days with 2 substitute class arrangements.',
+    details: 'Submitted Casual Leave application LV-2026-104 for 2 days.',
     timestamp: '2026-07-29 09:30:15',
     ipAddress: '172.16.24.102'
   },
   {
     id: 'log_2',
-    actorId: 'usr_8',
-    actorName: 'Dr. Ramesh Iyer',
-    actorRole: 'HOD',
-    action: 'HOD_RECOMMENDED',
-    details: 'Endorsed Duty Leave request LV-2026-103 for Dr. Ananya Sen to Registrar office.',
-    timestamp: '2026-07-29 11:30:00',
-    ipAddress: '172.16.20.15'
-  },
-  {
-    id: 'log_3',
     actorId: 'usr_5',
-    actorName: 'Prof. Vikramaditya Roy',
+    actorName: 'Webmaster BIT Mesra',
     actorRole: 'SUPER_ADMIN',
     action: 'PERMISSION_GRANTED',
     details: 'Assigned "PERM_ADJUST_BALANCE" to Admin Meera Sharma.',

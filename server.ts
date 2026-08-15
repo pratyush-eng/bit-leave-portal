@@ -45,8 +45,8 @@ let inMemoryStore: {
     {
       id: "usr_5",
       userId: "usr_5",
-      userName: "Prof. Vikramaditya Roy",
-      userEmail: "dean.academic@institution.edu",
+      userName: "Webmaster BIT Mesra",
+      userEmail: "webmaster@bitmesra.ac.in",
       role: "SUPER_ADMIN",
       departmentId: "CSE",
       permissions: ["PERM_APPROVE_OVERRIDE", "PERM_ADJUST_BALANCE", "PERM_MANAGE_USERS", "PERM_EXPORT_REPORTS", "PERM_CONFIG_POLICIES"],

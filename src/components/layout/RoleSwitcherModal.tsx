@@ -53,7 +53,7 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
               <p className="mt-0.5 text-indigo-800">
                 1. <strong>Prof. Rajesh Kumar (Faculty)</strong> applies for leave → 
                 2. Switch to <strong>Dr. Sunita Verma (HOD CSE)</strong> to endorse & forward → 
-                3. Switch to <strong>Dr. A. K. Kapoor (Registrar)</strong> to give final sanction.
+                3. Switch to <strong>Webmaster BIT Mesra (Super Admin)</strong> to give final sanction.
               </p>
             </div>
           </div>
