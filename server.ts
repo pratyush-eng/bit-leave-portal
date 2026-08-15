@@ -55,12 +55,13 @@ let inMemoryStore: {
     }
   ],
   systemSettings: {
-    enableDemoAccounts: true,
-    enableRoleSwitcher: true,
-    enableSelfRegistration: true,
+    enableDemoAccounts: false,
+    enableRoleSwitcher: false,
+    enableSelfRegistration: false,
     institutionName: "BIT Leave Portal",
-    institutionLogoUrl: null,
-    emailSettings: {}
+    institutionLogoUrl: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png",
+    emailSettings: {},
+    customToggles: {}
   }
 };
 
@@ -103,6 +104,24 @@ async function initMongo(customUri?: string) {
     isMongoConnected = true;
     mongoConnectError = "";
     console.log("[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster.");
+    
+    // Immediately load system privileges from MongoDB Atlas into inMemoryStore
+    try {
+      const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
+                      (await SystemSettingsModel.findOne({ id: "default" }).lean());
+      if (privDoc) {
+        inMemoryStore.systemSettings = {
+          enableDemoAccounts: typeof privDoc.enableDemoAccounts === 'boolean' ? privDoc.enableDemoAccounts : false,
+          enableRoleSwitcher: typeof privDoc.enableRoleSwitcher === 'boolean' ? privDoc.enableRoleSwitcher : false,
+          enableSelfRegistration: typeof privDoc.enableSelfRegistration === 'boolean' ? privDoc.enableSelfRegistration : false,
+          institutionName: privDoc.institutionName || "BIT Leave Portal",
+          institutionLogoUrl: privDoc.institutionLogoUrl || "",
+          emailSettings: privDoc.emailSettings || {},
+          customToggles: privDoc.customToggles || {},
+        };
+      }
+    } catch (_loadErr) {}
+
     await seedAndMigrateToMongo();
     return true;
   } catch (err: any) {
@@ -215,11 +234,11 @@ const PermissionMatrixSchema = new mongoose.Schema({
 
 const SystemSettingsSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, default: "default" },
-  enableDemoAccounts: { type: Boolean, default: true },
-  enableRoleSwitcher: { type: Boolean, default: true },
-  enableSelfRegistration: { type: Boolean, default: true },
+  enableDemoAccounts: { type: Boolean, default: false },
+  enableRoleSwitcher: { type: Boolean, default: false },
+  enableSelfRegistration: { type: Boolean, default: false },
   institutionName: { type: String, default: "BIT Leave Portal" },
-  institutionLogoUrl: { type: String, default: null },
+  institutionLogoUrl: { type: String, default: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png" },
   emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   updatedAt: { type: String, default: "" },
   updatedBy: { type: String, default: "SUPER_ADMIN" },
@@ -228,11 +247,11 @@ const SystemSettingsSchema = new mongoose.Schema({
 const SystemPrivilegeSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, default: "default" },
   privilegeName: { type: String, default: "System Privileges & Feature Toggles" },
-  enableDemoAccounts: { type: Boolean, default: true },
-  enableRoleSwitcher: { type: Boolean, default: true },
-  enableSelfRegistration: { type: Boolean, default: true },
+  enableDemoAccounts: { type: Boolean, default: false },
+  enableRoleSwitcher: { type: Boolean, default: false },
+  enableSelfRegistration: { type: Boolean, default: false },
   institutionName: { type: String, default: "BIT Leave Portal" },
-  institutionLogoUrl: { type: String, default: null },
+  institutionLogoUrl: { type: String, default: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png" },
   emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   customToggles: { type: mongoose.Schema.Types.Mixed, default: {} },
   updatedAt: { type: String, default: "" },
@@ -514,8 +533,31 @@ async function startServer() {
       policiesSynced++;
     }
 
+    let syncPayloadSettings: any = null;
     if (systemSettings && typeof systemSettings === "object") {
-      inMemoryStore.systemSettings = { ...inMemoryStore.systemSettings, ...systemSettings };
+      const existing = inMemoryStore.systemSettings || {};
+      syncPayloadSettings = {
+        id: "default",
+        privilegeName: "System Privileges & Feature Toggles",
+        enableDemoAccounts: typeof systemSettings.enableDemoAccounts === 'boolean' ? systemSettings.enableDemoAccounts : (existing.enableDemoAccounts ?? false),
+        enableRoleSwitcher: typeof systemSettings.enableRoleSwitcher === 'boolean' ? systemSettings.enableRoleSwitcher : (existing.enableRoleSwitcher ?? false),
+        enableSelfRegistration: typeof systemSettings.enableSelfRegistration === 'boolean' ? systemSettings.enableSelfRegistration : (existing.enableSelfRegistration ?? false),
+        institutionName: systemSettings.institutionName !== undefined ? systemSettings.institutionName : (existing.institutionName || "BIT Leave Portal"),
+        institutionLogoUrl: systemSettings.institutionLogoUrl !== undefined ? systemSettings.institutionLogoUrl : (existing.institutionLogoUrl || ""),
+        emailSettings: systemSettings.emailSettings || existing.emailSettings || {},
+        customToggles: systemSettings.customToggles || existing.customToggles || {},
+        updatedAt: new Date().toISOString(),
+        updatedBy: "SUPER_ADMIN",
+      };
+      inMemoryStore.systemSettings = {
+        enableDemoAccounts: syncPayloadSettings.enableDemoAccounts,
+        enableRoleSwitcher: syncPayloadSettings.enableRoleSwitcher,
+        enableSelfRegistration: syncPayloadSettings.enableSelfRegistration,
+        institutionName: syncPayloadSettings.institutionName,
+        institutionLogoUrl: syncPayloadSettings.institutionLogoUrl,
+        emailSettings: syncPayloadSettings.emailSettings,
+        customToggles: syncPayloadSettings.customToggles,
+      };
       systemSettingsSynced = 1;
     }
 
@@ -637,6 +679,13 @@ async function startServer() {
             { upsert: true, new: true }
           );
         }
+
+        if (syncPayloadSettings) {
+          await Promise.all([
+            SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, syncPayloadSettings, { upsert: true, new: true }),
+            SystemSettingsModel.findOneAndUpdate({ id: "default" }, syncPayloadSettings, { upsert: true, new: true }),
+          ]);
+        }
       } catch (err: any) {
         // Soft fallback to in-memory store
       }
@@ -680,12 +729,13 @@ async function startServer() {
 
         const mergedSettings = privDoc || sysDoc;
         const systemSettings = mergedSettings ? {
-          enableDemoAccounts: mergedSettings.enableDemoAccounts ?? true,
-          enableRoleSwitcher: mergedSettings.enableRoleSwitcher ?? true,
-          enableSelfRegistration: mergedSettings.enableSelfRegistration ?? true,
+          enableDemoAccounts: typeof mergedSettings.enableDemoAccounts === 'boolean' ? mergedSettings.enableDemoAccounts : false,
+          enableRoleSwitcher: typeof mergedSettings.enableRoleSwitcher === 'boolean' ? mergedSettings.enableRoleSwitcher : false,
+          enableSelfRegistration: typeof mergedSettings.enableSelfRegistration === 'boolean' ? mergedSettings.enableSelfRegistration : false,
           institutionName: mergedSettings.institutionName !== undefined && mergedSettings.institutionName !== null ? mergedSettings.institutionName : "BIT Leave Portal",
           institutionLogoUrl: mergedSettings.institutionLogoUrl !== undefined && mergedSettings.institutionLogoUrl !== null ? mergedSettings.institutionLogoUrl : "",
           emailSettings: mergedSettings.emailSettings || {},
+          customToggles: mergedSettings.customToggles || {},
         } : inMemoryStore.systemSettings;
 
         // Keep inMemoryStore directly synced to MongoDB state
@@ -1101,18 +1151,20 @@ async function startServer() {
   app.all(["/api/system-privileges", "/api/system-settings"], async (req, res) => {
     try {
       if (isMongoConnected && mongoose.connection.readyState === 1) {
-        const privDoc = await SystemPrivilegeModel.findOne({ id: "default" }).lean().maxTimeMS(3000);
-        const s = privDoc || (await SystemSettingsModel.findOne({ id: "default" }).lean().maxTimeMS(3000));
-        if (s) {
+        const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean().maxTimeMS(3000)) ||
+                        (await SystemSettingsModel.findOne({ id: "default" }).lean().maxTimeMS(3000));
+        if (privDoc) {
           const settings = {
-            enableDemoAccounts: s?.enableDemoAccounts ?? true,
-            enableRoleSwitcher: s?.enableRoleSwitcher ?? true,
-            enableSelfRegistration: s?.enableSelfRegistration ?? true,
-            institutionName: s?.institutionName || "BIT Leave Portal",
-            institutionLogoUrl: s?.institutionLogoUrl || null,
-            emailSettings: s?.emailSettings || {},
+            enableDemoAccounts: typeof privDoc.enableDemoAccounts === 'boolean' ? privDoc.enableDemoAccounts : false,
+            enableRoleSwitcher: typeof privDoc.enableRoleSwitcher === 'boolean' ? privDoc.enableRoleSwitcher : false,
+            enableSelfRegistration: typeof privDoc.enableSelfRegistration === 'boolean' ? privDoc.enableSelfRegistration : false,
+            institutionName: privDoc.institutionName || "BIT Leave Portal",
+            institutionLogoUrl: privDoc.institutionLogoUrl || "",
+            emailSettings: privDoc.emailSettings || {},
+            customToggles: privDoc.customToggles || {},
           };
-          return res.json({ success: true, settings, systemPrivileges: s });
+          inMemoryStore.systemSettings = settings;
+          return res.json({ success: true, settings, systemPrivileges: privDoc });
         }
       }
     } catch (_err) {}
@@ -1124,39 +1176,65 @@ async function startServer() {
   });
 
   app.all(["/api/system-privileges/save", "/api/system-settings/save"], async (req, res) => {
-    const { enableDemoAccounts, enableRoleSwitcher, enableSelfRegistration, institutionName, institutionLogoUrl, emailSettings, customToggles } = req.body || {};
-    const payload = {
-      id: "default",
-      privilegeName: "System Privileges & Feature Toggles",
-      enableDemoAccounts: enableDemoAccounts ?? true,
-      enableRoleSwitcher: enableRoleSwitcher ?? true,
-      enableSelfRegistration: enableSelfRegistration ?? true,
-      institutionName: institutionName !== undefined && institutionName !== null ? institutionName : (inMemoryStore.systemSettings?.institutionName || "BIT Leave Portal"),
-      institutionLogoUrl: institutionLogoUrl !== undefined && institutionLogoUrl !== null ? institutionLogoUrl : (inMemoryStore.systemSettings?.institutionLogoUrl || ""),
-      emailSettings: emailSettings || inMemoryStore.systemSettings?.emailSettings || {},
-      customToggles: customToggles || {},
-      updatedAt: new Date().toISOString(),
-      updatedBy: "SUPER_ADMIN",
-    };
-
-    inMemoryStore.systemSettings = {
-      enableDemoAccounts: payload.enableDemoAccounts,
-      enableRoleSwitcher: payload.enableRoleSwitcher,
-      enableSelfRegistration: payload.enableSelfRegistration,
-      institutionName: payload.institutionName,
-      institutionLogoUrl: payload.institutionLogoUrl,
-      emailSettings: payload.emailSettings,
-    };
-
     try {
+      const body = req.body || {};
+      let existing: any = null;
+      if (isMongoConnected && mongoose.connection.readyState === 1) {
+        existing = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
+                   (await SystemSettingsModel.findOne({ id: "default" }).lean());
+      }
+      if (!existing) {
+        existing = inMemoryStore.systemSettings || {};
+      }
+
+      const updatedEnableDemo = typeof body.enableDemoAccounts === "boolean" ? body.enableDemoAccounts : (existing.enableDemoAccounts ?? false);
+      const updatedEnableRole = typeof body.enableRoleSwitcher === "boolean" ? body.enableRoleSwitcher : (existing.enableRoleSwitcher ?? false);
+      const updatedEnableReg = typeof body.enableSelfRegistration === "boolean" ? body.enableSelfRegistration : (existing.enableSelfRegistration ?? false);
+      const updatedInstName = body.institutionName !== undefined && body.institutionName !== null ? body.institutionName : (existing.institutionName || "BIT Leave Portal");
+      const updatedLogoUrl = body.institutionLogoUrl !== undefined && body.institutionLogoUrl !== null ? body.institutionLogoUrl : (existing.institutionLogoUrl || "");
+      const updatedEmail = body.emailSettings !== undefined && body.emailSettings !== null ? body.emailSettings : (existing.emailSettings || {});
+      const updatedToggles = body.customToggles !== undefined && body.customToggles !== null ? body.customToggles : (existing.customToggles || {});
+
+      const payload = {
+        id: "default",
+        privilegeName: "System Privileges & Feature Toggles",
+        enableDemoAccounts: updatedEnableDemo,
+        enableRoleSwitcher: updatedEnableRole,
+        enableSelfRegistration: updatedEnableReg,
+        institutionName: updatedInstName,
+        institutionLogoUrl: updatedLogoUrl,
+        emailSettings: updatedEmail,
+        customToggles: updatedToggles,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "SUPER_ADMIN",
+      };
+
+      inMemoryStore.systemSettings = {
+        enableDemoAccounts: payload.enableDemoAccounts,
+        enableRoleSwitcher: payload.enableRoleSwitcher,
+        enableSelfRegistration: payload.enableSelfRegistration,
+        institutionName: payload.institutionName,
+        institutionLogoUrl: payload.institutionLogoUrl,
+        emailSettings: payload.emailSettings,
+        customToggles: payload.customToggles,
+      };
+
       if (isMongoConnected && mongoose.connection.readyState === 1) {
         await Promise.all([
           SystemSettingsModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
           SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
         ]);
       }
-    } catch (_err) {}
-    return res.json({ success: true, settings: inMemoryStore.systemSettings, message: "System privileges and toggles updated in MongoDB Atlas" });
+
+      return res.json({
+        success: true,
+        settings: inMemoryStore.systemSettings,
+        systemPrivileges: payload,
+        message: "System privileges and toggles updated in MongoDB Atlas"
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || "Failed to save system privileges" });
+    }
   });
 
   // API Route: Send Email

@@ -237,13 +237,21 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deletedUserEmailsRef = React.useRef(deletedUserEmails);
   deletedUserEmailsRef.current = deletedUserEmails;
 
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    enableDemoAccounts: true,
-    enableRoleSwitcher: true,
-    enableSelfRegistration: true,
-    institutionName: 'BIT Leave Portal',
-    institutionLogoUrl: '',
-    emailSettings: DEFAULT_EMAIL_SETTINGS
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_e) {}
+    return {
+      enableDemoAccounts: false,
+      enableRoleSwitcher: false,
+      enableSelfRegistration: false,
+      institutionName: 'BIT Leave Portal',
+      institutionLogoUrl: 'https://bitmesra.ac.in/SiteLogo/bit-newlogo.png',
+      emailSettings: DEFAULT_EMAIL_SETTINGS,
+    };
   });
 
   const [allUsers, setAllUsers] = useState<User[]>(() => {
@@ -648,17 +656,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [systemSettings]);
 
   const updateSystemSettings = (newSettings: Partial<SystemSettings>) => {
+    let fullUpdated: SystemSettings = { ...systemSettings, ...newSettings };
     setSystemSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
-      saveDocToMongo('system_privileges', 'global', updated);
-      saveDocToMongo('settings', 'global', updated);
-      return updated;
+      fullUpdated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(fullUpdated));
+      } catch (_e) {}
+      return fullUpdated;
     });
+
+    saveDocToMongo('system_privileges', 'global', fullUpdated);
+    saveDocToMongo('settings', 'global', fullUpdated);
+    syncDataToMongo({ systemSettings: fullUpdated });
+
     addAuditLog(
       currentUser, 
       'SETTINGS_UPDATED', 
-      `Updated system configuration: Demo Accounts=${newSettings.enableDemoAccounts ?? systemSettings.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${newSettings.enableRoleSwitcher ?? systemSettings.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}.`
+      `Updated system configuration: Demo Accounts=${fullUpdated.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${fullUpdated.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}, Self Registration=${fullUpdated.enableSelfRegistration !== false ? 'ENABLED' : 'DISABLED'}.`
     );
     addToast({
       title: 'System Privileges Saved ⚙️',
@@ -914,9 +928,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
           const sys = mongoData.systemSettings;
           const updatedSys: SystemSettings = {
-            enableDemoAccounts: sys.enableDemoAccounts ?? true,
-            enableRoleSwitcher: sys.enableRoleSwitcher ?? true,
-            enableSelfRegistration: sys.enableSelfRegistration ?? true,
+            enableDemoAccounts: typeof sys.enableDemoAccounts === 'boolean' ? sys.enableDemoAccounts : false,
+            enableRoleSwitcher: typeof sys.enableRoleSwitcher === 'boolean' ? sys.enableRoleSwitcher : false,
+            enableSelfRegistration: typeof sys.enableSelfRegistration === 'boolean' ? sys.enableSelfRegistration : false,
             institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
             institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
             emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
