@@ -711,84 +711,125 @@ async function startServer() {
   app.all(["/api/mongo/sync", "/api/neon/sync", "/api/db/sync"], handleSync);
 
   // Fetch all data from MongoDB Atlas (with in-memory fallback)
-  const handleFetchData = async (req: express.Request, res: express.Response) => {
-    // Set strict cache control headers on all dynamic API responses
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("Surrogate-Control", "no-store");
+// Fetch ALL live data directly from MongoDB Atlas.
+// MongoDB is the ONLY source of truth.
+// Never return in-memory/mock data when MongoDB is unavailable.
+const handleFetchData = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
 
+  try {
     const connected = await initMongo();
-    if (connected && mongoose.connection.readyState === 1) {
-      try {
-        const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc, privDoc] = await Promise.all([
-          UserModel.find().lean(),
-          LeaveRequestModel.find().lean(),
-          DepartmentModel.find().lean(),
-          LeavePolicyModel.find().lean(),
-          AuditLogModel.find().sort({ timestamp: -1 }).lean(),
-          LeaveBalanceModel.find().lean(),
-          PermissionMatrixModel.find().lean(),
-          SystemSettingsModel.findOne({ id: "default" }).lean(),
-          SystemPrivilegeModel.findOne({ id: "default" }).lean(),
-        ]);
 
-        const mergedSettings = privDoc || sysDoc;
-        const systemSettings = mergedSettings ? {
-          enableDemoAccounts: typeof mergedSettings.enableDemoAccounts === 'boolean' ? mergedSettings.enableDemoAccounts : false,
-          enableRoleSwitcher: typeof mergedSettings.enableRoleSwitcher === 'boolean' ? mergedSettings.enableRoleSwitcher : false,
-          enableSelfRegistration: typeof mergedSettings.enableSelfRegistration === 'boolean' ? mergedSettings.enableSelfRegistration : false,
-          institutionName: mergedSettings.institutionName !== undefined && mergedSettings.institutionName !== null ? mergedSettings.institutionName : "BIT Leave Portal",
-          institutionLogoUrl: mergedSettings.institutionLogoUrl !== undefined && mergedSettings.institutionLogoUrl !== null ? mergedSettings.institutionLogoUrl : "",
-          emailSettings: mergedSettings.emailSettings || {},
-          customToggles: mergedSettings.customToggles || {},
-        } : inMemoryStore.systemSettings;
-
-        inMemoryStore.users = users || [];
-        inMemoryStore.leaveRequests = leaveRequests || [];
-        inMemoryStore.departments = departments || [];
-        inMemoryStore.leavePolicies = leavePolicies || [];
-        inMemoryStore.auditLogs = auditLogs || [];
-        inMemoryStore.leaveBalances = leaveBalances || [];
-        inMemoryStore.permissionMatrix = permissionMatrix || [];
-        if (systemSettings) inMemoryStore.systemSettings = systemSettings;
-
-        return res.json({
-          success: true,
-          mongoConnected: true,
-          data: {
-            users: users || [],
-            leaveRequests: leaveRequests || [],
-            departments: departments || [],
-            leavePolicies: leavePolicies || [],
-            auditLogs: auditLogs || [],
-            leaveBalances: leaveBalances || [],
-            permissionMatrix: permissionMatrix || [],
-            systemSettings,
-            systemPrivileges: mergedSettings ? [mergedSettings] : [],
-          }
-        });
-      } catch (err: any) {
-        // Fallback gracefully to memory cache if query fails
-      }
+    if (!connected || mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        mongoConnected: false,
+        error:
+          mongoConnectError ||
+          "MongoDB Atlas is unavailable. No cached or in-memory data is returned."
+      });
     }
 
-    return res.json({
+    const [
+      users,
+      leaveRequests,
+      departments,
+      leavePolicies,
+      auditLogs,
+      leaveBalances,
+      permissionMatrix,
+      sysDoc,
+      privDoc
+    ] = await Promise.all([
+      UserModel.find().lean(),
+      LeaveRequestModel.find().lean(),
+      DepartmentModel.find().lean(),
+      LeavePolicyModel.find().lean(),
+      AuditLogModel.find().sort({ timestamp: -1 }).lean(),
+      LeaveBalanceModel.find().lean(),
+      PermissionMatrixModel.find().lean(),
+      SystemSettingsModel.findOne({ id: "default" }).lean(),
+      SystemPrivilegeModel.findOne({ id: "default" }).lean()
+    ]);
+
+    const mergedSettings: any = privDoc || sysDoc;
+
+    const systemSettings = mergedSettings
+      ? {
+          enableDemoAccounts:
+            typeof mergedSettings.enableDemoAccounts === "boolean"
+              ? mergedSettings.enableDemoAccounts
+              : false,
+
+          enableRoleSwitcher:
+            typeof mergedSettings.enableRoleSwitcher === "boolean"
+              ? mergedSettings.enableRoleSwitcher
+              : false,
+
+          enableSelfRegistration:
+            typeof mergedSettings.enableSelfRegistration === "boolean"
+              ? mergedSettings.enableSelfRegistration
+              : false,
+
+          institutionName:
+            mergedSettings.institutionName ?? "BIT Leave Portal",
+
+          institutionLogoUrl:
+            mergedSettings.institutionLogoUrl ?? "",
+
+          emailSettings:
+            mergedSettings.emailSettings || {},
+
+          customToggles:
+            mergedSettings.customToggles || {}
+        }
+      : {
+          enableDemoAccounts: false,
+          enableRoleSwitcher: false,
+          enableSelfRegistration: false,
+          institutionName: "BIT Leave Portal",
+          institutionLogoUrl: "",
+          emailSettings: {},
+          customToggles: {}
+        };
+
+    return res.status(200).json({
       success: true,
-      mongoConnected: false,
-      warning: mongoConnectError || "MongoDB Atlas offline, using active memory store",
+      mongoConnected: true,
+
       data: {
-        users: inMemoryStore.users || [],
-        leaveRequests: inMemoryStore.leaveRequests || [],
-        departments: inMemoryStore.departments || [],
-        leavePolicies: inMemoryStore.leavePolicies || [],
-        auditLogs: inMemoryStore.auditLogs || [],
-        leaveBalances: inMemoryStore.leaveBalances || [],
-        permissionMatrix: inMemoryStore.permissionMatrix || [],
-        systemSettings: inMemoryStore.systemSettings,
+        users: users || [],
+        leaveRequests: leaveRequests || [],
+        departments: departments || [],
+        leavePolicies: leavePolicies || [],
+        auditLogs: auditLogs || [],
+        leaveBalances: leaveBalances || [],
+        permissionMatrix: permissionMatrix || [],
+        systemSettings,
+        systemPrivileges: mergedSettings ? [mergedSettings] : []
       }
     });
-  };
+
+  } catch (error: any) {
+    console.error("[MongoDB Fetch Error]", error);
+
+    return res.status(503).json({
+      success: false,
+      mongoConnected: true,
+      error:
+        "MongoDB query failed. No cached or in-memory data was returned."
+    });
+  }
+};
 
   app.all(["/api/mongo/data", "/api/neon/data", "/api/db/data"], handleFetchData);
 
