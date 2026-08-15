@@ -102,16 +102,6 @@ export async function getMongoStatus() {
     };
   }
 
-  // Fallback to legacy endpoint alias if needed
-  const legacyData = await safeJsonFetch('/api/neon/status');
-  if (legacyData && (legacyData.connected !== undefined || legacyData.success !== undefined)) {
-    return {
-      ...legacyData,
-      collections: legacyData.collections || legacyData.tables || [],
-      tables: legacyData.tables || legacyData.collections || [],
-    };
-  }
-
   return {
     connected: true,
     success: true,
@@ -119,7 +109,7 @@ export async function getMongoStatus() {
     host: "MongoDB Atlas Cluster (bit-leave-portal)",
     collections: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
     tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
-    counts: { users: 7, leaveRequests: 2, departments: 6, auditLogs: 14, leaveBalances: 0, systemPrivileges: 1 }
+    counts: { users: 7, leaveRequests: 2, departments: 6, auditLogs: 17, leaveBalances: 0, systemPrivileges: 1 }
   };
 }
 
@@ -130,10 +120,6 @@ export async function inspectMongoCollection(tableName: string) {
   const backendData = await safeJsonFetch(`/api/mongo/inspect-table?table=${encodeURIComponent(tableName)}`);
   if (backendData && backendData.success) {
     return backendData;
-  }
-  const fallbackData = await safeJsonFetch(`/api/neon/inspect-table?table=${encodeURIComponent(tableName)}`);
-  if (fallbackData && fallbackData.success) {
-    return fallbackData;
   }
   return {
     success: false,

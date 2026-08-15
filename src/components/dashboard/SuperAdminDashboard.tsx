@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { User, Role, EmailLog, Department, LeavePolicy } from '../../types';
 import { DEFAULT_EMAIL_SETTINGS } from '../../lib/emailTemplates';
-import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/mongoSyncDump';
-import { getNeonStatus, inspectNeonTable, syncDataToNeon, connectMongoUri } from '../../lib/neonClient';
+import { generateMySQLDump } from '../../lib/mongoSyncDump';
+import { getMongoStatus, inspectMongoCollection, syncDataToMongo, connectMongoUri } from '../../lib/mongoClient';
 import { MaterialChip } from '../common/MaterialChip';
 import { BitLogo } from '../common/BitLogo';
 import { EditUserModal } from './EditUserModal';
@@ -183,7 +183,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [savingMongoUri, setSavingMongoUri] = useState<boolean>(false);
   const [showMongoConfig, setShowMongoConfig] = useState<boolean>(false);
 
-  const [neonStatus, setNeonStatus] = useState<{
+  const [mongoStatus, setMongoStatus] = useState<{
     loading: boolean;
     connected: boolean | null;
     database?: string;
@@ -205,14 +205,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   } | null>(null);
   const [inspectLoading, setInspectLoading] = useState<boolean>(false);
   const [inspectError, setInspectError] = useState<string | null>(null);
-  const [syncingNeon, setSyncingNeon] = useState<boolean>(false);
-  const [neonSyncMsg, setNeonSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [syncingMongo, setSyncingMongo] = useState<boolean>(false);
+  const [mongoSyncMsg, setMongoSyncMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const syncAllDataToNeon = async () => {
-    setSyncingNeon(true);
-    setNeonSyncMsg(null);
+  const syncAllDataToMongo = async () => {
+    setSyncingMongo(true);
+    setMongoSyncMsg(null);
     try {
-      const data = await syncDataToNeon({
+      const data = await syncDataToMongo({
         users: allUsers,
         leaveRequests,
         departments,
@@ -220,49 +220,49 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         auditLogs
       });
       if (data && data.success) {
-        setNeonSyncMsg({
+        setMongoSyncMsg({
           type: 'success',
-          text: `MongoDB Atlas Migrated! Successfully synchronized data records into cluster bit-leave-portal.`
+          text: `MongoDB Atlas Synchronized! Successfully updated records in cluster bit-leave-portal.`
         });
-        await checkNeonConnection();
+        await checkMongoConnection();
         await fetchInspectTable(selectedInspectTable || 'audit_logs');
       } else {
-        setNeonSyncMsg({
+        setMongoSyncMsg({
           type: 'error',
           text: (data as any)?.error || 'Failed to sync portal data into MongoDB Atlas.'
         });
       }
     } catch (err: any) {
-      setNeonSyncMsg({
+      setMongoSyncMsg({
         type: 'error',
         text: err?.message || 'Network error syncing to MongoDB Atlas.'
       });
     } finally {
-      setSyncingNeon(false);
+      setSyncingMongo(false);
     }
   };
 
   const handleSaveMongoUri = async () => {
     if (!customMongoUriInput.trim()) return;
     setSavingMongoUri(true);
-    setNeonSyncMsg(null);
+    setMongoSyncMsg(null);
     try {
       const res = await connectMongoUri(customMongoUriInput.trim());
       if (res && res.success) {
-        setNeonSyncMsg({
+        setMongoSyncMsg({
           type: 'success',
           text: `Successfully connected to MongoDB Atlas cluster bit-leave-portal!`
         });
         setShowMongoConfig(false);
-        await checkNeonConnection();
+        await checkMongoConnection();
       } else {
-        setNeonSyncMsg({
+        setMongoSyncMsg({
           type: 'error',
           text: (res as any)?.error || 'Failed to connect to MongoDB Atlas cluster.'
         });
       }
     } catch (err: any) {
-      setNeonSyncMsg({
+      setMongoSyncMsg({
         type: 'error',
         text: err?.message || 'Error connecting to MongoDB Atlas cluster.'
       });
@@ -339,7 +339,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     setInspectLoading(true);
     setInspectError(null);
     try {
-      const data = await inspectNeonTable(tableName);
+      const data = await inspectMongoCollection(tableName);
       if (data && data.success && Array.isArray(data.rows) && data.rows.length > 0) {
         setInspectData({
           columns: data.columns || [],
@@ -358,21 +358,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     }
   };
 
-  const checkNeonConnection = async () => {
-    setNeonStatus(prev => ({ ...prev, loading: true, error: undefined }));
+  const checkMongoConnection = async () => {
+    setMongoStatus(prev => ({ ...prev, loading: true, error: undefined }));
     try {
-      const data = await getNeonStatus();
+      const data = await getMongoStatus();
       if (data && (data.connected !== false)) {
-        setNeonStatus({
+        setMongoStatus({
           loading: false,
           connected: true,
           database: data.database || 'bit_leave_portal',
           host: data.host,
           tables: data.collections || data.tables || ['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'permission_matrix', 'system_settings', 'system_privileges'],
-          counts: data.counts || { users: 7, leaveRequests: 2, departments: 6, auditLogs: 14, leaveBalances: 0, systemPrivileges: 1 },
+          counts: data.counts || { users: 7, leaveRequests: 2, departments: 6, auditLogs: 17, leaveBalances: 0, systemPrivileges: 1 },
         });
       } else {
-        setNeonStatus({
+        setMongoStatus({
           loading: false,
           connected: false,
           host: data?.host,
@@ -382,7 +382,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         });
       }
     } catch (err: any) {
-      setNeonStatus({
+      setMongoStatus({
         loading: false,
         connected: false,
         error: err?.message || 'Network error pinging MongoDB Atlas status',
@@ -391,7 +391,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   };
 
   useEffect(() => {
-    checkNeonConnection();
+    checkMongoConnection();
   }, []);
 
   useEffect(() => {
@@ -605,31 +605,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     }
   };
 
-  const handleExportVercelPostgresDump = () => {
-    try {
-      const sqlContent = generateVercelPostgresDump({
-        users: allUsers || [],
-        leaveRequests: leaveRequests || [],
-        departments: departments || [],
-        leavePolicies: leavePolicies || [],
-        auditLogs: auditLogs || []
-      });
-
-      const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bit_leave_portal_vercel_postgres_${new Date().toISOString().split('T')[0]}.sql`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      console.error('Error exporting Vercel Postgres dump:', err);
-      alert('Error exporting PostgreSQL script: ' + (err?.message || 'Unknown error'));
-    }
-  };
-
   const handleCopyDb = () => {
     const snapshot = dbJsonString || exportDbJson();
     navigator.clipboard.writeText(snapshot);
@@ -792,21 +767,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            onClick={handleExportVercelPostgresDump}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-xs border border-blue-500 shadow-sm transition-all active:scale-95 flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
-            title="Download complete Vercel Postgres / PostgreSQL DDL & DML script"
-          >
-            <Database className="w-3.5 h-3.5 text-white" />
-            Vercel Postgres (.sql)
-          </button>
-
-          <button
             onClick={handleExportMySQLDump}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-xs border border-emerald-500 shadow-sm transition-all active:scale-95 flex items-center gap-1.5 uppercase tracking-wide cursor-pointer"
-            title="Download complete MySQL DDL & DML database dump file"
+            title="Download complete SQL database dump file"
           >
             <Database className="w-3.5 h-3.5 text-white" />
-            Export MySQL (.sql)
+            Export SQL (.sql)
           </button>
 
           <button
@@ -1480,11 +1446,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-white tracking-tight">MongoDB Atlas Cluster (<code className="text-emerald-400 font-mono text-xs">bit-leave-portal</code>)</h3>
-                    {neonStatus.loading ? (
+                    {mongoStatus.loading ? (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" /> Checking...
                       </span>
-                    ) : neonStatus.connected ? (
+                    ) : mongoStatus.connected ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> LIVE CONNECTED
                       </span>
@@ -1495,7 +1461,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     )}
                   </div>
                   <p className="text-xs text-emerald-200/80">
-                    Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{neonStatus.host || 'bit-leave-portal.a8qpl.mongodb.net'}</code>
+                    Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{mongoStatus.host || 'bit-leave-portal.rqoqqmo.mongodb.net'}</code>
                   </p>
                 </div>
               </div>
@@ -1503,27 +1469,27 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={syncAllDataToNeon}
-                  disabled={syncingNeon}
+                  onClick={syncAllDataToMongo}
+                  disabled={syncingMongo}
                   className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-emerald-400/30 active:scale-98"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${syncingNeon ? 'animate-spin' : ''}`} />
-                  {syncingNeon ? 'Migrating Data...' : `Migrate All Data to bit-leave-portal DB`}
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingMongo ? 'animate-spin' : ''}`} />
+                  {syncingMongo ? 'Syncing...' : `Save Local State to MongoDB Atlas`}
                 </button>
                 <button
                   type="button"
-                  onClick={checkNeonConnection}
-                  disabled={neonStatus.loading}
+                  onClick={checkMongoConnection}
+                  disabled={mongoStatus.loading}
                   className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-indigo-400/30 active:scale-98"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${neonStatus.loading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${mongoStatus.loading ? 'animate-spin' : ''}`} />
                   Ping Cluster
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     if (!customMongoUriInput) {
-                      setCustomMongoUriInput("mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal");
+                      setCustomMongoUriInput("mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal");
                     }
                     setShowMongoConfig(!showMongoConfig);
                   }}
@@ -1536,7 +1502,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             </div>
 
             {/* Mongo URI Config Drawer */}
-            {(showMongoConfig || !neonStatus.connected) && (
+            {(showMongoConfig || !mongoStatus.connected) && (
               <div className="p-4 rounded-xl bg-slate-850/90 border border-slate-700 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
@@ -1548,7 +1514,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
-                    value={customMongoUriInput || "mongodb+srv://amnLeaveportal410_db_user:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"}
+                    value={customMongoUriInput || "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"}
                     onChange={(e) => setCustomMongoUriInput(e.target.value)}
                     placeholder="mongodb+srv://username:password@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"
                     className="flex-1 px-3 py-2 rounded-lg bg-slate-950 text-emerald-300 border border-slate-700 font-mono text-xs focus:outline-none focus:border-emerald-500"
@@ -1570,15 +1536,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             )}
 
             {/* Sync Feedback Message */}
-            {neonSyncMsg && (
+            {mongoSyncMsg && (
               <div className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 border ${
-                neonSyncMsg.type === 'success' 
+                mongoSyncMsg.type === 'success' 
                   ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200' 
                   : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
               }`}>
-                <span>{neonSyncMsg.text}</span>
+                <span>{mongoSyncMsg.text}</span>
                 <button 
-                  onClick={() => setNeonSyncMsg(null)}
+                  onClick={() => setMongoSyncMsg(null)}
                   className="text-slate-400 hover:text-white p-1 rounded"
                 >
                   ✕
@@ -1587,34 +1553,34 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             )}
 
             {/* Connection Details or Error Box */}
-            {neonStatus.connected ? (
+            {mongoStatus.connected ? (
               <div className="space-y-4 pt-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">MongoDB Database Name</span>
                     <p className="text-xs font-mono text-emerald-400 font-bold truncate">
-                      {neonStatus.database || 'bit_leave_portal'}
+                      {mongoStatus.database || 'bit_leave_portal'}
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Atlas Audit Logs</span>
                     <p className="text-xs font-mono text-emerald-300 font-bold">
-                      {neonStatus.counts?.auditLogs ?? 0} Log Documents
+                      {mongoStatus.counts?.auditLogs ?? 0} Log Documents
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">Atlas Users</span>
                     <p className="text-xs font-mono text-blue-300 font-bold">
-                      {neonStatus.counts?.users ?? 0} User Documents
+                      {mongoStatus.counts?.users ?? 0} User Documents
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">Atlas Leave Requests</span>
                     <p className="text-xs font-mono text-emerald-300 font-bold">
-                      {neonStatus.counts?.leaveRequests ?? 0} Request Documents
+                      {mongoStatus.counts?.leaveRequests ?? 0} Request Documents
                     </p>
                   </div>
                 </div>
@@ -1725,11 +1691,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   )}
                 </div>
               </div>
-            ) : neonStatus.error ? (
+            ) : mongoStatus.error ? (
               <div className="space-y-3">
                 <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span><strong>MongoDB Atlas Connection Issue:</strong> {neonStatus.error}</span>
+                  <span><strong>MongoDB Atlas Connection Issue:</strong> {mongoStatus.error}</span>
                 </div>
               </div>
             ) : null}
@@ -1772,21 +1738,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleExportVercelPostgresDump}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Export complete relational Vercel Postgres / PostgreSQL DDL & DML script (.sql)"
-                >
-                  <Database className="w-3.5 h-3.5 text-white" />
-                  Vercel Postgres (.sql)
-                </button>
-                <button
-                  type="button"
                   onClick={handleExportMySQLDump}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Export complete relational MySQL database DDL & DML script (.sql)"
+                  title="Export SQL format database dump (.sql)"
                 >
                   <Database className="w-3.5 h-3.5 text-white" />
-                  Export MySQL (.sql)
+                  Export SQL (.sql)
                 </button>
                 <button
                   type="button"
@@ -1848,65 +1805,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <Upload className="w-4 h-4" />
                 Restore DB From JSON Snapshot
               </button>
-            </div>
-          </div>
-
-          {/* Vercel Postgres Migration Guide Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl p-6 text-white border border-slate-800 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold text-lg">
-                  🐘
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-white tracking-tight">
-                    Vercel Postgres & PostgreSQL Database Migration Guide
-                  </h4>
-                  <p className="text-xs text-indigo-200/80">
-                    Step-by-step procedure to export MongoDB Atlas data to Vercel Postgres or PostgreSQL database
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleExportVercelPostgresDump}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-2 cursor-pointer border border-blue-400/40"
-              >
-                <Database className="w-4 h-4 text-white" />
-                Download Vercel Postgres SQL (.sql)
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
-                <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
-                  <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[11px]">1</span>
-                  Export SQL Dump
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Click the <strong>Vercel Postgres (.sql)</strong> button above to download the complete schema (DDL) and all current records (DML) formatted with PostgreSQL JSONB columns.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
-                <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
-                  <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[11px]">2</span>
-                  Create Vercel Postgres DB
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Go to your <strong>Vercel Dashboard</strong> &rarr; <strong>Storage</strong> &rarr; Create a <strong>Postgres</strong> database (Neon). Note your <code className="bg-slate-900 px-1 py-0.5 rounded text-indigo-300 text-[10px]">POSTGRES_URL</code> environment variable.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[11px]">3</span>
-                  Execute Query / Import
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Open the <strong>Query Console</strong> in Vercel Storage, paste the downloaded <code className="bg-slate-900 px-1 py-0.5 rounded text-emerald-300 text-[10px]">.sql</code> script, and click <strong>Run Query</strong>, or run <code className="bg-slate-900 px-1 py-0.5 rounded text-emerald-300 text-[10px]">psql $POSTGRES_URL -f dump.sql</code>.
-                </p>
-              </div>
             </div>
           </div>
         </div>

@@ -7,9 +7,7 @@ import {
   savePermissionMatrixToMongo, 
   deleteMongoDoc, 
   saveDocToMongo,
-  saveDocToMongo as saveDocToFirestore,
   deleteDocFromMongo,
-  deleteDocFromMongo as deleteDocFromFirestore,
   deleteUserFromMongo,
   resetMongoData
 } from '../lib/mongoClient';
@@ -187,6 +185,25 @@ function sanitizeAndDeduplicateUsers(
 }
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Permanently purge any legacy Firebase / Firestore / Postgres / Neon cache entries
+  useEffect(() => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (
+          k.toLowerCase().includes('firebase') ||
+          k.toLowerCase().includes('firestore') ||
+          k.toLowerCase().includes('postgres') ||
+          k.toLowerCase().includes('neon')
+        )) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (_e) {}
+  }, []);
+
   const [deletedUserIds, setDeletedUserIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem(DELETED_USER_IDS_KEY);
@@ -220,11 +237,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     try {
-      const rawIds = localStorage.getItem(DELETED_USER_IDS_KEY);
-      const rawEmails = localStorage.getItem(DELETED_USER_EMAILS_KEY);
-      const initIds = rawIds ? new Set<string>(JSON.parse(rawIds)) : new Set<string>();
-      const initEmails = rawEmails ? new Set<string>(JSON.parse(rawEmails)) : new Set<string>();
-      return sanitizeAndDeduplicateUsers(MOCK_USERS, initIds, initEmails);
+      const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sanitizeAndDeduplicateUsers(parsed);
+        }
+      }
+      return sanitizeAndDeduplicateUsers(MOCK_USERS);
     } catch {
       return sanitizeAndDeduplicateUsers(MOCK_USERS);
     }
@@ -790,7 +810,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const key = String(item[keyField] || item.id || item.type || '');
       if (key) map.set(key, item);
     });
-    // Remote items from Firestore MUST ALWAYS take precedence and overwrite local state
+    // Remote items from MongoDB Atlas MUST ALWAYS take precedence and overwrite local state
     remoteItems.forEach(item => {
       const key = String(item[keyField] || item.id || item.type || '');
       if (!key) return;
@@ -859,8 +879,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mongoData = await fetchMongoData();
         if (!mounted || !mongoData) return;
 
-        if (Array.isArray(mongoData.users)) {
-          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users, deletedUserIdsRef.current, deletedUserEmailsRef.current);
+        if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
+          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users);
           setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
         }
         if (Array.isArray(mongoData.departments)) {
@@ -1062,7 +1082,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     setAllUsers(prev => [...prev, newUser]);
-    saveDocToFirestore('users', newId, newUser);
+    saveDocToMongo('users', newId, newUser);
 
     // Notify institutional admins
     const admins = allUsers.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
@@ -1076,7 +1096,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type: 'USER_REGISTRATION'
     }));
     setNotifications(prev => [...newNotifs, ...prev]);
-    newNotifs.forEach(n => saveDocToFirestore('notifications', n.id, n));
+    newNotifs.forEach(n => saveDocToMongo('notifications', n.id, n));
 
     addAuditLog({
       id: newId,
@@ -1100,7 +1120,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!target) return;
     const updatedUser: User = { ...target, accountStatus: status };
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-    saveDocToFirestore('users', userId, updatedUser);
+    saveDocToMongo('users', userId, updatedUser);
     addAuditLog(currentUser, 'USER_STATUS_UPDATE', `Updated registration status of ${target.name} (${target.email}) to ${status}.`);
     if (status === 'ACTIVE') {
       const notif: Notification = {
@@ -1163,7 +1183,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-    saveDocToFirestore('users', userId, updatedUser);
+    saveDocToMongo('users', userId, updatedUser);
     syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'USER_UPDATED', `Updated user details for ${updatedUser.name} (${updatedUser.email}).`);
 
@@ -1193,7 +1213,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setAllUsers(prev => prev.map(u => u.id === activeUser.id ? updatedUser : u));
-    saveDocToFirestore('users', activeUser.id, updatedUser);
+    saveDocToMongo('users', activeUser.id, updatedUser);
     syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(activeUser, 'PASSWORD_CHANGED', `Changed security login password for ${activeUser.name} (${activeUser.email}).`);
 
@@ -1220,7 +1240,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-    saveDocToFirestore('users', userId, updatedUser);
+    saveDocToMongo('users', userId, updatedUser);
     syncDataToMongo({ users: [updatedUser] }).catch(() => {});
     addAuditLog(currentUser, 'ADMIN_RESET_PASSWORD', `Admin reset password for user ${target.name} (${target.email}, ${target.role}).`);
 
@@ -1291,7 +1311,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
           setAllUsers(prev => [...(Array.isArray(prev) ? prev : []), newUser]);
           try {
-            saveDocToFirestore('users', newUser.id, newUser).catch(() => {});
+            saveDocToMongo('users', newUser.id, newUser).catch(() => {});
           } catch (e) {}
           matchedUser = newUser;
         }
@@ -1401,7 +1421,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       setAllUsers(prev => prev.map(u => u.id === matchedUser!.id ? updatedUser : u));
-      saveDocToFirestore('users', matchedUser.id, updatedUser);
+      saveDocToMongo('users', matchedUser.id, updatedUser);
       syncDataToMongo({ users: [updatedUser] }).catch(() => {});
       addAuditLog(matchedUser, 'SELF_PASSWORD_RESET', `User ${matchedUser.name} (${matchedUser.email}) reset account password via 6-digit email security code.`);
 
@@ -1511,7 +1531,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ipAddress: '172.16.' + Math.floor(Math.random() * 50 + 1) + '.' + Math.floor(Math.random() * 200 + 1)
     };
     setAuditLogs(prev => [newLog, ...prev]);
-    saveDocToFirestore('auditLogs', newLog.id, newLog);
+    saveDocToMongo('auditLogs', newLog.id, newLog);
 
     // Sync log to MongoDB Atlas in real-time
     sendAuditLogToMongo(newLog).catch(err => console.warn('[MongoDB Audit Log Sync Warning]', err));
@@ -1529,7 +1549,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       relatedLeaveId
     };
     setNotifications(prev => [newNotification, ...prev]);
-    saveDocToFirestore('notifications', newNotification.id, newNotification);
+    saveDocToMongo('notifications', newNotification.id, newNotification);
   };
 
   const applyForLeave = (data: {
@@ -1591,7 +1611,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
       setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
-      saveDocToFirestore('users', currentUser.id, updatedAppUser);
+      saveDocToMongo('users', currentUser.id, updatedAppUser);
       syncDataToMongo({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
     }
 
@@ -1629,7 +1649,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
-    saveDocToFirestore('leaveRequests', newId, newRequest);
+    saveDocToMongo('leaveRequests', newId, newRequest);
 
     addToast({
       title: 'Leave Application Submitted 📨',
@@ -1738,7 +1758,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
             };
             setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
-            saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+            saveDocToMongo('users', req.applicantId, updatedTargetUser);
             syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
           }
         }
@@ -1756,7 +1776,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             comments
           }
         };
-        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        saveDocToMongo('leaveRequests', req.id, updatedReq);
         return updatedReq;
       }
       return req;
@@ -1825,7 +1845,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
-          saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+          saveDocToMongo('users', req.applicantId, updatedTargetUser);
           syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
         }
 
@@ -1852,7 +1872,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             comments
           }
         };
-        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        saveDocToMongo('leaveRequests', req.id, updatedReq);
         return updatedReq;
       }
       return req;
@@ -1970,7 +1990,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
-          saveDocToFirestore('users', req.applicantId, updatedTargetUser);
+          saveDocToMongo('users', req.applicantId, updatedTargetUser);
           syncDataToMongo({ users: [updatedTargetUser] }).catch(() => {});
         }
 
@@ -1985,7 +2005,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         const updatedReq = { ...req, status: 'CANCELLED' as const };
-        saveDocToFirestore('leaveRequests', req.id, updatedReq);
+        saveDocToMongo('leaveRequests', req.id, updatedReq);
         syncDataToMongo({ leaveRequests: [updatedReq] }).catch(() => {});
         return updatedReq;
       }
@@ -2036,8 +2056,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [...prev, pmEntry];
     });
 
-    saveDocToFirestore('users', userId, updatedUser);
-    saveDocToFirestore('permission_matrix', userId, pmEntry);
+    saveDocToMongo('users', userId, updatedUser);
+    saveDocToMongo('permission_matrix', userId, pmEntry);
     savePermissionMatrixToMongo(pmEntry).catch(() => {});
     syncDataToMongo({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
     addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permission matrix entry for user ${targetUser.name} (${userId}).`);
@@ -2059,7 +2079,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-    saveDocToFirestore('users', userId, updatedUser);
+    saveDocToMongo('users', userId, updatedUser);
     const pendingDays = updatedUser.leaveBalances[leaveType]?.pending || 0;
     syncDataToMongo({
       users: [updatedUser],
@@ -2121,7 +2141,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     setAllUsers(prev => [...prev, newUser]);
-    saveDocToFirestore('users', newUser.id, newUser);
+    saveDocToMongo('users', newUser.id, newUser);
     addAuditLog(currentUser, 'USER_CREATED', `Created new user ${newUser.name} (${newUser.role}) in ${newUser.departmentName}. Status: ${newUser.accountStatus}`);
     return {
       success: true,
@@ -2160,7 +2180,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalFaculty: 0
     };
     setDepartments(prev => [...prev, newDept]);
-    saveDocToFirestore('departments', newDept.id, newDept);
+    saveDocToMongo('departments', newDept.id, newDept);
     addAuditLog(currentUser, 'DEPARTMENT_CREATED', `Created new department ${newDept.name} (${newDept.code}).`);
     addToast({
       title: 'Department Created 🏛️',
@@ -2172,7 +2192,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateDepartment = (updatedDept: Department) => {
     if (!canModifyDepartments()) return;
     setDepartments(prev => prev.map(d => d.id === updatedDept.id ? updatedDept : d));
-    saveDocToFirestore('departments', updatedDept.id, updatedDept);
+    saveDocToMongo('departments', updatedDept.id, updatedDept);
     addAuditLog(currentUser, 'DEPARTMENT_UPDATED', `Updated department ${updatedDept.name} (${updatedDept.code}).`);
     addToast({
       title: 'Department Updated ✏️',
@@ -2190,7 +2210,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return [...prev, policyData];
     });
-    saveDocToFirestore('leavePolicies', policyData.type, policyData);
+    saveDocToMongo('leavePolicies', policyData.type, policyData);
 
     // Automatically initialize this leave balance for all existing users if new
     setAllUsers(uList => uList.map(u => {
@@ -2217,7 +2237,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateLeavePolicy = (updatedPolicy: LeavePolicy) => {
     if (!canModifyPolicies()) return;
     setLeavePolicies(prev => prev.map(p => p.type === updatedPolicy.type ? updatedPolicy : p));
-    saveDocToFirestore('leavePolicies', updatedPolicy.type, updatedPolicy);
+    saveDocToMongo('leavePolicies', updatedPolicy.type, updatedPolicy);
     addAuditLog(currentUser, 'POLICY_UPDATED', `Updated policy for ${updatedPolicy.label}. Annual Quota set to ${updatedPolicy.annualQuota}.`);
     addToast({
       title: 'Leave Policy Updated ⚙️',
@@ -2230,7 +2250,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNotifications(prev => prev.map(n => {
       if (n.id === id) {
         const updated = { ...n, read: true };
-        saveDocToFirestore('notifications', id, updated);
+        saveDocToMongo('notifications', id, updated);
         return updated;
       }
       return n;
@@ -2240,7 +2260,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const markAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => {
       const updated = { ...n, read: true };
-      saveDocToFirestore('notifications', n.id, updated);
+      saveDocToMongo('notifications', n.id, updated);
       return updated;
     }));
   };

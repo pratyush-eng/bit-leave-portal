@@ -28,7 +28,7 @@ import {
   Database,
   Download
 } from 'lucide-react';
-import { generateMySQLDump, generateVercelPostgresDump } from '../../lib/mongoSyncDump';
+import { generateMySQLDump } from '../../lib/mongoSyncDump';
 
 interface AdminDashboardProps {
   onSelectLeaveRequest?: (id: string, printMode?: boolean) => void;
@@ -387,39 +387,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
     }
   };
 
-  const handleExportVercelPostgresDump = () => {
-    try {
-      const sqlContent = generateVercelPostgresDump({
-        users: allUsers || [],
-        leaveRequests: leaveRequests || [],
-        departments: departments || [],
-        leavePolicies: leavePolicies || [],
-        auditLogs: auditLogs || []
-      });
-
-      const blob = new Blob([sqlContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bit_leave_portal_vercel_postgres_${new Date().toISOString().split('T')[0]}.sql`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      if (addToast) {
-        addToast({
-          title: 'Vercel Postgres Dump Exported 🐘',
-          message: 'Downloaded complete Vercel Postgres / PostgreSQL DDL & DML database script.',
-          type: 'SUCCESS'
-        });
-      }
-    } catch (err: any) {
-      console.error('Error exporting Vercel Postgres dump:', err);
-      alert('Error exporting PostgreSQL script: ' + (err?.message || 'Unknown error'));
-    }
-  };
-
   return (
     <div className="space-y-6 font-sans">
       
@@ -467,21 +434,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
         <div className="flex flex-wrap gap-2 shrink-0">
           <button
-            onClick={handleExportVercelPostgresDump}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            title="Download complete Vercel Postgres / PostgreSQL DDL & DML script"
-          >
-            <Database className="w-3.5 h-3.5" />
-            Vercel Postgres (.sql)
-          </button>
-
-          <button
             onClick={handleExportMySQLDump}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            title="Download complete MySQL DDL & DML script"
+            title="Download complete SQL database export script"
           >
             <Database className="w-3.5 h-3.5" />
-            MySQL (.sql)
+            Export SQL (.sql)
           </button>
 
           <button
