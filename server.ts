@@ -712,6 +712,12 @@ async function startServer() {
 
   // Fetch all data from MongoDB Atlas (with in-memory fallback)
   const handleFetchData = async (req: express.Request, res: express.Response) => {
+    // Set strict cache control headers on all dynamic API responses
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
     const connected = await initMongo();
     if (connected && mongoose.connection.readyState === 1) {
       try {
@@ -738,65 +744,47 @@ async function startServer() {
           customToggles: mergedSettings.customToggles || {},
         } : inMemoryStore.systemSettings;
 
-        // Keep inMemoryStore directly synced to MongoDB state
-        const filteredMongoUsers = (users || []).filter((u: any) => {
-          const uId = String(u.id || '').trim();
-          const uEmail = String(u.email || '').trim().toLowerCase();
-          return !deletedUserIdsSet.has(uId) && !deletedUserEmailsSet.has(uEmail);
-        });
-
-        inMemoryStore.users = filteredMongoUsers;
-        inMemoryStore.leaveRequests = leaveRequests;
-        inMemoryStore.departments = departments;
-        inMemoryStore.leavePolicies = leavePolicies;
-        inMemoryStore.auditLogs = auditLogs;
-        inMemoryStore.leaveBalances = leaveBalances;
-        inMemoryStore.permissionMatrix = (permissionMatrix || []).filter((p: any) => {
-          const pId = String(p.userId || p.id || '').trim();
-          const pEmail = String(p.userEmail || '').trim().toLowerCase();
-          return !deletedUserIdsSet.has(pId) && !deletedUserEmailsSet.has(pEmail);
-        });
+        inMemoryStore.users = users || [];
+        inMemoryStore.leaveRequests = leaveRequests || [];
+        inMemoryStore.departments = departments || [];
+        inMemoryStore.leavePolicies = leavePolicies || [];
+        inMemoryStore.auditLogs = auditLogs || [];
+        inMemoryStore.leaveBalances = leaveBalances || [];
+        inMemoryStore.permissionMatrix = permissionMatrix || [];
         if (systemSettings) inMemoryStore.systemSettings = systemSettings;
 
         return res.json({
           success: true,
           mongoConnected: true,
           data: {
-            users: filteredMongoUsers,
-            leaveRequests,
-            departments,
-            leavePolicies,
-            auditLogs,
-            leaveBalances,
-            permissionMatrix: inMemoryStore.permissionMatrix,
+            users: users || [],
+            leaveRequests: leaveRequests || [],
+            departments: departments || [],
+            leavePolicies: leavePolicies || [],
+            auditLogs: auditLogs || [],
+            leaveBalances: leaveBalances || [],
+            permissionMatrix: permissionMatrix || [],
             systemSettings,
             systemPrivileges: mergedSettings ? [mergedSettings] : [],
           }
         });
       } catch (err: any) {
-        // Fallback gracefully to memory cache
+        // Fallback gracefully to memory cache if query fails
       }
     }
-
-    // Return in-memory cached state if Atlas is unreachable or DNS resolution fails
-    const filteredMemUsers = (inMemoryStore.users || []).filter((u: any) => {
-      const uId = String(u.id || '').trim();
-      const uEmail = String(u.email || '').trim().toLowerCase();
-      return !deletedUserIdsSet.has(uId) && !deletedUserEmailsSet.has(uEmail);
-    });
 
     return res.json({
       success: true,
       mongoConnected: false,
       warning: mongoConnectError || "MongoDB Atlas offline, using active memory store",
       data: {
-        users: filteredMemUsers,
-        leaveRequests: inMemoryStore.leaveRequests,
-        departments: inMemoryStore.departments,
-        leavePolicies: inMemoryStore.leavePolicies,
-        auditLogs: inMemoryStore.auditLogs,
-        leaveBalances: inMemoryStore.leaveBalances,
-        permissionMatrix: inMemoryStore.permissionMatrix,
+        users: inMemoryStore.users || [],
+        leaveRequests: inMemoryStore.leaveRequests || [],
+        departments: inMemoryStore.departments || [],
+        leavePolicies: inMemoryStore.leavePolicies || [],
+        auditLogs: inMemoryStore.auditLogs || [],
+        leaveBalances: inMemoryStore.leaveBalances || [],
+        permissionMatrix: inMemoryStore.permissionMatrix || [],
         systemSettings: inMemoryStore.systemSettings,
       }
     });

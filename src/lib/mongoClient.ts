@@ -30,12 +30,40 @@ export function subscribeToSyncStatus(callback: SyncListener) {
   };
 }
 
+// Broadcast channel for instantaneous cross-tab synchronization on the same browser
+let syncChannel: BroadcastChannel | null = null;
+try {
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    syncChannel = new BroadcastChannel('bit_leave_portal_channel');
+  }
+} catch (_e) {}
+
+export function broadcastDataChange(type: string = 'MUTATION') {
+  try {
+    if (syncChannel) {
+      syncChannel.postMessage({ type, timestamp: Date.now() });
+    }
+  } catch (_e) {}
+}
+
+export function subscribeToDataBroadcast(callback: (event: any) => void) {
+  if (!syncChannel) return () => {};
+  const handler = (e: MessageEvent) => {
+    if (e && e.data) callback(e.data);
+  };
+  syncChannel.addEventListener('message', handler);
+  return () => {
+    syncChannel?.removeEventListener('message', handler);
+  };
+}
+
 async function safeJsonFetch(url: string, options?: RequestInit, retries = 1): Promise<any> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const timestampUrl = options?.method === 'POST' 
+      const nonce = Math.random().toString(36).substring(2, 9);
+      const timestampUrl = options?.method === 'POST' || options?.method === 'PUT' || options?.method === 'DELETE'
         ? url 
-        : (url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`);
+        : (url.includes('?') ? `${url}&_t=${Date.now()}&_n=${nonce}` : `${url}?_t=${Date.now()}&_n=${nonce}`);
         
       const res = await fetch(timestampUrl, {
         cache: 'no-store',
@@ -43,8 +71,9 @@ async function safeJsonFetch(url: string, options?: RequestInit, retries = 1): P
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
           'Pragma': 'no-cache',
+          'Expires': '0',
           ...(options?.headers || {}),
         },
       });
@@ -60,13 +89,13 @@ async function safeJsonFetch(url: string, options?: RequestInit, retries = 1): P
       }
 
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise(r => setTimeout(r, 200));
         continue;
       }
       return null;
     } catch (err: any) {
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise(r => setTimeout(r, 200));
         continue;
       }
       console.warn(`[API Fetch Warning] ${url}:`, err?.message || err);
@@ -148,6 +177,7 @@ export async function deleteMongoDoc(colName: string, idOrPayload?: any, emailEx
     body: JSON.stringify(bodyPayload),
   });
   notifySyncListeners({ isSyncing: false, message: 'Record deleted from MongoDB', opType: 'IDLE' });
+  broadcastDataChange('DELETE');
   return backendData || { success: false, error: 'Failed to delete record from MongoDB' };
 }
 
@@ -178,6 +208,7 @@ export async function syncDataToMongo(payload: {
     body: JSON.stringify(payload),
   });
   notifySyncListeners({ isSyncing: false, message: 'MongoDB Atlas Saved', opType: 'IDLE' });
+  broadcastDataChange('SYNC');
   return backendData || { success: false, error: 'Failed to sync data to MongoDB Atlas' };
 }
 
@@ -189,6 +220,7 @@ export async function sendAuditLogToMongo(log: any) {
     method: 'POST',
     body: JSON.stringify({ log }),
   });
+  broadcastDataChange('AUDIT');
   return backendData || { success: false, error: 'Failed to send audit log to MongoDB' };
 }
 
@@ -202,6 +234,7 @@ export async function saveSystemSettingsToMongo(settings: SystemSettings) {
     body: JSON.stringify(settings),
   });
   notifySyncListeners({ isSyncing: false, message: 'System Settings Saved in MongoDB', opType: 'IDLE' });
+  broadcastDataChange('SETTINGS');
   return backendData;
 }
 
@@ -215,6 +248,7 @@ export async function saveSystemPrivilegesToMongo(privileges: any) {
     body: JSON.stringify(privileges),
   });
   notifySyncListeners({ isSyncing: false, message: 'System Privileges & Toggles Saved in MongoDB Atlas', opType: 'IDLE' });
+  broadcastDataChange('PRIVILEGES');
   return backendData;
 }
 
@@ -229,6 +263,7 @@ export async function savePermissionMatrixToMongo(permissionMatrix: PermissionMa
     body: JSON.stringify(payload),
   });
   notifySyncListeners({ isSyncing: false, message: 'Permission Matrix Updated in MongoDB', opType: 'IDLE' });
+  broadcastDataChange('PERMISSIONS');
   return backendData;
 }
 

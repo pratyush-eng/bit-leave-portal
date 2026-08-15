@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   fetchMongoData, 
   syncDataToMongo, 
@@ -9,7 +9,8 @@ import {
   saveDocToMongo,
   deleteDocFromMongo,
   deleteUserFromMongo,
-  resetMongoData
+  resetMongoData,
+  subscribeToDataBroadcast
 } from '../lib/mongoClient';
 import { 
   User, 
@@ -894,65 +895,98 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   }
 
+  // Ref to trigger real-time sync after any mutation
+  const triggerSyncRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
+  const syncWithMongo = useCallback(async () => {
+    try {
+      const mongoData = await fetchMongoData();
+      if (!mongoData) return;
+
+      if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
+        const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users);
+        setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
+      }
+      if (Array.isArray(mongoData.departments) && mongoData.departments.length > 0) {
+        setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
+      }
+      if (Array.isArray(mongoData.leaveRequests)) {
+        setLeaveRequests((prev) => {
+          const normalized = normalizeLeaveRequests(mongoData.leaveRequests, mongoData.users || [], mongoData.departments || []);
+          return isDeepEqual(normalized, prev) ? prev : normalized;
+        });
+      }
+      if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
+        setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
+      }
+      if (Array.isArray(mongoData.auditLogs)) {
+        setAuditLogs((prev) => isDeepEqual(mongoData.auditLogs, prev) ? prev : mongoData.auditLogs);
+      }
+      if (Array.isArray(mongoData.permissionMatrix)) {
+        setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
+      }
+      if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
+        const sys = mongoData.systemSettings;
+        const updatedSys: SystemSettings = {
+          enableDemoAccounts: typeof sys.enableDemoAccounts === 'boolean' ? sys.enableDemoAccounts : false,
+          enableRoleSwitcher: typeof sys.enableRoleSwitcher === 'boolean' ? sys.enableRoleSwitcher : false,
+          enableSelfRegistration: typeof sys.enableSelfRegistration === 'boolean' ? sys.enableSelfRegistration : false,
+          institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
+          institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
+          emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
+        };
+        setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
+      }
+    } catch (_err) {
+      // Soft fallback when offline
+    }
+  }, []);
+
+  triggerSyncRef.current = syncWithMongo;
+
   // Subscribe to real-time MongoDB Atlas data changes across all global devices
   useEffect(() => {
     let mounted = true;
 
-    const syncWithMongo = async () => {
-      try {
-        const mongoData = await fetchMongoData();
-        if (!mounted || !mongoData) return;
-
-        if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
-          const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users);
-          setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
-        }
-        if (Array.isArray(mongoData.departments)) {
-          setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
-        }
-        if (Array.isArray(mongoData.leaveRequests)) {
-          setLeaveRequests((prev) => {
-            const normalized = normalizeLeaveRequests(mongoData.leaveRequests, mongoData.users || [], mongoData.departments || []);
-            return isDeepEqual(normalized, prev) ? prev : normalized;
-          });
-        }
-        if (Array.isArray(mongoData.leavePolicies)) {
-          setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
-        }
-        if (Array.isArray(mongoData.auditLogs)) {
-          setAuditLogs((prev) => isDeepEqual(mongoData.auditLogs, prev) ? prev : mongoData.auditLogs);
-        }
-        if (Array.isArray(mongoData.permissionMatrix)) {
-          setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
-        }
-        if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
-          const sys = mongoData.systemSettings;
-          const updatedSys: SystemSettings = {
-            enableDemoAccounts: typeof sys.enableDemoAccounts === 'boolean' ? sys.enableDemoAccounts : false,
-            enableRoleSwitcher: typeof sys.enableRoleSwitcher === 'boolean' ? sys.enableRoleSwitcher : false,
-            enableSelfRegistration: typeof sys.enableSelfRegistration === 'boolean' ? sys.enableSelfRegistration : false,
-            institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
-            institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
-            emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
-          };
-          setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
-        }
-      } catch (_err) {
-        // Soft fallback when offline
-      }
+    const runSync = async () => {
+      if (!mounted) return;
+      await syncWithMongo();
     };
 
     // Initial sync
-    syncWithMongo();
+    runSync();
 
-    // Poll MongoDB every 3 seconds for instant multi-device synchronization
-    const interval = setInterval(syncWithMongo, 3000);
+    // Poll MongoDB every 2 seconds for instant multi-device synchronization
+    const interval = setInterval(runSync, 2000);
+
+    // Instant cross-tab broadcast synchronization
+    const unsubBroadcast = subscribeToDataBroadcast(() => {
+      if (mounted) runSync();
+    });
+
+    // Instant sync on window focus, tab visibility change, and online network recovery
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible' && mounted) {
+        runSync();
+      }
+    };
+    const handleWindowFocus = () => {
+      if (mounted) runSync();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('online', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
 
     return () => {
       mounted = false;
       clearInterval(interval);
+      unsubBroadcast();
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('online', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
     };
-  }, []);
+  }, [syncWithMongo]);
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     const cleanEmail = String(email || '').toLowerCase().trim();
