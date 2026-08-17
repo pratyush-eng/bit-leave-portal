@@ -1444,6 +1444,104 @@ async function startServer() {
     }
   });
 
+  // Diagnostics: Data Consistency Endpoint across distributed devices and server instances
+  app.get("/api/diagnostics/data-consistency", async (req: express.Request, res: express.Response) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    const connected = await initMongo();
+    const isDbConnected = connected && mongoose.connection.readyState === 1;
+
+    try {
+      if (isDbConnected) {
+        const [
+          usersCount,
+          leaveRequestsCount,
+          departmentsCount,
+          leavePoliciesCount,
+          auditLogsCount,
+          latestLeaveRequest,
+          latestAuditLog
+        ] = await Promise.all([
+          UserModel.countDocuments(),
+          LeaveRequestModel.countDocuments(),
+          DepartmentModel.countDocuments(),
+          LeavePolicyModel.countDocuments(),
+          AuditLogModel.countDocuments(),
+          LeaveRequestModel.findOne().sort({ updatedAt: -1, createdAt: -1, _id: -1 }).lean(),
+          AuditLogModel.findOne().sort({ timestamp: -1, createdAt: -1, _id: -1 }).lean(),
+        ]);
+
+        return res.json({
+          success: true,
+          serverTimestamp: new Date().toISOString(),
+          database: {
+            connected: true,
+            engine: "MongoDB Atlas",
+            dbName: mongoose.connection.db?.databaseName || "bit_leave_portal",
+            host: mongoose.connection.host,
+            readyState: mongoose.connection.readyState,
+          },
+          counts: {
+            users: usersCount,
+            leaveRequests: leaveRequestsCount,
+            departments: departmentsCount,
+            leavePolicies: leavePoliciesCount,
+            auditLogs: auditLogsCount,
+          },
+          latestRecords: {
+            latestLeaveRequest: latestLeaveRequest ? {
+              id: latestLeaveRequest.id,
+              applicantName: latestLeaveRequest.applicantName,
+              applicantEmail: latestLeaveRequest.applicantEmail,
+              leaveType: latestLeaveRequest.leaveType,
+              status: latestLeaveRequest.status,
+              appliedOn: latestLeaveRequest.appliedOn,
+              updatedAt: (latestLeaveRequest as any).updatedAt || null,
+            } : null,
+            latestAuditLog: latestAuditLog ? {
+              id: latestAuditLog.id,
+              action: latestAuditLog.action,
+              actorName: latestAuditLog.actorName,
+              timestamp: latestAuditLog.timestamp,
+            } : null,
+          }
+        });
+      }
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+        serverTimestamp: new Date().toISOString(),
+        database: {
+          connected: false,
+          error: err.message
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      serverTimestamp: new Date().toISOString(),
+      database: {
+        connected: false,
+        engine: "In-Memory Store (MongoDB Atlas Disconnected)",
+      },
+      counts: {
+        users: inMemoryStore.users.length,
+        leaveRequests: inMemoryStore.leaveRequests.length,
+        departments: inMemoryStore.departments.length,
+        leavePolicies: inMemoryStore.leavePolicies.length,
+        auditLogs: inMemoryStore.auditLogs.length,
+      },
+      latestRecords: {
+        latestLeaveRequest: inMemoryStore.leaveRequests[0] || null,
+        latestAuditLog: inMemoryStore.auditLogs[0] || null,
+      }
+    });
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", database: "mongodb" });
