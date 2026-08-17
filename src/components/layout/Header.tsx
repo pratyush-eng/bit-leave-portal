@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLeave } from '../../context/LeaveContext';
 import { MaterialChip } from '../common/MaterialChip';
-import { subscribeToSyncStatus, SyncStatus } from '../../lib/mongoClient';
+import { subscribeToSyncStatus, SyncStatus, getMongoStatus } from '../../lib/mongoClient';
 import { BitLogo } from '../common/BitLogo';
 import { 
   Bell, 
@@ -50,20 +50,39 @@ export const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+    let failureCount = 0;
+
     const checkDb = async () => {
       try {
-        const res = await fetch('/api/mongo/status?_t=' + Date.now()).then(r => r.json()).catch(() => null);
+        const data = await getMongoStatus();
         if (isMounted) {
-          setDbConnected(!!(res && res.connected));
+          if (data && (data.connected === true || (data as any).success === true)) {
+            failureCount = 0;
+            setDbConnected(true);
+          } else if (data && data.connected === false) {
+            failureCount++;
+            if (failureCount >= 2) {
+              setDbConnected(false);
+            }
+          }
         }
       } catch (_e) {
-        if (isMounted) setDbConnected(false);
+        if (isMounted) {
+          failureCount++;
+          if (failureCount >= 2) {
+            setDbConnected(false);
+          }
+        }
       }
     };
+
     checkDb();
+    const initialTimer = setTimeout(checkDb, 1500);
     const interval = setInterval(checkDb, 8000);
+
     return () => {
       isMounted = false;
+      clearTimeout(initialTimer);
       clearInterval(interval);
     };
   }, []);

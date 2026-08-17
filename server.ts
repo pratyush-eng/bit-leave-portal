@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import path from "path";
 import nodemailer from "nodemailer";
@@ -114,11 +117,28 @@ function getMaskedUri(uri: string) {
   }
 }
 
-async function initMongo(customUri?: string) {
+let mongoConnectPromise: Promise<boolean> | null = null;
+
+mongoose.connection.on("connected", () => {
+  isMongoConnected = true;
+  mongoConnectError = "";
+});
+
+mongoose.connection.on("disconnected", () => {
+  isMongoConnected = false;
+});
+
+mongoose.connection.on("error", (err: any) => {
+  isMongoConnected = false;
+  mongoConnectError = err?.message || String(err);
+});
+
+async function initMongo(customUri?: string): Promise<boolean> {
   if (customUri && customUri.trim()) {
     activeMongoUri = normalizeMongoUri(customUri.trim());
     activeMongoSource = "custom_input";
     isMongoConnected = false;
+    mongoConnectPromise = null;
     try {
       await mongoose.disconnect();
     } catch (_e) {}
@@ -128,57 +148,75 @@ async function initMongo(customUri?: string) {
     activeMongoSource = envObj.source;
   }
 
-  if (isMongoConnected && mongoose.connection.readyState === 1) return true;
-
-  // Throttle connection retries to avoid spamming DNS queries
-  const now = Date.now();
-  if (lastConnectAttempt && now - lastConnectAttempt < 1000 && !customUri) {
-    return isMongoConnected;
-  }
-  lastConnectAttempt = now;
-
-  try {
-    await mongoose.connect(activeMongoUri, {
-      dbName: "bit_leave_portal",
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
-    });
+  if (mongoose.connection.readyState === 1) {
     isMongoConnected = true;
-    mongoConnectError = "";
-    console.log(`[MongoDB Atlas] Connected successfully using process.env.MONGODB_URI: ${getMaskedUri(activeMongoUri)}`);
-    
-    // Immediately load system privileges from MongoDB Atlas into inMemoryStore
-    try {
-      const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
-                      (await SystemSettingsModel.findOne({ id: "default" }).lean());
-      if (privDoc) {
-        inMemoryStore.systemSettings = {
-          enableDemoAccounts: typeof privDoc.enableDemoAccounts === 'boolean' ? privDoc.enableDemoAccounts : false,
-          enableRoleSwitcher: typeof privDoc.enableRoleSwitcher === 'boolean' ? privDoc.enableRoleSwitcher : false,
-          enableSelfRegistration: typeof privDoc.enableSelfRegistration === 'boolean' ? privDoc.enableSelfRegistration : false,
-          institutionName: privDoc.institutionName || "BIT Leave Portal",
-          institutionLogoUrl: privDoc.institutionLogoUrl || "",
-          emailSettings: privDoc.emailSettings || {},
-          customToggles: privDoc.customToggles || {},
-        };
-      }
-    } catch (_loadErr) {}
-
-    await seedAndMigrateToMongo();
     return true;
-  } catch (err: any) {
+  }
+
+  if (mongoose.connection.readyState === 2 && mongoConnectPromise) {
+    return mongoConnectPromise;
+  }
+
+  if (!activeMongoUri) {
     isMongoConnected = false;
-    const rawMsg = err?.message || String(err);
-    const dbUser = getUriUsername(activeMongoUri);
-    if (rawMsg.includes("bad auth") || rawMsg.includes("Authentication failed")) {
-      mongoConnectError = `Authentication failed for user '${dbUser}'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user '${dbUser}' exists, password is correct, and user has 'Read and write to any database' privilege.`;
-    } else if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
-      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas connection string.`;
-    } else {
-      mongoConnectError = rawMsg;
-    }
     return false;
   }
+
+  const connectTask = async (): Promise<boolean> => {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        isMongoConnected = true;
+        return true;
+      }
+
+      await mongoose.connect(activeMongoUri, {
+        dbName: "bit_leave_portal",
+        serverSelectionTimeoutMS: 6000,
+        connectTimeoutMS: 6000,
+      });
+
+      isMongoConnected = true;
+      mongoConnectError = "";
+      console.log(`[MongoDB Atlas] Connected successfully using ${activeMongoSource}: ${getMaskedUri(activeMongoUri)}`);
+      
+      // Immediately load system privileges from MongoDB Atlas into inMemoryStore
+      try {
+        const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
+                        (await SystemSettingsModel.findOne({ id: "default" }).lean());
+        if (privDoc) {
+          inMemoryStore.systemSettings = {
+            enableDemoAccounts: typeof privDoc.enableDemoAccounts === 'boolean' ? privDoc.enableDemoAccounts : false,
+            enableRoleSwitcher: typeof privDoc.enableRoleSwitcher === 'boolean' ? privDoc.enableRoleSwitcher : false,
+            enableSelfRegistration: typeof privDoc.enableSelfRegistration === 'boolean' ? privDoc.enableSelfRegistration : false,
+            institutionName: privDoc.institutionName || "BIT Leave Portal",
+            institutionLogoUrl: privDoc.institutionLogoUrl || "",
+            emailSettings: privDoc.emailSettings || {},
+            customToggles: privDoc.customToggles || {},
+          };
+        }
+      } catch (_loadErr) {}
+
+      await seedAndMigrateToMongo();
+      return true;
+    } catch (err: any) {
+      isMongoConnected = false;
+      const rawMsg = err?.message || String(err);
+      const dbUser = getUriUsername(activeMongoUri);
+      if (rawMsg.includes("bad auth") || rawMsg.includes("Authentication failed")) {
+        mongoConnectError = `Authentication failed for user '${dbUser}'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user '${dbUser}' exists, password is correct, and user has 'Read and write to any database' privilege.`;
+      } else if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
+        mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas connection string.`;
+      } else {
+        mongoConnectError = rawMsg;
+      }
+      return false;
+    } finally {
+      mongoConnectPromise = null;
+    }
+  };
+
+  mongoConnectPromise = connectTask();
+  return mongoConnectPromise;
 }
 
 // Define Mongoose Schemas for MongoDB Collections
