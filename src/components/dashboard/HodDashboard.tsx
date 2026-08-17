@@ -31,9 +31,9 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
   const [remarks, setRemarks] = useState<string>('');
   const [deptLeaveSearch, setDeptLeaveSearch] = useState<string>('');
 
-  const userDeptId = (currentUser.departmentId || '').toLowerCase().trim();
-  const userDeptName = (currentUser.departmentName || '').toLowerCase().trim();
-  const deptObj = departments.find(d => d.id === currentUser.departmentId || d.hodId === currentUser.id);
+  const userDeptId = (currentUser?.departmentId || '').toLowerCase().trim();
+  const userDeptName = (currentUser?.departmentName || '').toLowerCase().trim();
+  const deptObj = departments.find(d => d.id === currentUser?.departmentId || d.hodId === currentUser?.id);
 
   // All department requests (robust matching on departmentId, departmentName, code or applicant self)
   const departmentRequests = leaveRequests.filter(r => {
@@ -42,7 +42,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
     const reqDeptName = (r.departmentName || '').toLowerCase().trim();
     const matchId = reqDeptId && (reqDeptId === userDeptId || (deptObj && reqDeptId === deptObj.code.toLowerCase()));
     const matchName = reqDeptName && userDeptName && reqDeptName === userDeptName;
-    const isSelf = r.applicantId === currentUser.id || (r.applicantEmail && currentUser.email && r.applicantEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
+    const isSelf = r.applicantId === currentUser?.id || (r.applicantEmail && currentUser?.email && r.applicantEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
 
     return matchId || matchName || isSelf;
   });
@@ -57,7 +57,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
     if (!u) return false;
     const uDeptId = (u.departmentId || '').toLowerCase().trim();
     const uDeptName = (u.departmentName || '').toLowerCase().trim();
-    return uDeptId === userDeptId || (uDeptName && uDeptName === userDeptName) || u.id === currentUser.id;
+    return uDeptId === userDeptId || (uDeptName && uDeptName === userDeptName) || u.id === currentUser?.id;
   });
 
   const handleRecommend = (req: LeaveRequest) => {

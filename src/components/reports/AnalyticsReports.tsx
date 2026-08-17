@@ -33,7 +33,7 @@ export const AnalyticsReports: React.FC = () => {
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isRegistrar = currentUser?.role === 'REGISTRAR';
   const isHod = currentUser?.role === 'HOD';
-  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const isDeptAdmin = currentUser?.role === 'ADMIN';
   const isFacultyOrStaff = currentUser?.role === 'FACULTY' || currentUser?.role === 'STAFF';
   const isDeptRestricted = isDeptAdmin || isHod;
   

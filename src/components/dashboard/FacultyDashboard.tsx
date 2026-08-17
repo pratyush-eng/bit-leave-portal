@@ -29,16 +29,16 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
   // Faculty/Staff member's own requests (with robust trimmed & case-insensitive matching)
   const myRequests = leaveRequests.filter(r => {
-    if (!r) return false;
+    if (!r || !currentUser) return false;
     const cleanReqEmail = (r.applicantEmail || '').toLowerCase().trim();
-    const cleanUserEmail = (currentUser.email || '').toLowerCase().trim();
+    const cleanUserEmail = (currentUser?.email || '').toLowerCase().trim();
     const cleanReqCode = (r.applicantEmployeeCode || '').toLowerCase().trim();
-    const cleanUserCode = (currentUser.employeeCode || '').toLowerCase().trim();
+    const cleanUserCode = (currentUser?.employeeCode || '').toLowerCase().trim();
     const cleanReqName = (r.applicantName || '').toLowerCase().trim();
-    const cleanUserName = (currentUser.name || '').toLowerCase().trim();
+    const cleanUserName = (currentUser?.name || '').toLowerCase().trim();
 
     return (
-      (r.applicantId && r.applicantId === currentUser.id) ||
+      (r.applicantId && r.applicantId === currentUser?.id) ||
       (cleanReqEmail && cleanUserEmail && cleanReqEmail === cleanUserEmail) ||
       (cleanReqCode && cleanUserCode && cleanReqCode === cleanUserCode) ||
       (cleanReqName && cleanUserName && cleanReqName === cleanUserName)
@@ -55,12 +55,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
-              {currentUser.departmentName}
+              {currentUser?.departmentName || 'Computer Science & Engineering'}
             </span>
-            <span className="text-xs text-indigo-100 font-medium">Emp Code: {currentUser.employeeCode}</span>
+            <span className="text-xs text-indigo-100 font-medium">Emp Code: {currentUser?.employeeCode || 'N/A'}</span>
           </div>
           <h2 className="text-xl font-medium tracking-tight">
-            Welcome back, {currentUser.name}
+            Welcome back, {currentUser?.name || 'User'}
           </h2>
           <p className="text-xs text-indigo-100/90 mt-1 max-w-xl leading-relaxed">
             University leave quota tracking, substitute lecture handover management, and multi-tier HOD & Registrar sanction workflow portal.

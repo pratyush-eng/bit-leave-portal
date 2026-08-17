@@ -516,8 +516,10 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                   <div className="border border-slate-300 rounded-lg p-3 flex flex-col justify-between h-28">
                     <div className="flex justify-between items-start">
                       <span className="text-[10px] uppercase font-bold text-slate-500 block">Head of Department (HOD)</span>
-                      {request.hodApproval?.status === 'APPROVED' && (
-                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-bold">APPROVED ONLINE</span>
+                      {(request.hodApproval?.status === 'RECOMMENDED' || request.hodApproval?.status === 'APPROVED') && (
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-bold">
+                          {request.hodApproval?.status === 'RECOMMENDED' ? 'RECOMMENDED ONLINE' : 'APPROVED ONLINE'}
+                        </span>
                       )}
                     </div>
                     <div className="border-t border-slate-400 pt-1 text-center">

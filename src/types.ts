@@ -24,13 +24,14 @@ export interface LeavePolicy {
 }
 
 export interface LeaveBalance {
-  CASUAL: { total: number; used: number; pending: number };
-  SICK: { total: number; used: number; pending: number };
-  EARNED: { total: number; used: number; pending: number };
-  DUTY: { total: number; used: number; pending: number };
-  STUDY: { total: number; used: number; pending: number };
-  MATERNITY_PATERNITY: { total: number; used: number; pending: number };
-  SPECIAL_CASUAL: { total: number; used: number; pending: number };
+  CASUAL?: { total: number; used: number; pending: number };
+  SICK?: { total: number; used: number; pending: number };
+  EARNED?: { total: number; used: number; pending: number };
+  DUTY?: { total: number; used: number; pending: number };
+  STUDY?: { total: number; used: number; pending: number };
+  MATERNITY_PATERNITY?: { total: number; used: number; pending: number };
+  SPECIAL_CASUAL?: { total: number; used: number; pending: number };
+  [key: string]: { total: number; used: number; pending: number } | undefined;
 }
 
 export type LeaveStatus = 
@@ -38,7 +39,9 @@ export type LeaveStatus =
   | 'PENDING_REGISTRAR' 
   | 'APPROVED' 
   | 'REJECTED' 
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'RECOMMENDED'
+  | 'PENDING';
 
 export interface ClassHandover {
   courseCode: string;
@@ -70,6 +73,9 @@ export interface LeaveRequest {
   contactPhone?: string;
   documentUrl?: string;
   classHandovers?: ClassHandover[];
+  substituteArrangement?: string;
+  alternativeArrangement?: string;
+  emergencyContact?: string;
   
   status: LeaveStatus;
   appliedOn: string;
@@ -78,7 +84,7 @@ export interface LeaveRequest {
     actionBy: string;
     actionByName: string;
     actionDate: string;
-    status: 'RECOMMENDED' | 'REJECTED';
+    status: 'RECOMMENDED' | 'REJECTED' | 'APPROVED';
     comments: string;
   };
 
@@ -113,6 +119,7 @@ export interface User {
 export interface Notification {
   id: string;
   userId: string;
+  recipientId?: string;
   title: string;
   message: string;
   timestamp: string;

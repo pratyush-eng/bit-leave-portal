@@ -89,7 +89,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   } = useLeave();
 
   const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'departments' | 'leave_policies' | 'pending' | 'settings' | 'email' | 'database' | 'audit_logs' | 'applied_leaves'>('permissions');
-  const [selectedUserId, setSelectedUserId] = useState<string>(allUsers[3]?.id || allUsers[0]?.id);
+  const [selectedUserId, setSelectedUserId] = useState<string>(() => allUsers[3]?.id || allUsers[0]?.id || 'usr_1');
+
+  useEffect(() => {
+    if ((!selectedUserId || !allUsers.some(u => u.id === selectedUserId)) && allUsers.length > 0) {
+      setSelectedUserId(allUsers[3]?.id || allUsers[0]?.id);
+    }
+  }, [allUsers, selectedUserId]);
   const [leaveSearchQuery, setLeaveSearchQuery] = useState<string>('');
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<string>('ALL');
   const [leaveDeptFilter, setLeaveDeptFilter] = useState<string>('ALL');
@@ -464,7 +470,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         // Resize logo to max 256x256 to ensure light Base64 size (<20KB)
         const maxDim = 256;
@@ -1462,7 +1468,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   </div>
                   <p className="text-xs text-emerald-200/80 flex flex-wrap items-center gap-2">
                     <span>Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{mongoStatus.host || 'bit-leave-portal.rqoqqmo.mongodb.net'}</code></span>
-                    {mongoStatus.uriSource === 'process.env.MONGODB_URI' && (
+                    {(mongoStatus as any).uriSource === 'process.env.MONGODB_URI' && (
                       <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-mono">
                         Source: process.env.MONGODB_URI
                       </span>
@@ -1492,12 +1498,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!customMongoUriInput) {
-                      setCustomMongoUriInput("mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal");
-                    }
-                    setShowMongoConfig(!showMongoConfig);
-                  }}
+                  onClick={() => setShowMongoConfig(!showMongoConfig)}
                   className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border border-slate-700 active:scale-98"
                 >
                   <Database className="w-3.5 h-3.5 text-emerald-400" />
@@ -1512,16 +1513,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-emerald-400" />
-                    MongoDB Atlas Connection URI (Cluster: bit-leave-portal)
+                    MongoDB Connection URI (via process.env.MONGODB_URI)
                   </label>
                   <span className="text-[10px] font-mono text-slate-400">mongodb+srv://...</span>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
-                    value={customMongoUriInput || "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"}
+                    value={customMongoUriInput}
                     onChange={(e) => setCustomMongoUriInput(e.target.value)}
-                    placeholder="mongodb+srv://username:password@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal"
+                    placeholder="mongodb+srv://username:password@cluster.mongodb.net/bit_leave_portal"
                     className="flex-1 px-3 py-2 rounded-lg bg-slate-950 text-emerald-300 border border-slate-700 font-mono text-xs focus:outline-none focus:border-emerald-500"
                   />
                   <button
@@ -2709,7 +2710,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                             <div className="text-[11px] text-slate-500 font-mono">{log.recipientEmail}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <MaterialChip label={log.recipientRole} variant="role" role={log.recipientRole} />
+                            <MaterialChip label={log.recipientRole} variant="role" role={log.recipientRole as Role} />
                           </td>
                           <td className="px-4 py-3 font-medium text-slate-800 max-w-xs truncate">{log.subject}</td>
                           <td className="px-4 py-3">

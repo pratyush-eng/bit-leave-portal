@@ -58,7 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
   const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'policies' | 'balances' | 'pending' | 'leaves'>('users');
   
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
-  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const isDeptAdmin = currentUser?.role === 'ADMIN';
   const userDeptId = currentUser?.departmentId;
   const userDeptObj = departments.find(d => d.id === userDeptId);
 

@@ -489,11 +489,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [allUsers, leaveRequests, leavePolicies, permissionMatrix, deletedUserIds, deletedUserEmails]);
 
-  const currentUser = useMemo(() => {
+  const currentUser = useMemo((): User | null => {
     const cleanEmail = currentUserEmail ? currentUserEmail.trim().toLowerCase() : '';
 
     // 1. First search by email if available (email is primary unique identifier)
-    let found = cleanEmail 
+    let found: User | undefined | null = cleanEmail 
       ? effectiveAllUsers.find(u => u && u.email && u.email.trim().toLowerCase() === cleanEmail)
       : null;
 
@@ -1182,7 +1182,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!target) return { success: false, message: 'User not found.' };
 
     // Department Admin Restriction: Department Admins cannot manage/reassign users outside their assigned department or assign roles other than FACULTY, STAFF, or HOD
-    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser && (currentUser.role as string) === 'ADMIN') {
       if (target.role === 'SUPER_ADMIN') {
         return {
           success: false,
@@ -1649,7 +1649,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...currentBal,
             pending: currentBal.pending + data.totalDays
           }
-        }
+        } as any
       };
       setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
       saveDocToMongo('users', currentUser.id, updatedAppUser);
@@ -1707,7 +1707,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId) {
         const isRec = action === 'RECOMMENDED';
-        const updatedStatus = isRec ? 'PENDING_REGISTRAR' : 'REJECTED';
+        const updatedStatus: LeaveStatus = isRec ? 'PENDING_REGISTRAR' : 'REJECTED';
         
         // Notify applicant
         addNotification(
@@ -1796,7 +1796,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   ...currentBal,
                   pending: Math.max(0, currentBal.pending - req.totalDays)
                 }
-              }
+              } as any
             };
             setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
             saveDocToMongo('users', req.applicantId, updatedTargetUser);
@@ -1806,7 +1806,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         addAuditLog(currentUser, isRec ? 'HOD_RECOMMENDED' : 'HOD_REJECTED', `${isRec ? 'Recommended' : 'Rejected'} leave application ${req.id} for ${req.applicantName}.`);
 
-        const updatedReq = {
+        const updatedReq: LeaveRequest = {
           ...req,
           status: updatedStatus,
           hodApproval: {
@@ -1828,6 +1828,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId) {
         const isApproved = action === 'APPROVED';
+        const updatedStatus: LeaveStatus = isApproved ? 'APPROVED' : 'REJECTED';
         
         // Notify Applicant
         addNotification(
@@ -1883,7 +1884,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 pending: Math.max(0, currentBal.pending - req.totalDays),
                 used: isApproved ? currentBal.used + req.totalDays : currentBal.used
               }
-            }
+            } as any
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToMongo('users', req.applicantId, updatedTargetUser);
@@ -1899,12 +1900,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             : `Leave request #${req.id} for ${req.applicantName} was rejected by Registrar. Status email sent.`,
           type: isApproved ? 'SUCCESS' : 'ERROR',
           leaveId: req.id,
-          status: isApproved ? 'APPROVED' : 'REJECTED'
+          status: updatedStatus
         });
 
-        const updatedReq = {
+        const updatedReq: LeaveRequest = {
           ...req,
-          status: isApproved ? 'APPROVED' : 'REJECTED' as const,
+          status: updatedStatus,
           registrarApproval: {
             actionBy: currentUser.id,
             actionByName: `${currentUser.name} (Registrar)`,
@@ -2028,7 +2029,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 ...currentBal,
                 pending: Math.max(0, currentBal.pending - req.totalDays)
               }
-            }
+            } as any
           };
           setAllUsers(uList => uList.map(u => u.id === req.applicantId ? updatedTargetUser : u));
           saveDocToMongo('users', req.applicantId, updatedTargetUser);
@@ -2045,7 +2046,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: 'CANCELLED'
         });
 
-        const updatedReq = { ...req, status: 'CANCELLED' as const };
+        const updatedReq: LeaveRequest = { ...req, status: 'CANCELLED' };
         saveDocToMongo('leaveRequests', req.id, updatedReq);
         syncDataToMongo({ leaveRequests: [updatedReq] }).catch(() => {});
         return updatedReq;
@@ -2055,7 +2056,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateUserRoleAndPermissions = (userId: string, role: Role, permissions: string[]) => {
-    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser && (currentUser.role as string) === 'ADMIN') {
       const target = allUsers.find(u => u.id === userId);
       if (target && target.departmentId !== currentUser.departmentId) {
         addToast({
@@ -2117,7 +2118,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           total,
           used
         }
-      }
+      } as any
     };
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
     saveDocToMongo('users', userId, updatedUser);
@@ -2139,7 +2140,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const createNewUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
     // Department Admin Restriction: An admin of an individual department can only add users of their same department
-    if (currentUser && currentUser.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+    if (currentUser && (currentUser.role as string) === 'ADMIN') {
       const adminDeptId = currentUser.departmentId;
       if (adminDeptId && userData.departmentId !== adminDeptId) {
         return {
@@ -2409,7 +2410,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     resetMongoData().catch(err => console.warn('Error resetting MongoDB:', err));
   };
 
-  const userNotifications = notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || n.recipientId === currentUser.id));
+  const userNotifications = notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || (n as any).recipientId === currentUser.id));
   const unreadNotificationCount = userNotifications.filter(n => !n.read).length;
 
   return (

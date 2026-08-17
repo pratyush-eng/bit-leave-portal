@@ -13,11 +13,13 @@ import {
 
 import fs from "fs";
 
-const MONGO_CONFIG_PATH = path.join(process.cwd(), "mongo_config.json");
-
 function normalizeMongoUri(uri: string): string {
   if (!uri) return uri;
   let trimmed = uri.trim();
+  // Auto-correct outdated password if present in MONGODB_URI
+  if (trimmed.includes("4S8i3u01aMvC8Xtt")) {
+    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "sxSWSteu1V1VF9Xu");
+  }
   if (trimmed.includes(".mongodb.net/?")) {
     trimmed = trimmed.replace(".mongodb.net/?", ".mongodb.net/bit_leave_portal?");
   } else if (trimmed.endsWith(".mongodb.net/")) {
@@ -28,37 +30,12 @@ function normalizeMongoUri(uri: string): string {
   return trimmed;
 }
 
-function loadStoredMongoUri(): { uri: string; source: string } {
-  if (process.env.MONGODB_URI && process.env.MONGODB_URI.trim()) {
-    return {
-      uri: normalizeMongoUri(process.env.MONGODB_URI.trim()),
-      source: "process.env.MONGODB_URI"
-    };
-  }
-  try {
-    if (fs.existsSync(MONGO_CONFIG_PATH)) {
-      const raw = fs.readFileSync(MONGO_CONFIG_PATH, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.uri === "string" && parsed.uri.trim()) {
-        return {
-          uri: normalizeMongoUri(parsed.uri.trim()),
-          source: "mongo_config.json"
-        };
-      }
-    }
-  } catch (_e) {}
+function getMongoUri(): { uri: string; source: string } {
+  const envUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : "";
   return {
-    uri: "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal",
-    source: "default"
+    uri: normalizeMongoUri(envUri),
+    source: "process.env.MONGODB_URI"
   };
-}
-
-function saveStoredMongoUri(uri: string) {
-  try {
-    fs.writeFileSync(MONGO_CONFIG_PATH, JSON.stringify({ uri: uri.trim(), updatedAt: new Date().toISOString() }, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Failed to write mongo_config.json:", err);
-  }
 }
 
 function getUriUsername(uri: string): string {
@@ -69,7 +46,7 @@ function getUriUsername(uri: string): string {
   return "database user";
 }
 
-const initialUriObj = loadStoredMongoUri();
+const initialUriObj = getMongoUri();
 let activeMongoUri = initialUriObj.uri;
 let activeMongoSource = initialUriObj.source;
 
@@ -138,14 +115,17 @@ function getMaskedUri(uri: string) {
 }
 
 async function initMongo(customUri?: string) {
-  if (customUri && customUri.trim() !== activeMongoUri) {
+  if (customUri && customUri.trim()) {
     activeMongoUri = normalizeMongoUri(customUri.trim());
     activeMongoSource = "custom_input";
-    saveStoredMongoUri(activeMongoUri);
     isMongoConnected = false;
     try {
       await mongoose.disconnect();
     } catch (_e) {}
+  } else if (!activeMongoUri) {
+    const envObj = getMongoUri();
+    activeMongoUri = envObj.uri;
+    activeMongoSource = envObj.source;
   }
 
   if (isMongoConnected && mongoose.connection.readyState === 1) return true;
@@ -165,7 +145,7 @@ async function initMongo(customUri?: string) {
     });
     isMongoConnected = true;
     mongoConnectError = "";
-    console.log(`[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster with URI: ${getMaskedUri(activeMongoUri)}`);
+    console.log(`[MongoDB Atlas] Connected successfully using process.env.MONGODB_URI: ${getMaskedUri(activeMongoUri)}`);
     
     // Immediately load system privileges from MongoDB Atlas into inMemoryStore
     try {

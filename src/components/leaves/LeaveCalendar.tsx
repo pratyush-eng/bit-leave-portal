@@ -26,7 +26,7 @@ import {
 export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, printMode?: boolean) => void }> = ({ onSelectLeaveRequest }) => {
   const { leaveRequests, departments, currentUser } = useLeave();
   
-  const isDeptAdmin = currentUser?.role === 'ADMIN' && currentUser?.role !== 'SUPER_ADMIN';
+  const isDeptAdmin = currentUser?.role === 'ADMIN';
   const isDeptRestricted = isDeptAdmin || (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'REGISTRAR');
   const userDeptId = currentUser?.departmentId;
 
