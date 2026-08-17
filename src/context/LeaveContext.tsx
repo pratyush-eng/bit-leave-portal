@@ -186,9 +186,16 @@ function sanitizeAndDeduplicateUsers(
 }
 
 export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Permanently purge any legacy Firebase / Firestore / Postgres / Neon or stale mock user cache entries
+  // Permanently purge any legacy local storage cache to ensure strict MongoDB Atlas data consistency across all browsers
   useEffect(() => {
     try {
+      localStorage.removeItem(STORAGE_KEYS.USERS);
+      localStorage.removeItem(STORAGE_KEYS.REQUESTS);
+      localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
+      localStorage.removeItem(STORAGE_KEYS.POLICIES);
+      localStorage.removeItem(STORAGE_KEYS.LOGS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
@@ -202,17 +209,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
-
-      // Also clean up obsolete cached user entries (e.g. registrar@institution.edu or dean.academic@institution.edu)
-      const cachedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
-      if (cachedUsersRaw) {
-        try {
-          const cached = JSON.parse(cachedUsersRaw);
-          if (Array.isArray(cached) && cached.some((u: any) => u.email === 'registrar@institution.edu' || u.email === 'dean.academic@institution.edu')) {
-            localStorage.removeItem(STORAGE_KEYS.USERS);
-          }
-        } catch (_e) {}
-      }
     } catch (_e) {}
   }, []);
 
@@ -255,20 +251,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   });
 
-  const [allUsers, setAllUsers] = useState<User[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return sanitizeAndDeduplicateUsers(parsed);
-        }
-      }
-      return sanitizeAndDeduplicateUsers(MOCK_USERS);
-    } catch {
-      return sanitizeAndDeduplicateUsers(MOCK_USERS);
-    }
-  });
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([
     {
       id: 'usr_5',
@@ -308,12 +291,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
-  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(INITIAL_LEAVE_POLICIES);
+  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>([]);
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -903,11 +886,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const mongoData = await fetchMongoData();
       if (!mongoData) return;
 
-      if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
+      if (Array.isArray(mongoData.users)) {
         const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users);
         setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
       }
-      if (Array.isArray(mongoData.departments) && mongoData.departments.length > 0) {
+      if (Array.isArray(mongoData.departments)) {
         setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
       }
       if (Array.isArray(mongoData.leaveRequests)) {
@@ -916,7 +899,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return isDeepEqual(normalized, prev) ? prev : normalized;
         });
       }
-      if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
+      if (Array.isArray(mongoData.leavePolicies)) {
         setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
       }
       if (Array.isArray(mongoData.auditLogs)) {

@@ -138,7 +138,7 @@ export async function getMongoStatus() {
     host: "MongoDB Atlas Cluster (bit-leave-portal)",
     collections: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
     tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
-    counts: { users: 7, leaveRequests: 2, departments: 6, auditLogs: 17, leaveBalances: 0, systemPrivileges: 1 }
+    counts: { users: 0, leaveRequests: 0, departments: 0, auditLogs: 0, leaveBalances: 0, systemPrivileges: 0 }
   };
 }
 
@@ -297,8 +297,12 @@ export async function saveDocToMongo(colName: string, _id: string, doc: any) {
  */
 export async function fetchMongoData() {
   const backendData = await safeJsonFetch('/api/mongo/data');
-  if (backendData && backendData.success && backendData.data && Array.isArray(backendData.data.users)) {
-    return backendData.data;
+  if (backendData && backendData.success && backendData.data) {
+    return {
+      ...backendData.data,
+      mongoConnected: backendData.mongoConnected,
+      warning: backendData.warning
+    };
   }
   if (backendData && Array.isArray(backendData.users)) {
     return backendData;

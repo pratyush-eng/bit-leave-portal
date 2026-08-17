@@ -11,7 +11,67 @@ import {
   INITIAL_AUDIT_LOGS 
 } from "./src/data/mockData";
 
-let activeMongoUri = process.env.MONGODB_URI || "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
+import fs from "fs";
+
+const MONGO_CONFIG_PATH = path.join(process.cwd(), "mongo_config.json");
+
+function normalizeMongoUri(uri: string): string {
+  if (!uri) return uri;
+  let trimmed = uri.trim();
+  if (trimmed.includes(".mongodb.net/?")) {
+    trimmed = trimmed.replace(".mongodb.net/?", ".mongodb.net/bit_leave_portal?");
+  } else if (trimmed.endsWith(".mongodb.net/")) {
+    trimmed = trimmed + "bit_leave_portal";
+  } else if (trimmed.endsWith(".mongodb.net")) {
+    trimmed = trimmed + "/bit_leave_portal";
+  }
+  return trimmed;
+}
+
+function loadStoredMongoUri(): { uri: string; source: string } {
+  if (process.env.MONGODB_URI && process.env.MONGODB_URI.trim()) {
+    return {
+      uri: normalizeMongoUri(process.env.MONGODB_URI.trim()),
+      source: "process.env.MONGODB_URI"
+    };
+  }
+  try {
+    if (fs.existsSync(MONGO_CONFIG_PATH)) {
+      const raw = fs.readFileSync(MONGO_CONFIG_PATH, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.uri === "string" && parsed.uri.trim()) {
+        return {
+          uri: normalizeMongoUri(parsed.uri.trim()),
+          source: "mongo_config.json"
+        };
+      }
+    }
+  } catch (_e) {}
+  return {
+    uri: "mongodb+srv://Vercel-Admin-bit-leave-portal:4S8i3u01aMvC8Xtt@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal",
+    source: "default"
+  };
+}
+
+function saveStoredMongoUri(uri: string) {
+  try {
+    fs.writeFileSync(MONGO_CONFIG_PATH, JSON.stringify({ uri: uri.trim(), updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Failed to write mongo_config.json:", err);
+  }
+}
+
+function getUriUsername(uri: string): string {
+  try {
+    const match = uri.match(/\/\/([^:]+):/);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+  } catch (_e) {}
+  return "database user";
+}
+
+const initialUriObj = loadStoredMongoUri();
+let activeMongoUri = initialUriObj.uri;
+let activeMongoSource = initialUriObj.source;
 
 let isMongoConnected = false;
 let mongoConnectError = "";
@@ -35,11 +95,11 @@ let inMemoryStore: {
   permissionMatrix: any[];
   systemSettings: any;
 } = {
-  users: JSON.parse(JSON.stringify(MOCK_USERS)),
-  leaveRequests: JSON.parse(JSON.stringify(INITIAL_LEAVE_REQUESTS)),
-  departments: JSON.parse(JSON.stringify(INITIAL_DEPARTMENTS)),
-  leavePolicies: JSON.parse(JSON.stringify(INITIAL_LEAVE_POLICIES)),
-  auditLogs: JSON.parse(JSON.stringify(INITIAL_AUDIT_LOGS)),
+  users: [],
+  leaveRequests: [],
+  departments: [],
+  leavePolicies: [],
+  auditLogs: [],
   leaveBalances: [],
   permissionMatrix: [
     {
@@ -79,7 +139,9 @@ function getMaskedUri(uri: string) {
 
 async function initMongo(customUri?: string) {
   if (customUri && customUri.trim() !== activeMongoUri) {
-    activeMongoUri = customUri.trim();
+    activeMongoUri = normalizeMongoUri(customUri.trim());
+    activeMongoSource = "custom_input";
+    saveStoredMongoUri(activeMongoUri);
     isMongoConnected = false;
     try {
       await mongoose.disconnect();
@@ -103,7 +165,7 @@ async function initMongo(customUri?: string) {
     });
     isMongoConnected = true;
     mongoConnectError = "";
-    console.log("[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster.");
+    console.log(`[MongoDB Atlas] Connected successfully to MongoDB Atlas cluster with URI: ${getMaskedUri(activeMongoUri)}`);
     
     // Immediately load system privileges from MongoDB Atlas into inMemoryStore
     try {
@@ -127,10 +189,11 @@ async function initMongo(customUri?: string) {
   } catch (err: any) {
     isMongoConnected = false;
     const rawMsg = err?.message || String(err);
+    const dbUser = getUriUsername(activeMongoUri);
     if (rawMsg.includes("bad auth") || rawMsg.includes("Authentication failed")) {
-      mongoConnectError = `Authentication failed for user 'amnLeaveportal410_db_user'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user 'amnLeaveportal410_db_user' exists with password '4S8i3u01aMvC8Xtt' and has 'Read and write to any database' privilege.`;
+      mongoConnectError = `Authentication failed for user '${dbUser}'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user '${dbUser}' exists, password is correct, and user has 'Read and write to any database' privilege.`;
     } else if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
-      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas.`;
+      mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas connection string.`;
     } else {
       mongoConnectError = rawMsg;
     }
@@ -309,10 +372,11 @@ async function startServer() {
         success: false,
         database: "bit_leave_portal",
         host: maskedUri,
+        uriSource: activeMongoSource,
         error: mongoConnectError || "Connecting to MongoDB Atlas...",
         tables: collectionList,
         collections: collectionList,
-        counts: { users: 7, leaveRequests: 2, departments: 6, auditLogs: inMemoryStore.auditLogs.length || 14, leaveBalances: 0, systemPrivileges: 1 }
+        counts: { users: inMemoryStore.users.length, leaveRequests: inMemoryStore.leaveRequests.length, departments: inMemoryStore.departments.length, auditLogs: inMemoryStore.auditLogs.length, leaveBalances: 0, systemPrivileges: 1 }
       });
     }
 
@@ -331,15 +395,16 @@ async function startServer() {
         success: true,
         database: "bit_leave_portal",
         host: maskedUri,
+        uriSource: activeMongoSource,
         tables: collectionList,
         collections: collectionList,
         counts: {
-          users: userCount || inMemoryStore.users.length,
-          leaveRequests: requestCount || inMemoryStore.leaveRequests.length,
-          departments: deptCount || inMemoryStore.departments.length,
-          auditLogs: auditLogCount || inMemoryStore.auditLogs.length,
-          leaveBalances: balanceCount || inMemoryStore.leaveBalances.length,
-          systemPrivileges: privilegeCount || 1,
+          users: userCount,
+          leaveRequests: requestCount,
+          departments: deptCount,
+          auditLogs: auditLogCount,
+          leaveBalances: balanceCount,
+          systemPrivileges: privilegeCount,
         }
       });
     } catch (err: any) {
@@ -721,7 +786,7 @@ async function startServer() {
     const connected = await initMongo();
     if (connected && mongoose.connection.readyState === 1) {
       try {
-        const [users, leaveRequests, departments, leavePolicies, auditLogs, leaveBalances, permissionMatrix, sysDoc, privDoc] = await Promise.all([
+        const [rawUsers, rawLeaveRequests, rawDepartments, rawLeavePolicies, rawAuditLogs, rawLeaveBalances, rawPermissionMatrix, sysDoc, privDoc] = await Promise.all([
           UserModel.find().lean(),
           LeaveRequestModel.find().lean(),
           DepartmentModel.find().lean(),
@@ -732,6 +797,64 @@ async function startServer() {
           SystemSettingsModel.findOne({ id: "default" }).lean(),
           SystemPrivilegeModel.findOne({ id: "default" }).lean(),
         ]);
+
+        const users = (rawUsers || []).map((u: any) => ({
+          ...u,
+          id: u.id || (u._id ? String(u._id) : `usr_${Date.now()}`),
+          email: u.email ? String(u.email).trim().toLowerCase() : "",
+          accountStatus: u.accountStatus || "ACTIVE",
+          leaveBalances: u.leaveBalances || {},
+        }));
+
+        const leaveRequests = (rawLeaveRequests || []).map((r: any) => ({
+          ...r,
+          id: r.id || (r._id ? String(r._id) : `LV-${Date.now()}`),
+          applicantId: r.applicantId || r.applicant_id || "",
+          applicantName: r.applicantName || r.applicant_name || "",
+          applicantEmail: r.applicantEmail || r.applicant_email || "",
+          departmentId: r.departmentId || r.department_id || "",
+          departmentName: r.departmentName || r.department_name || "",
+          leaveType: r.leaveType || r.leave_type || "CASUAL",
+          startDate: r.startDate || r.start_date || "",
+          endDate: r.endDate || r.end_date || "",
+          totalDays: Number(r.totalDays ?? r.total_days ?? 1),
+          status: r.status || "PENDING_HOD",
+          appliedOn: r.appliedOn || r.applied_on || "",
+        }));
+
+        const departments = (rawDepartments || []).map((d: any) => ({
+          ...d,
+          id: d.id || d.code || (d._id ? String(d._id) : ""),
+          code: d.code || d.id || "",
+          name: d.name || "",
+        }));
+
+        const leavePolicies = (rawLeavePolicies || []).map((p: any) => ({
+          ...p,
+          type: p.type || p.id || "CASUAL",
+          label: p.label || p.type || "",
+          annualQuota: Number(p.annualQuota) || 12,
+        }));
+
+        const auditLogs = (rawAuditLogs || []).map((a: any) => ({
+          ...a,
+          id: a.id || (a._id ? String(a._id) : `log_${Date.now()}`),
+          actorName: a.actorName || a.actor_name || "System",
+          action: a.action || "ACTION",
+          details: a.details || "",
+          timestamp: a.timestamp || new Date().toISOString(),
+        }));
+
+        const leaveBalances = (rawLeaveBalances || []).map((b: any) => ({
+          ...b,
+          id: b.id || (b._id ? String(b._id) : `bal_${Date.now()}`),
+        }));
+
+        const permissionMatrix = (rawPermissionMatrix || []).map((p: any) => ({
+          ...p,
+          id: p.id || p.userId || (p._id ? String(p._id) : `perm_${Date.now()}`),
+          userId: p.userId || p.id || "",
+        }));
 
         const mergedSettings = privDoc || sysDoc;
         const systemSettings = mergedSettings ? {

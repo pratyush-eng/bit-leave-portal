@@ -340,7 +340,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     setInspectError(null);
     try {
       const data = await inspectMongoCollection(tableName);
-      if (data && data.success && Array.isArray(data.rows) && data.rows.length > 0) {
+      if (data && data.success && Array.isArray(data.rows)) {
         setInspectData({
           columns: data.columns || [],
           rows: data.rows || [],
@@ -1460,8 +1460,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-emerald-200/80">
-                    Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{mongoStatus.host || 'bit-leave-portal.rqoqqmo.mongodb.net'}</code>
+                  <p className="text-xs text-emerald-200/80 flex flex-wrap items-center gap-2">
+                    <span>Cluster Host: <code className="text-emerald-300 font-mono text-[11px]">{mongoStatus.host || 'bit-leave-portal.rqoqqmo.mongodb.net'}</code></span>
+                    {mongoStatus.uriSource === 'process.env.MONGODB_URI' && (
+                      <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-mono">
+                        Source: process.env.MONGODB_URI
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

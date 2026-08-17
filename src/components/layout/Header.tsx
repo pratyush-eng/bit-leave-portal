@@ -41,10 +41,31 @@ export const Header: React.FC<HeaderProps> = ({
     opType: 'IDLE',
     activeCount: 0
   });
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToSyncStatus(setSyncStatus);
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkDb = async () => {
+      try {
+        const res = await fetch('/api/mongo/status?_t=' + Date.now()).then(r => r.json()).catch(() => null);
+        if (isMounted) {
+          setDbConnected(!!(res && res.connected));
+        }
+      } catch (_e) {
+        if (isMounted) setDbConnected(false);
+      }
+    };
+    checkDb();
+    const interval = setInterval(checkDb, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -87,10 +108,20 @@ export const Header: React.FC<HeaderProps> = ({
                     <RefreshCw className="w-3 h-3 text-indigo-600 animate-spin" />
                     <span>Live DB Syncing...</span>
                   </span>
-                ) : (
+                ) : dbConnected === true ? (
                   <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span>Live DB Online</span>
+                    <span>MongoDB Atlas Live</span>
+                  </span>
+                ) : dbConnected === false ? (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    <span>MongoDB Offline</span>
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
+                    <RefreshCw className="w-2.5 h-2.5 text-slate-500 animate-spin" />
+                    <span>Checking DB...</span>
                   </span>
                 )}
               </div>
