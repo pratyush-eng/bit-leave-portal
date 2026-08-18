@@ -111,7 +111,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Cannot Update Password</p>
-                <p>{errorMsg}</p>
+                <p>{typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : String(errorMsg)}</p>
               </div>
             </div>
           )}

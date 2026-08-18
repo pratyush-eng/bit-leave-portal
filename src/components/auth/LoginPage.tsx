@@ -372,7 +372,7 @@ export const LoginPage: React.FC = () => {
                 {errorMsg && (
                   <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>{errorMsg}</span>
+                    <span>{typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : String(errorMsg)}</span>
                   </div>
                 )}
 
@@ -513,7 +513,7 @@ export const LoginPage: React.FC = () => {
               {regErrorMsg && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{regErrorMsg}</span>
+                  <span>{typeof regErrorMsg === 'object' ? JSON.stringify(regErrorMsg) : String(regErrorMsg)}</span>
                 </div>
               )}
 
@@ -670,7 +670,7 @@ export const LoginPage: React.FC = () => {
               {forgotErrorMsg && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{forgotErrorMsg}</span>
+                  <span>{typeof forgotErrorMsg === 'object' ? JSON.stringify(forgotErrorMsg) : String(forgotErrorMsg)}</span>
                 </div>
               )}
 

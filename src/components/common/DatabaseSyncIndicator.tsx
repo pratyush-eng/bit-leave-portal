@@ -100,7 +100,7 @@ export const DatabaseSyncIndicator: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] text-slate-300 font-medium">
-              {syncStatus.message || 'Processing live database action...'}
+              {typeof syncStatus.message === 'object' ? JSON.stringify(syncStatus.message) : String(syncStatus.message || 'Processing live database action...')}
             </p>
           </div>
         </div>

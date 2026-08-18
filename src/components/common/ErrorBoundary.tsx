@@ -58,10 +58,16 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 font-mono text-xs text-rose-300 max-h-40 overflow-y-auto">
-              <p className="font-bold">{this.state.error?.name || 'Error'}: {this.state.error?.message || 'Unknown error'}</p>
-              {this.state.error?.stack && (
+              <p className="font-bold">
+                {String((this.state.error as any)?.name || 'Error')}: {
+                  typeof (this.state.error as any)?.message === 'object'
+                    ? JSON.stringify((this.state.error as any)?.message)
+                    : String((this.state.error as any)?.message || this.state.error || 'Unknown error')
+                }
+              </p>
+              {(this.state.error as any)?.stack && typeof (this.state.error as any)?.stack === 'string' && (
                 <p className="text-slate-500 text-[10px] mt-2 whitespace-pre-wrap leading-tight">
-                  {this.state.error.stack.split('\n').slice(0, 5).join('\n')}
+                  {(this.state.error as any).stack.split('\n').slice(0, 5).join('\n')}
                 </p>
               )}
             </div>

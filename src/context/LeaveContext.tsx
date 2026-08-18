@@ -302,8 +302,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addToast = (toastData: Omit<ToastNotification, 'id' | 'timestamp'>) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const formatStr = (v: any): string => {
+      if (!v && v !== 0) return '';
+      if (typeof v === 'string') return v;
+      if (typeof v === 'object') {
+        if (typeof v.message === 'string') return v.message;
+        if (typeof v.error === 'string') return v.error;
+        try { return JSON.stringify(v); } catch { return String(v); }
+      }
+      return String(v);
+    };
     const newToast: ToastNotification = {
       ...toastData,
+      title: formatStr(toastData.title),
+      message: formatStr(toastData.message),
       id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };

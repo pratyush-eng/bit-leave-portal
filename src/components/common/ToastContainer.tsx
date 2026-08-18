@@ -163,11 +163,11 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onSelectLeaveRequ
           </div>
 
           <h4 className="text-xs font-bold text-slate-900 leading-snug">
-            {toast.title}
+            {typeof toast.title === 'object' ? JSON.stringify(toast.title) : String(toast.title || '')}
           </h4>
 
           <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-            {toast.message}
+            {typeof toast.message === 'object' ? JSON.stringify(toast.message) : String(toast.message || '')}
           </p>
 
           {toast.leaveId && onSelectLeaveRequest && (
