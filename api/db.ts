@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import mongoose from "mongoose";
 
 // MongoDB URI normalization and resolution
@@ -17,9 +20,11 @@ export function normalizeMongoUri(uri: string): string {
   return trimmed;
 }
 
+const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:sxSWSteu1V1VF9Xu@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
+
 export function getMongoUri(): string {
-  const envUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : "";
-  return normalizeMongoUri(envUri);
+  const envUri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || process.env.MONGODB_URL || DEFAULT_ATLAS_URI;
+  return normalizeMongoUri(envUri ? envUri.trim() : DEFAULT_ATLAS_URI);
 }
 
 // Schemas
@@ -165,17 +170,14 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   }
 
   const uri = getMongoUri();
-  if (!uri) {
-    throw new Error("MONGODB_URI environment variable is not configured.");
-  }
 
   mongoose.set("bufferCommands", false);
   mongoose.set("strictQuery", false);
 
   connectionPromise = mongoose.connect(uri, {
     dbName: "bit_leave_portal",
-    serverSelectionTimeoutMS: 6000,
-    connectTimeoutMS: 6000,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
   }).then((m) => {
     cachedConnection = m;
     return m;

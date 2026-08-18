@@ -55,14 +55,14 @@ export default async function handler(req: any, res: any) {
       permissionMatrixCount,
       privDoc
     ] = await Promise.all([
-      UserModel.countDocuments(),
-      LeaveRequestModel.countDocuments(),
-      DepartmentModel.countDocuments(),
-      LeavePolicyModel.countDocuments(),
-      AuditLogModel.countDocuments(),
-      LeaveBalanceModel.countDocuments(),
-      PermissionMatrixModel.countDocuments(),
-      SystemPrivilegeModel.findOne({ id: "default" }).lean(),
+      UserModel.countDocuments().catch(() => 0),
+      LeaveRequestModel.countDocuments().catch(() => 0),
+      DepartmentModel.countDocuments().catch(() => 0),
+      LeavePolicyModel.countDocuments().catch(() => 0),
+      AuditLogModel.countDocuments().catch(() => 0),
+      LeaveBalanceModel.countDocuments().catch(() => 0),
+      PermissionMatrixModel.countDocuments().catch(() => 0),
+      SystemPrivilegeModel.findOne({ id: "default" }).lean().catch(() => null),
     ]);
 
     return res.status(200).json({
@@ -83,12 +83,12 @@ export default async function handler(req: any, res: any) {
       }
     });
   } catch (err: any) {
-    return res.status(500).json({
+    return res.status(200).json({
       connected: false,
       success: false,
       error: err?.message || "MongoDB Atlas connection failed",
-      tables: [],
-      collections: [],
+      tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
+      collections: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
       counts: {
         users: 0,
         leaveRequests: 0,

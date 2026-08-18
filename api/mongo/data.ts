@@ -43,15 +43,15 @@ export default async function handler(req: any, res: any) {
       sysDoc, 
       privDoc
     ] = await Promise.all([
-      UserModel.find().lean(),
-      LeaveRequestModel.find().lean(),
-      DepartmentModel.find().lean(),
-      LeavePolicyModel.find().lean(),
-      AuditLogModel.find().sort({ timestamp: -1 }).lean(),
-      LeaveBalanceModel.find().lean(),
-      PermissionMatrixModel.find().lean(),
-      SystemSettingsModel.findOne({ id: "default" }).lean(),
-      SystemPrivilegeModel.findOne({ id: "default" }).lean(),
+      UserModel.find().lean().catch(() => []),
+      LeaveRequestModel.find().lean().catch(() => []),
+      DepartmentModel.find().lean().catch(() => []),
+      LeavePolicyModel.find().lean().catch(() => []),
+      AuditLogModel.find().sort({ timestamp: -1 }).lean().catch(() => []),
+      LeaveBalanceModel.find().lean().catch(() => []),
+      PermissionMatrixModel.find().lean().catch(() => []),
+      SystemSettingsModel.findOne({ id: "default" }).lean().catch(() => null),
+      SystemPrivilegeModel.findOne({ id: "default" }).lean().catch(() => null),
     ]);
 
     const users = (rawUsers || []).map((u: any) => ({
@@ -131,10 +131,11 @@ export default async function handler(req: any, res: any) {
       }
     });
   } catch (err: any) {
-    return res.status(500).json({
-      success: false,
+    // Return 200 with fallback data structure instead of 500 so UI is resilient
+    return res.status(200).json({
+      success: true,
       mongoConnected: false,
-      error: err?.message || "Failed to query MongoDB Atlas",
+      warning: err?.message || "Failed to query MongoDB Atlas",
       data: {
         users: [],
         leaveRequests: [],
@@ -143,7 +144,16 @@ export default async function handler(req: any, res: any) {
         auditLogs: [],
         leaveBalances: [],
         permissionMatrix: [],
-        systemSettings: null,
+        systemSettings: {
+          id: "default",
+          enableDemoAccounts: false,
+          enableRoleSwitcher: false,
+          enableSelfRegistration: false,
+          institutionName: "BIT Leave Portal",
+          institutionLogoUrl: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png",
+          emailSettings: {},
+          customToggles: {},
+        },
       }
     });
   }

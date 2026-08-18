@@ -207,7 +207,7 @@ export default async function handler(req: any, res: any) {
       }
     });
   } catch (err: any) {
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       error: err?.message || "Failed to sync to MongoDB Atlas"
     });
