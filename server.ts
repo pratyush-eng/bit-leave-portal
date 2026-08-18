@@ -16,12 +16,14 @@ import {
 
 import fs from "fs";
 
+const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:wRlmn19FXsBSByBq@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
+
 function normalizeMongoUri(uri: string): string {
   if (!uri) return uri;
   let trimmed = uri.trim();
   // Auto-correct outdated password if present in MONGODB_URI
-  if (trimmed.includes("4S8i3u01aMvC8Xtt")) {
-    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "sxSWSteu1V1VF9Xu");
+  if (trimmed.includes("4S8i3u01aMvC8Xtt") || trimmed.includes("sxSWSteu1V1VF9Xu")) {
+    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "wRlmn19FXsBSByBq").replace("sxSWSteu1V1VF9Xu", "wRlmn19FXsBSByBq");
   }
   if (trimmed.includes(".mongodb.net/?")) {
     trimmed = trimmed.replace(".mongodb.net/?", ".mongodb.net/bit_leave_portal?");
@@ -34,10 +36,10 @@ function normalizeMongoUri(uri: string): string {
 }
 
 function getMongoUri(): { uri: string; source: string } {
-  const envUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : "";
+  const envUri = process.env.MONGODB_URI ? process.env.MONGODB_URI.trim() : DEFAULT_ATLAS_URI;
   return {
     uri: normalizeMongoUri(envUri),
-    source: "process.env.MONGODB_URI"
+    source: process.env.MONGODB_URI ? "process.env.MONGODB_URI" : "DEFAULT_ATLAS_URI"
   };
 }
 

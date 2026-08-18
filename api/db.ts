@@ -11,8 +11,8 @@ import mongoose from "mongoose";
 export function normalizeMongoUri(uri: string): string {
   if (!uri) return uri;
   let trimmed = uri.trim();
-  if (trimmed.includes("4S8i3u01aMvC8Xtt")) {
-    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "sxSWSteu1V1VF9Xu");
+  if (trimmed.includes("4S8i3u01aMvC8Xtt") || trimmed.includes("sxSWSteu1V1VF9Xu")) {
+    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "wRlmn19FXsBSByBq").replace("sxSWSteu1V1VF9Xu", "wRlmn19FXsBSByBq");
   }
   if (trimmed.includes(".mongodb.net/?")) {
     trimmed = trimmed.replace(".mongodb.net/?", ".mongodb.net/bit_leave_portal?");
@@ -24,7 +24,7 @@ export function normalizeMongoUri(uri: string): string {
   return trimmed;
 }
 
-const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:sxSWSteu1V1VF9Xu@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
+const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:wRlmn19FXsBSByBq@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
 let customMongoUriOverride: string | null = null;
 
