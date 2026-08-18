@@ -60,6 +60,22 @@ interface SuperAdminDashboardProps {
   onSelectLeaveRequest?: (id: string, printMode?: boolean) => void;
 }
 
+function safeErr(val: any, fallback = ''): string {
+  if (!val && val !== 0) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    if (typeof val.message === 'string') return val.message;
+    if (typeof val.error === 'string') return val.error;
+    if (typeof val.error === 'object' && typeof val.error?.message === 'string') return val.error.message;
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return fallback || String(val);
+    }
+  }
+  return String(val);
+}
+
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSelectLeaveRequest }) => {
   const { 
     currentUser, 
@@ -235,13 +251,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       } else {
         setMongoSyncMsg({
           type: 'error',
-          text: (data as any)?.error || 'Failed to sync portal data into MongoDB Atlas.'
+          text: safeErr((data as any)?.error, 'Failed to sync portal data into MongoDB Atlas.')
         });
       }
     } catch (err: any) {
       setMongoSyncMsg({
         type: 'error',
-        text: err?.message || 'Network error syncing to MongoDB Atlas.'
+        text: safeErr(err?.message, 'Network error syncing to MongoDB Atlas.')
       });
     } finally {
       setSyncingMongo(false);
@@ -264,13 +280,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       } else {
         setMongoSyncMsg({
           type: 'error',
-          text: (res as any)?.error || 'Failed to connect to MongoDB Atlas cluster.'
+          text: safeErr((res as any)?.error, 'Failed to connect to MongoDB Atlas cluster.')
         });
       }
     } catch (err: any) {
       setMongoSyncMsg({
         type: 'error',
-        text: err?.message || 'Error connecting to MongoDB Atlas cluster.'
+        text: safeErr(err?.message, 'Error connecting to MongoDB Atlas cluster.')
       });
     } finally {
       setSavingMongoUri(false);
@@ -384,14 +400,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           host: data?.host,
           tables: data?.collections || data?.tables || ['users', 'leave_requests', 'departments', 'leave_policies', 'audit_logs', 'permission_matrix', 'system_settings', 'system_privileges'],
           counts: data?.counts,
-          error: (data as any)?.error || 'Failed to connect to MongoDB Atlas database',
+          error: safeErr((data as any)?.error, 'Failed to connect to MongoDB Atlas database'),
         });
       }
     } catch (err: any) {
       setMongoStatus({
         loading: false,
         connected: false,
-        error: err?.message || 'Network error pinging MongoDB Atlas status',
+        error: safeErr(err?.message, 'Network error pinging MongoDB Atlas status'),
       });
     }
   };
@@ -1548,7 +1564,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200' 
                   : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
               }`}>
-                <span>{mongoSyncMsg.text}</span>
+                <span>{safeErr(mongoSyncMsg.text)}</span>
                 <button 
                   onClick={() => setMongoSyncMsg(null)}
                   className="text-slate-400 hover:text-white p-1 rounded"
@@ -1701,7 +1717,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="space-y-3">
                 <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-800/80 text-rose-200 text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span><strong>MongoDB Atlas Connection Issue:</strong> {mongoStatus.error}</span>
+                  <span><strong>MongoDB Atlas Connection Issue:</strong> {safeErr(mongoStatus.error)}</span>
                 </div>
               </div>
             ) : null}

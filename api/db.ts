@@ -22,7 +22,20 @@ export function normalizeMongoUri(uri: string): string {
 
 const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:sxSWSteu1V1VF9Xu@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
+let customMongoUriOverride: string | null = null;
+
+export function setCustomMongoUri(uri: string) {
+  if (uri && uri.trim()) {
+    customMongoUriOverride = normalizeMongoUri(uri.trim());
+    cachedConnection = null;
+    connectionPromise = null;
+  }
+}
+
 export function getMongoUri(): string {
+  if (customMongoUriOverride) {
+    return customMongoUriOverride;
+  }
   const envUri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || process.env.MONGODB_URL || DEFAULT_ATLAS_URI;
   return normalizeMongoUri(envUri ? envUri.trim() : DEFAULT_ATLAS_URI);
 }
@@ -160,7 +173,11 @@ export const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mong
 let cachedConnection: typeof mongoose | null = null;
 let connectionPromise: Promise<typeof mongoose> | null = null;
 
-export async function connectToDatabase(): Promise<typeof mongoose> {
+export async function connectToDatabase(customUri?: string): Promise<typeof mongoose> {
+  if (customUri && customUri.trim()) {
+    setCustomMongoUri(customUri.trim());
+  }
+
   if (cachedConnection && mongoose.connection.readyState === 1) {
     return cachedConnection;
   }
