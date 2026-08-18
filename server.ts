@@ -530,7 +530,7 @@ async function startServer() {
         }
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err?.message || "Internal server error during authentication." });
+      return res.status(200).json({ success: false, message: err?.message || "Internal server error during authentication." });
     }
   });
 
@@ -1100,7 +1100,7 @@ async function startServer() {
       }
       return res.json({ success: true, deletedCount, message: `Successfully deleted ${deletedCount} user(s)` });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message });
+      return res.status(200).json({ success: false, error: err?.message });
     }
   });
 
@@ -1362,7 +1362,7 @@ async function startServer() {
         message: "System privileges and toggles updated in MongoDB Atlas"
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err?.message || "Failed to save system privileges" });
+      return res.status(200).json({ success: false, error: err?.message || "Failed to save system privileges" });
     }
   });
 
@@ -1435,7 +1435,7 @@ async function startServer() {
         detailedMsg = `Socket error connecting to ${req.body?.smtpConfig?.smtpHost}:${req.body?.smtpConfig?.smtpPort}. Check encryption protocol (TLS/SSL).`;
       }
 
-      return res.status(500).json({
+      return res.status(200).json({
         success: false,
         code: err?.code || "SMTP_DISPATCH_FAILED",
         error: detailedMsg,
@@ -1510,7 +1510,7 @@ async function startServer() {
         });
       }
     } catch (err: any) {
-      return res.status(500).json({
+      return res.status(200).json({
         success: false,
         error: err.message,
         serverTimestamp: new Date().toISOString(),

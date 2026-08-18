@@ -84,7 +84,7 @@ export default async function handler(req: any, res: any) {
       detailedMsg = `Socket error connecting to ${req.body?.smtpConfig?.smtpHost}:${req.body?.smtpConfig?.smtpPort}. Check encryption protocol (TLS/SSL).`;
     }
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       code: err?.code || "SMTP_DISPATCH_FAILED",
       error: detailedMsg,

@@ -60,8 +60,12 @@ export default async function handler(req: any, res: any) {
       rows
     });
   } catch (err: any) {
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
+      tableName: String(req.query?.table || req.body?.table || "users"),
+      rowCount: 0,
+      columns: [],
+      rows: [],
       error: err?.message || "Failed to inspect MongoDB collection"
     });
   }

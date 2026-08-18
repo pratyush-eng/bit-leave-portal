@@ -55,6 +55,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ success: true, message: "Permission matrix saved successfully" });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || "Failed to save permission matrix" });
+    return res.status(200).json({ success: false, error: err?.message || "Failed to save permission matrix" });
   }
 }

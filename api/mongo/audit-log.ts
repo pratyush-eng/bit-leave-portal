@@ -38,6 +38,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ success: true, message: "Audit log recorded" });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || "Failed to record audit log" });
+    return res.status(200).json({ success: false, error: err?.message || "Failed to record audit log" });
   }
 }
