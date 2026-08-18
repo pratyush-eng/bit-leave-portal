@@ -1,5 +1,9 @@
-import dotenv from "dotenv";
-dotenv.config();
+try {
+  // Safe optional dotenv loading
+  if (typeof process !== "undefined" && (!process.env.MONGODB_URI && !process.env.MONGO_URI)) {
+    import("dotenv").then(d => d.config?.()).catch(() => {});
+  }
+} catch {}
 
 import mongoose from "mongoose";
 
@@ -193,12 +197,17 @@ export async function connectToDatabase(customUri?: string): Promise<typeof mong
 
   connectionPromise = mongoose.connect(uri, {
     dbName: "bit_leave_portal",
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 3000,
+    connectTimeoutMS: 3000,
+    socketTimeoutMS: 4000,
+    maxPoolSize: 10,
+    minPoolSize: 0,
+    maxIdleTimeMS: 5000,
   }).then((m) => {
     cachedConnection = m;
     return m;
   }).catch((err) => {
+    cachedConnection = null;
     connectionPromise = null;
     throw err;
   });

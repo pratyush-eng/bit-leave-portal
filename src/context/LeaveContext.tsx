@@ -251,7 +251,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   });
 
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return MOCK_USERS;
+  });
   const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrixEntry[]>([
     {
       id: 'usr_5',
@@ -291,12 +300,48 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [departments, setDepartments] = useState<Department[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_DEPARTMENTS;
+  });
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.REQUESTS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_LEAVE_REQUESTS;
+  });
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.LOGS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_AUDIT_LOGS;
+  });
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
-  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>([]);
+  const [leavePolicies, setLeavePolicies] = useState<LeavePolicy[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.POLICIES);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_LEAVE_POLICIES;
+  });
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -898,11 +943,23 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const mongoData = await fetchMongoData();
       if (!mongoData) return;
 
-      if (Array.isArray(mongoData.users)) {
+      // Auto-seed MongoDB Atlas if cluster is connected but empty
+      if (mongoData.mongoConnected && (!mongoData.users || mongoData.users.length === 0)) {
+        syncDataToMongo({
+          users: MOCK_USERS,
+          departments: INITIAL_DEPARTMENTS,
+          leavePolicies: INITIAL_LEAVE_POLICIES,
+          leaveRequests: INITIAL_LEAVE_REQUESTS,
+          auditLogs: INITIAL_AUDIT_LOGS,
+        }).catch(() => {});
+        return;
+      }
+
+      if (Array.isArray(mongoData.users) && mongoData.users.length > 0) {
         const cleanUsers = sanitizeAndDeduplicateUsers(mongoData.users);
         setAllUsers((prev: User[]) => isDeepEqual(cleanUsers, prev) ? prev : cleanUsers);
       }
-      if (Array.isArray(mongoData.departments)) {
+      if (Array.isArray(mongoData.departments) && mongoData.departments.length > 0) {
         setDepartments((prev) => isDeepEqual(mongoData.departments, prev) ? prev : mongoData.departments);
       }
       if (Array.isArray(mongoData.leaveRequests)) {
@@ -911,13 +968,13 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return isDeepEqual(normalized, prev) ? prev : normalized;
         });
       }
-      if (Array.isArray(mongoData.leavePolicies)) {
+      if (Array.isArray(mongoData.leavePolicies) && mongoData.leavePolicies.length > 0) {
         setLeavePolicies((prev) => isDeepEqual(mongoData.leavePolicies, prev) ? prev : mongoData.leavePolicies);
       }
       if (Array.isArray(mongoData.auditLogs)) {
         setAuditLogs((prev) => isDeepEqual(mongoData.auditLogs, prev) ? prev : mongoData.auditLogs);
       }
-      if (Array.isArray(mongoData.permissionMatrix)) {
+      if (Array.isArray(mongoData.permissionMatrix) && mongoData.permissionMatrix.length > 0) {
         setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
       }
       if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {

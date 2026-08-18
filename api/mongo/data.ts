@@ -12,25 +12,26 @@ import {
 } from "../db";
 
 export default async function handler(req: any, res: any) {
-  // CORS & Strict Cache Control
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Cache-Control, Pragma"
-  );
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
   try {
-    await connectToDatabase();
+    // CORS & Strict Cache Control
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Cache-Control, Pragma"
+    );
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+
+    try {
+      await connectToDatabase();
 
     const [
       rawUsers, 
@@ -130,31 +131,39 @@ export default async function handler(req: any, res: any) {
         systemSettings: effectiveSettings,
       }
     });
-  } catch (err: any) {
-    // Return 200 with fallback data structure instead of 500 so UI is resilient
+    } catch (err: any) {
+      // Return 200 with fallback data structure instead of 500 so UI is resilient
+      return res.status(200).json({
+        success: true,
+        mongoConnected: false,
+        warning: err?.message || "Failed to query MongoDB Atlas",
+        data: {
+          users: [],
+          leaveRequests: [],
+          departments: [],
+          leavePolicies: [],
+          auditLogs: [],
+          leaveBalances: [],
+          permissionMatrix: [],
+          systemSettings: {
+            id: "default",
+            enableDemoAccounts: false,
+            enableRoleSwitcher: false,
+            enableSelfRegistration: false,
+            institutionName: "BIT Leave Portal",
+            institutionLogoUrl: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png",
+            emailSettings: {},
+            customToggles: {},
+          },
+        }
+      });
+    }
+  } catch (fatalErr: any) {
     return res.status(200).json({
-      success: true,
+      success: false,
       mongoConnected: false,
-      warning: err?.message || "Failed to query MongoDB Atlas",
-      data: {
-        users: [],
-        leaveRequests: [],
-        departments: [],
-        leavePolicies: [],
-        auditLogs: [],
-        leaveBalances: [],
-        permissionMatrix: [],
-        systemSettings: {
-          id: "default",
-          enableDemoAccounts: false,
-          enableRoleSwitcher: false,
-          enableSelfRegistration: false,
-          institutionName: "BIT Leave Portal",
-          institutionLogoUrl: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png",
-          emailSettings: {},
-          customToggles: {},
-        },
-      }
+      warning: fatalErr?.message || "Server exception",
+      data: { users: [], leaveRequests: [], departments: [], leavePolicies: [], auditLogs: [], leaveBalances: [], permissionMatrix: [] }
     });
   }
 }
