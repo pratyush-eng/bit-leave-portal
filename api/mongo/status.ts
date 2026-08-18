@@ -9,22 +9,17 @@ import {
   PermissionMatrixModel, 
   SystemSettingsModel, 
   SystemPrivilegeModel,
-  getMongoUri
+  getMongoUri,
+  getDatabaseName,
+  getMaskedUri
 } from "../db";
 
-function getMaskedUri(uri: string) {
-  try {
-    return uri.replace(/\/\/(.+)@/, (_match, p1) => {
-      const parts = p1.split(':');
-      const user = parts[0] || 'user';
-      return `//${user}:****@`;
-    });
-  } catch {
-    return "MongoDB Atlas Cluster";
-  }
-}
-
 export default async function handler(req: any, res: any) {
+  const startTime = Date.now();
+  const dbName = getDatabaseName();
+  const uri = getMongoUri();
+  const maskedHost = getMaskedUri(uri);
+
   try {
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -40,8 +35,6 @@ export default async function handler(req: any, res: any) {
     if (req.method === "OPTIONS") {
       return res.status(200).end();
     }
-
-    const uri = getMongoUri();
 
     try {
       await connectToDatabase();
@@ -69,9 +62,9 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({
         connected: true,
         success: true,
-        database: "bit_leave_portal",
-        host: getMaskedUri(uri),
-        uriSource: "process.env.MONGODB_URI",
+        database: dbName,
+        host: maskedHost,
+        responseTimeMs: Date.now() - startTime,
         tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
         collections: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
         counts: {
@@ -80,15 +73,17 @@ export default async function handler(req: any, res: any) {
           departments: departmentsCount,
           auditLogs: auditLogsCount,
           leaveBalances: leaveBalancesCount,
+          permissionMatrix: permissionMatrixCount,
           systemPrivileges: privDoc ? 1 : 0,
         }
       });
     } catch (connErr: any) {
+      console.error("[API STATUS] MongoDB connection error:", connErr?.message);
       return res.status(200).json({
         connected: false,
         success: false,
-        database: "bit_leave_portal",
-        host: getMaskedUri(uri),
+        database: dbName,
+        host: maskedHost,
         error: connErr?.message || "MongoDB Atlas connection failed",
         tables: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
         collections: ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"],
@@ -98,15 +93,17 @@ export default async function handler(req: any, res: any) {
           departments: 0,
           auditLogs: 0,
           leaveBalances: 0,
+          permissionMatrix: 0,
           systemPrivileges: 0,
         }
       });
     }
   } catch (fatalErr: any) {
+    console.error("[API STATUS FATAL]", fatalErr?.message);
     return res.status(200).json({
       connected: false,
       success: false,
-      error: fatalErr?.message || "Internal server error",
+      error: fatalErr?.message || "Internal server error in status handler",
       tables: [],
       collections: [],
       counts: {}

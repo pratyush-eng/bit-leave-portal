@@ -355,28 +355,29 @@ async function seedAndMigrateToMongo() {
   return;
 }
 
+const app = express();
+const PORT = 3000;
+
+app.use(express.json({ limit: "10mb" }));
+
+// CORS Middleware for external domains and cache control
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma");
+  res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.header("Pragma", "no-cache");
+  res.header("Expires", "0");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Pre-initialize MongoDB connection
+initMongo();
+
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  app.use(express.json({ limit: "10mb" }));
-
-  // CORS Middleware for external domains and cache control
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma");
-    res.header("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.header("Pragma", "no-cache");
-    res.header("Expires", "0");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-    next();
-  });
-
-  // Pre-initialize MongoDB connection
-  initMongo();
 
   // Status handler function for both MongoDB and legacy Neon endpoints
   const handleStatus = async (req: express.Request, res: express.Response) => {
@@ -1444,6 +1445,89 @@ async function startServer() {
     }
   });
 
+  // Safe Diagnostics Endpoint for Vercel & MongoDB Atlas (Section 17)
+  app.get(["/api/mongo/diagnostics", "/api/diagnostics", "/diagnostics"], async (req: express.Request, res: express.Response) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
+    const dbName = process.env.MONGODB_DB_NAME || "bit_leave_portal";
+    const maskedHost = (process.env.MONGODB_URI || "").replace(/\/\/(.+)@/, (_m, p1) => {
+      const parts = p1.split(":");
+      return `//${parts[0] || "user"}:****@`;
+    }) || "MongoDB Atlas Cluster";
+
+    try {
+      const connected = await initMongo();
+      const isDbConnected = connected && mongoose.connection.readyState === 1;
+
+      if (!isDbConnected) {
+        return res.status(200).json({
+          success: false,
+          serverTime: new Date().toISOString(),
+          mongoConnected: false,
+          database: dbName,
+          deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
+          error: "MongoDB Atlas connection not ready (readyState != 1)",
+          collections: {
+            users: 0,
+            leaveRequests: 0,
+            departments: 0,
+          }
+        });
+      }
+
+      const [
+        usersCount,
+        leaveRequestsCount,
+        departmentsCount,
+        leavePoliciesCount,
+        auditLogsCount,
+        leaveBalancesCount,
+        permissionMatrixCount
+      ] = await Promise.all([
+        UserModel.countDocuments().catch(() => 0),
+        LeaveRequestModel.countDocuments().catch(() => 0),
+        DepartmentModel.countDocuments().catch(() => 0),
+        LeavePolicyModel.countDocuments().catch(() => 0),
+        AuditLogModel.countDocuments().catch(() => 0),
+        LeaveBalanceModel.countDocuments().catch(() => 0),
+        PermissionMatrixModel.countDocuments().catch(() => 0),
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        serverTime: new Date().toISOString(),
+        mongoConnected: true,
+        database: dbName,
+        deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
+        collections: {
+          users: usersCount,
+          leaveRequests: leaveRequestsCount,
+          departments: departmentsCount,
+          leavePolicies: leavePoliciesCount,
+          auditLogs: auditLogsCount,
+          leaveBalances: leaveBalancesCount,
+          permissionMatrix: permissionMatrixCount,
+        }
+      });
+    } catch (err: any) {
+      return res.status(200).json({
+        success: false,
+        serverTime: new Date().toISOString(),
+        mongoConnected: false,
+        database: dbName,
+        deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
+        error: err?.message || "MongoDB Atlas connection error",
+        collections: {
+          users: 0,
+          leaveRequests: 0,
+          departments: 0,
+        }
+      });
+    }
+  });
+
   // Diagnostics: Data Consistency Endpoint across distributed devices and server instances
   app.get("/api/diagnostics/data-consistency", async (req: express.Request, res: express.Response) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
@@ -1508,6 +1592,28 @@ async function startServer() {
             } : null,
           }
         });
+      } else {
+        return res.json({
+          success: false,
+          serverTimestamp: new Date().toISOString(),
+          database: {
+            connected: false,
+            engine: "MongoDB Atlas (Disconnected)",
+            readyState: mongoose.connection.readyState,
+          },
+          error: "MongoDB Atlas connection not active",
+          counts: {
+            users: 0,
+            leaveRequests: 0,
+            departments: 0,
+            leavePolicies: 0,
+            auditLogs: 0,
+          },
+          latestRecords: {
+            latestLeaveRequest: null,
+            latestAuditLog: null,
+          }
+        });
       }
     } catch (err: any) {
       return res.status(200).json({
@@ -1520,26 +1626,6 @@ async function startServer() {
         }
       });
     }
-
-    return res.json({
-      success: true,
-      serverTimestamp: new Date().toISOString(),
-      database: {
-        connected: false,
-        engine: "In-Memory Store (MongoDB Atlas Disconnected)",
-      },
-      counts: {
-        users: inMemoryStore.users.length,
-        leaveRequests: inMemoryStore.leaveRequests.length,
-        departments: inMemoryStore.departments.length,
-        leavePolicies: inMemoryStore.leavePolicies.length,
-        auditLogs: inMemoryStore.auditLogs.length,
-      },
-      latestRecords: {
-        latestLeaveRequest: inMemoryStore.leaveRequests[0] || null,
-        latestAuditLog: inMemoryStore.auditLogs[0] || null,
-      }
-    });
   });
 
   // Health check
@@ -1567,4 +1653,9 @@ async function startServer() {
   });
 }
 
-startServer();
+export default app;
+export { app };
+
+if (!process.env.VERCEL) {
+  startServer();
+}

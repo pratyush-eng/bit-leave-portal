@@ -132,11 +132,11 @@ export default async function handler(req: any, res: any) {
       }
     });
     } catch (err: any) {
-      // Return 200 with fallback data structure instead of 500 so UI is resilient
+      console.error("[API DATA] MongoDB query error:", err?.message);
       return res.status(200).json({
-        success: true,
+        success: false,
         mongoConnected: false,
-        warning: err?.message || "Failed to query MongoDB Atlas",
+        error: err?.message || "Failed to query MongoDB Atlas",
         data: {
           users: [],
           leaveRequests: [],
@@ -145,24 +145,16 @@ export default async function handler(req: any, res: any) {
           auditLogs: [],
           leaveBalances: [],
           permissionMatrix: [],
-          systemSettings: {
-            id: "default",
-            enableDemoAccounts: false,
-            enableRoleSwitcher: false,
-            enableSelfRegistration: false,
-            institutionName: "BIT Leave Portal",
-            institutionLogoUrl: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png",
-            emailSettings: {},
-            customToggles: {},
-          },
+          systemSettings: null,
         }
       });
     }
   } catch (fatalErr: any) {
+    console.error("[API DATA FATAL]", fatalErr?.message);
     return res.status(200).json({
       success: false,
       mongoConnected: false,
-      warning: fatalErr?.message || "Server exception",
+      error: fatalErr?.message || "Internal server error in data handler",
       data: { users: [], leaveRequests: [], departments: [], leavePolicies: [], auditLogs: [], leaveBalances: [], permissionMatrix: [] }
     });
   }

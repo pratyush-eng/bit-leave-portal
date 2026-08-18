@@ -1,8 +1,20 @@
 {
   "rewrites": [
     {
-      "source": "/api/:match*",
-      "destination": "/api/:match*"
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/status",
+      "destination": "/api"
+    },
+    {
+      "source": "/data",
+      "destination": "/api"
+    },
+    {
+      "source": "/diagnostics",
+      "destination": "/api"
     },
     {
       "source": "/((?!api/).*)",

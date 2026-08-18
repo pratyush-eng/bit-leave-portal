@@ -177,6 +177,23 @@ export const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mong
 let cachedConnection: typeof mongoose | null = null;
 let connectionPromise: Promise<typeof mongoose> | null = null;
 
+export function getDatabaseName(): string {
+  return process.env.MONGODB_DB_NAME || "bit_leave_portal";
+}
+
+export function getMaskedUri(uri?: string): string {
+  try {
+    const target = uri || getMongoUri();
+    return target.replace(/\/\/(.+)@/, (_match, p1) => {
+      const parts = p1.split(":");
+      const user = parts[0] || "user";
+      return `//${user}:****@`;
+    });
+  } catch {
+    return "MongoDB Atlas Cluster";
+  }
+}
+
 export async function connectToDatabase(customUri?: string): Promise<typeof mongoose> {
   if (customUri && customUri.trim()) {
     setCustomMongoUri(customUri.trim());
@@ -191,15 +208,16 @@ export async function connectToDatabase(customUri?: string): Promise<typeof mong
   }
 
   const uri = getMongoUri();
+  const dbName = getDatabaseName();
 
   mongoose.set("bufferCommands", false);
   mongoose.set("strictQuery", false);
 
   connectionPromise = mongoose.connect(uri, {
-    dbName: "bit_leave_portal",
-    serverSelectionTimeoutMS: 3000,
-    connectTimeoutMS: 3000,
-    socketTimeoutMS: 4000,
+    dbName,
+    serverSelectionTimeoutMS: 4000,
+    connectTimeoutMS: 4000,
+    socketTimeoutMS: 5000,
     maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 5000,
