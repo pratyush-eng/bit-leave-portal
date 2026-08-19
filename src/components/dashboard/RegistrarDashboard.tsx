@@ -103,37 +103,27 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
         </div>
       </div>
 
-      {/* Stats Quick Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div 
-          onClick={() => setActiveTab('pending')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'pending' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
-        >
-          <div className={`p-2 rounded-lg ${activeTab === 'pending' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'pending' ? 'text-indigo-100' : 'text-slate-400'}`}>Sanction Queue</p>
-            <p className="text-xl font-medium">{pendingRequests.length} Applications</p>
-          </div>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('all_institutional')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'all_institutional' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
-        >
-          <div className={`p-2 rounded-lg ${activeTab === 'all_institutional' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'all_institutional' ? 'text-indigo-100' : 'text-slate-400'}`}>Institutional Register</p>
-            <p className="text-xl font-medium">{leaveRequests.length} Total Records</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Requests List */}
+      {/* Requests Section with Navigation Tabs */}
       <div className="space-y-6">
+        <div className="flex items-center gap-6 border-b border-slate-200">
+          <button 
+            onClick={() => setActiveTab('pending')}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Sanction Queue ({pendingRequests.length})
+            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('all_institutional')}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all_institutional' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Institutional Register ({leaveRequests.length})
+            {activeTab === 'all_institutional' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+          </button>
+        </div>
+
+        {/* Requests List */}
+        <div className="space-y-6">
         {activeTab === 'pending' ? (
           pendingRequests.length === 0 ? (
             <div className="bg-white p-16 rounded-3xl border border-slate-200/60 text-center shadow-sm">
@@ -304,6 +294,7 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
           )
         )}
       </div>
+    </div>
 
     </div>
   );

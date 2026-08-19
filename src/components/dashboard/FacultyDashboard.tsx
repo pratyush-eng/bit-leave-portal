@@ -51,22 +51,6 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Top Action Header Card */}
-      <div className="bg-white rounded-xl p-8 border border-slate-100 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 tracking-tight">Apply for Institutional Leave</h2>
-          <p className="text-xs text-slate-400 mt-1 font-medium">
-            Submit a leave application with lecture substitute arrangements for HOD & Registrar approval.
-          </p>
-        </div>
-        <button
-          onClick={onOpenApplyModal}
-          className="px-6 py-3 bg-[#5C4DFF] text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-100 flex items-center gap-2 uppercase tracking-widest transition-all active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Open Leave Application Form
-        </button>
-      </div>
-
       {/* Welcome Banner */}
       <div className="bg-[#3F51B5] rounded-xl p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex flex-col gap-4 relative z-10">

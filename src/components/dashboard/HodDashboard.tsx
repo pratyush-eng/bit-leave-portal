@@ -104,50 +104,34 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
         </div>
       </div>
 
-      {/* Stats Quick Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div 
-          onClick={() => setActiveTab('pending')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'pending' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
-        >
-          <div className={`p-2 rounded-lg ${activeTab === 'pending' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
-            <CheckSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'pending' ? 'text-indigo-100' : 'text-slate-400'}`}>Pending Review</p>
-            <p className="text-xl font-medium">{pendingRequests.length} Applications</p>
-          </div>
+      {/* Requests Section with Navigation Tabs */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-6 border-b border-slate-200">
+          <button 
+            onClick={() => setActiveTab('pending')}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Pending Review ({pendingRequests.length})
+            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('department_team')}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_team' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Department Team ({deptMembers.length})
+            {activeTab === 'department_team' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('department_leaves')}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_leaves' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            All Records ({departmentRequests.length})
+            {activeTab === 'department_leaves' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+          </button>
         </div>
 
-        <div 
-          onClick={() => setActiveTab('department_team')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'department_team' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
-        >
-          <div className={`p-2 rounded-lg ${activeTab === 'department_team' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'department_team' ? 'text-indigo-100' : 'text-slate-400'}`}>Department Team</p>
-            <p className="text-xl font-medium">{deptMembers.length} Members</p>
-          </div>
-        </div>
-
-        <div 
-          onClick={() => setActiveTab('department_leaves')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'department_leaves' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
-        >
-          <div className={`p-2 rounded-lg ${activeTab === 'department_leaves' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
-            <Building2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'department_leaves' ? 'text-indigo-100' : 'text-slate-400'}`}>All Records</p>
-            <p className="text-xl font-medium">{departmentRequests.length} Total Applied</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab 1: Pending Requests Queue */}
-      {activeTab === 'pending' && (
+        {/* Tab content starts here */}
+        {activeTab === 'pending' && (
         <div className="space-y-6">
           {pendingRequests.length === 0 ? (
             <div className="bg-white p-16 rounded-3xl border border-slate-200/60 text-center shadow-sm">
@@ -448,6 +432,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
           )}
         </div>
       )}
+    </div>
 
     </div>
   );
