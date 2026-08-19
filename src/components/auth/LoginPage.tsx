@@ -300,7 +300,7 @@ export const LoginPage: React.FC = () => {
         <div className="bg-white shadow-2xl sm:rounded-3xl overflow-hidden border border-slate-100">
           {/* Header Section from Image 1 */}
           <div className="bg-[#3F51B5] px-8 py-7 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center p-1.5 shadow-lg overflow-hidden shrink-0">
+            <div className="w-14 h-14 flex items-center justify-center shrink-0 drop-shadow-sm">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 

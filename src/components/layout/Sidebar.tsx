@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Sidebar Header */}
         <div className="p-6 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white p-1 rounded-lg flex items-center justify-center font-bold text-[#3F51B5] shrink-0 overflow-hidden shadow-md">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden drop-shadow-md">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 

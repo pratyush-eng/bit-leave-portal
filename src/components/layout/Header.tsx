@@ -102,12 +102,12 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded bg-[#3F51B5] flex items-center justify-center font-bold text-xs text-white shrink-0 overflow-hidden">
+            <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
                   alt="Logo" 
-                  className="w-full h-full object-contain p-1" 
+                  className="w-full h-full object-contain" 
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
