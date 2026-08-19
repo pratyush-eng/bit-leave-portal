@@ -199,12 +199,12 @@ export async function connectToDatabase(customUri?: string): Promise<typeof mong
 
   connectionPromise = mongoose.connect(uri, {
     dbName,
-    serverSelectionTimeoutMS: 15000,
-    connectTimeoutMS: 15000,
-    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 7000,
+    connectTimeoutMS: 7000,
+    socketTimeoutMS: 8000,
     maxPoolSize: 10,
     minPoolSize: 0,
-    maxIdleTimeMS: 10000,
+    maxIdleTimeMS: 5000,
   }).then((m) => {
     cachedConnection = m;
     return m;

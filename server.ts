@@ -1202,6 +1202,11 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     }
   });
 
+  // Simple health check for Vercel
+  app.get("/api/ping", (req, res) => {
+    res.json({ status: "alive", time: new Date().toISOString() });
+  });
+
   // Safe Diagnostics Endpoint for Vercel & MongoDB Atlas (Section 17)
   app.get(["/api/mongo/diagnostics", "/api/diagnostics", "/diagnostics"], async (req: express.Request, res: express.Response) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
@@ -1209,65 +1214,70 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     res.setHeader("Expires", "0");
 
     const dbName = process.env.MONGODB_DB_NAME || "bit_leave_portal";
-    const maskedHost = (process.env.MONGODB_URI || "").replace(/\/\/(.+)@/, (_m, p1) => {
-      const parts = p1.split(":");
-      return `//${parts[0] || "user"}:****@`;
-    }) || "MongoDB Atlas Cluster";
+    
+    // Create a timeout promise to ensure we respond within 9 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Diagnostics timed out after 9 seconds")), 9000);
+    });
 
     try {
-      const connected = await initMongo();
-      const isDbConnected = connected && mongoose.connection.readyState === 1;
+      // Race the diagnostics logic against the timeout
+      const result = await Promise.race([
+        (async () => {
+          const connected = await initMongo();
+          const isDbConnected = connected && mongoose.connection.readyState === 1;
 
-      if (!isDbConnected) {
-        return res.status(200).json({
-          success: false,
-          serverTime: new Date().toISOString(),
-          mongoConnected: false,
-          database: dbName,
-          deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
-          error: "MongoDB Atlas connection not ready (readyState != 1)",
-          collections: {
-            users: 0,
-            leaveRequests: 0,
-            departments: 0,
+          if (!isDbConnected) {
+            return {
+              success: false,
+              serverTime: new Date().toISOString(),
+              mongoConnected: false,
+              database: dbName,
+              deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
+              error: "MongoDB Atlas connection not ready (readyState != 1)",
+              collections: { users: 0, leaveRequests: 0, departments: 0 }
+            };
           }
-        });
-      }
 
-      const [
-        usersCount,
-        leaveRequestsCount,
-        departmentsCount,
-        leavePoliciesCount,
-        auditLogsCount,
-        leaveBalancesCount,
-        permissionMatrixCount
-      ] = await Promise.all([
-        UserModel.countDocuments().catch(() => 0),
-        LeaveRequestModel.countDocuments().catch(() => 0),
-        DepartmentModel.countDocuments().catch(() => 0),
-        LeavePolicyModel.countDocuments().catch(() => 0),
-        AuditLogModel.countDocuments().catch(() => 0),
-        LeaveBalanceModel.countDocuments().catch(() => 0),
-        PermissionMatrixModel.countDocuments().catch(() => 0),
+          const [
+            usersCount,
+            leaveRequestsCount,
+            departmentsCount,
+            leavePoliciesCount,
+            auditLogsCount,
+            leaveBalancesCount,
+            permissionMatrixCount
+          ] = await Promise.all([
+            UserModel.countDocuments().catch(() => 0),
+            LeaveRequestModel.countDocuments().catch(() => 0),
+            DepartmentModel.countDocuments().catch(() => 0),
+            LeavePolicyModel.countDocuments().catch(() => 0),
+            AuditLogModel.countDocuments().catch(() => 0),
+            LeaveBalanceModel.countDocuments().catch(() => 0),
+            PermissionMatrixModel.countDocuments().catch(() => 0),
+          ]);
+
+          return {
+            success: true,
+            serverTime: new Date().toISOString(),
+            mongoConnected: true,
+            database: dbName,
+            deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
+            collections: {
+              users: usersCount,
+              leaveRequests: leaveRequestsCount,
+              departments: departmentsCount,
+              leavePolicies: leavePoliciesCount,
+              auditLogs: auditLogsCount,
+              leaveBalances: leaveBalancesCount,
+              permissionMatrix: permissionMatrixCount,
+            }
+          };
+        })(),
+        timeoutPromise
       ]);
 
-      return res.status(200).json({
-        success: true,
-        serverTime: new Date().toISOString(),
-        mongoConnected: true,
-        database: dbName,
-        deployment: process.env.VERCEL ? "Vercel Serverless" : "Node/Express",
-        collections: {
-          users: usersCount,
-          leaveRequests: leaveRequestsCount,
-          departments: departmentsCount,
-          leavePolicies: leavePoliciesCount,
-          auditLogs: auditLogsCount,
-          leaveBalances: leaveBalancesCount,
-          permissionMatrix: permissionMatrixCount,
-        }
-      });
+      return res.status(200).json(result);
     } catch (err: any) {
       return res.status(200).json({
         success: false,
