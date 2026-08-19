@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shrink-0">
+    <header className="h-14 bg-white border-b border-slate-100 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shrink-0">
       <div className="flex items-center justify-between w-full min-w-0 gap-4">
         
         {/* Left Side: Mobile Menu Button & Portal Title */}
@@ -118,22 +118,15 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-semibold text-slate-900 leading-tight whitespace-nowrap truncate">
+                <h1 className="text-sm sm:text-base font-bold text-slate-800 leading-tight whitespace-nowrap truncate">
                   {systemSettings?.institutionName || 'BIT Leave Portal'}
                 </h1>
-                {syncStatus.isSyncing ? (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    <span>Syncing</span>
-                  </span>
-                ) : dbConnected === true ? (
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Live</span>
-                  </span>
-                ) : null}
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-[8px] font-bold uppercase tracking-wider">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                  <span>Live</span>
+                </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest hidden md:block whitespace-nowrap truncate">
+              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.1em] hidden md:block whitespace-nowrap truncate">
                 Automated Institutional Leave Management
               </p>
             </div>
@@ -158,34 +151,32 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Notifications Button */}
           <button
             onClick={onOpenNotifications}
-            className="relative p-1.5 text-slate-500 hover:text-[#3F51B5] hover:bg-slate-50 rounded transition-colors cursor-pointer shrink-0"
+            className="relative p-1.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer shrink-0"
             title="Notifications"
           >
             <Bell className="w-5 h-5" />
             {unreadNotificationCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#3F51B5] text-white rounded-full flex items-center justify-center text-[9px] font-bold ring-2 ring-white">
-                {unreadNotificationCount}
-              </div>
+              <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></div>
             )}
           </button>
 
           {/* User Profile */}
-          <div className="hidden sm:flex items-center gap-2.5 pl-3 border-l border-slate-100 shrink-0">
-            <div className="text-right hidden lg:block">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right hidden md:block">
               <p className="text-xs font-bold text-slate-800 leading-none">{currentUser?.name || 'User'}</p>
-              <p className="text-[10px] font-medium text-slate-400 mt-0.5">{currentUser?.role}</p>
+              <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight">{currentUser?.role}</p>
             </div>
             <img
               src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=3F51B5&color=fff`}
               alt={currentUser?.name || 'User'}
-              className="w-7 h-7 rounded-full object-cover border border-slate-200"
+              className="w-8 h-8 rounded-full object-cover border border-slate-100 shadow-sm"
             />
           </div>
 
           {/* Sign Out Button */}
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer active:scale-95 shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-[#3F51B5] transition-all cursor-pointer active:scale-95 shrink-0"
             title="Log out of session"
           >
             <LogOut className="w-4 h-4" />

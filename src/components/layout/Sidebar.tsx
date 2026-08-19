@@ -94,9 +94,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Sidebar Header */}
-        <div className="p-4 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white p-1 rounded flex items-center justify-center font-bold text-[#3F51B5] shrink-0 overflow-hidden">
+        <div className="p-4 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 bg-white p-1 rounded-lg flex items-center justify-center font-bold text-[#3F51B5] shrink-0 overflow-hidden shadow-sm">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
@@ -111,10 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <h1 className="text-xs font-bold tracking-widest text-white leading-tight uppercase truncate">
+              <h1 className="text-sm font-bold tracking-tight text-white leading-tight uppercase truncate">
                 BIT Mesra
               </h1>
-              <p className="text-[10px] text-indigo-200 font-medium whitespace-nowrap truncate">
+              <p className="text-[10px] text-indigo-200/80 font-medium whitespace-nowrap truncate">
                 Leave Portal v2.0
               </p>
             </div>
@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-0 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -137,19 +137,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 className={`
-                  w-full flex items-center justify-between px-3 py-2 rounded text-xs font-bold transition-all group
+                  w-full flex items-center justify-between px-6 py-3 text-[10px] font-bold transition-all group relative
                   ${isActive 
-                    ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/20' 
-                    : 'text-indigo-100 hover:bg-white/5 hover:text-white'}
+                    ? 'bg-white/10 text-white' 
+                    : 'text-indigo-200 hover:bg-white/5 hover:text-white'}
                 `}
               >
+                {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white"></div>}
                 <div className="flex items-center gap-3">
                   <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-indigo-300 group-hover:text-white'}`} />
-                  <span className="uppercase tracking-wide">{item.label}</span>
+                  <span className="uppercase tracking-[0.1em]">{item.label}</span>
                 </div>
 
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${
                     isActive ? 'bg-white text-[#3F51B5]' : 'bg-rose-500 text-white'
                   }`}>
                     {item.badge}
@@ -161,15 +162,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-white/10 space-y-2">
+        <div className="p-4 border-t border-white/5 space-y-1">
           <button
             onClick={() => {
               if (onOpenChangePassword) onOpenChangePassword();
               onCloseMobile();
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-100 hover:bg-white/5 hover:text-white rounded transition-colors text-left uppercase tracking-wide cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold text-indigo-200 hover:text-white rounded transition-colors text-left uppercase tracking-widest cursor-pointer group"
           >
-            <KeyRound className="w-4 h-4 opacity-70" />
+            <KeyRound className="w-4 h-4 opacity-50 group-hover:opacity-100" />
             Change Password
           </button>
 
@@ -178,9 +179,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               logout();
               onCloseMobile();
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-100 hover:bg-rose-500/20 hover:text-rose-200 rounded transition-colors text-left uppercase tracking-wide cursor-pointer"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold text-indigo-200 hover:text-white rounded transition-colors text-left uppercase tracking-widest cursor-pointer group"
           >
-            <LogOut className="w-4 h-4 opacity-70" />
+            <LogOut className="w-4 h-4 opacity-50 group-hover:opacity-100" />
             Sign Out
           </button>
         </div>
