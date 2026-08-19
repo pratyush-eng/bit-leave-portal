@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
       case 'apply_leave':
         return (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Apply for Institutional Leave</h2>
                 <p className="text-xs text-slate-500 mt-1">
@@ -109,7 +109,7 @@ const AppContent: React.FC = () => {
 
               <button
                 onClick={() => setIsApplyModalOpen(true)}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2"
+                className="px-5 py-2.5 bg-[#3F51B5] hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" /> Open Leave Application Form
               </button>
@@ -130,7 +130,7 @@ const AppContent: React.FC = () => {
         );
         return (
           <div className="space-y-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+            <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-slate-900">My Personal Leave Dossier & History</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Track status, comments, and timeline progression</p>
@@ -138,7 +138,7 @@ const AppContent: React.FC = () => {
 
               <button
                 onClick={() => setIsApplyModalOpen(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-[#3F51B5] hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" /> Apply Leave
               </button>
@@ -154,7 +154,7 @@ const AppContent: React.FC = () => {
                   <div
                     key={r.id}
                     onClick={() => handleSelectLeaveRequest(r.id)}
-                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 transition-all cursor-pointer space-y-3"
+                    className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:border-indigo-300 transition-all cursor-pointer space-y-3"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans flex flex-col antialiased">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col antialiased">
       
       {/* Top Header */}
       <Header
@@ -241,7 +241,7 @@ const AppContent: React.FC = () => {
         />
 
         {/* Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 max-w-(--breakpoint-2xl) mx-auto w-full">
           {renderMainContent()}
         </main>
       </div>

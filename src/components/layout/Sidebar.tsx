@@ -89,14 +89,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation Drawer Container */}
       <aside className={`
         fixed lg:static top-0 bottom-0 left-0 z-40
-        w-64 bg-[#3F51B5] text-white flex flex-col shrink-0
+        w-64 bg-[#3F51B5] text-indigo-100 flex flex-col shrink-0
         transition-transform duration-200 ease-in-out shadow-xl lg:shadow-none
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Sidebar Header */}
-        <div className="p-6 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white p-0.5 rounded-xl flex items-center justify-center font-bold text-white shadow-sm text-sm overflow-hidden shrink-0 border border-white/30">
+        <div className="p-4 flex items-center justify-between border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white p-1 rounded flex items-center justify-center font-bold text-[#3F51B5] shrink-0 overflow-hidden">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
@@ -111,28 +111,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight whitespace-nowrap truncate">
-                {systemSettings?.institutionName || 'BIT Leave Portal'}
+              <h1 className="text-xs font-bold tracking-widest text-white leading-tight uppercase truncate">
+                BIT Mesra
               </h1>
-              <p className="text-[10px] uppercase tracking-wider font-semibold opacity-75 text-indigo-100 mt-0.5 whitespace-nowrap truncate">
-                Birla Institute of Technology
+              <p className="text-[10px] text-indigo-200 font-medium whitespace-nowrap truncate">
+                Leave Portal v2.0
               </p>
             </div>
           </div>
           <button 
             onClick={onCloseMobile}
-            className="lg:hidden p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+            className="lg:hidden p-1.5 rounded-lg text-indigo-200 hover:text-white hover:bg-white/10"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
-          <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-indigo-200/60 mb-2">
-            Main Portal Menu
-          </p>
-
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -141,20 +137,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 className={`
-                  w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all
+                  w-full flex items-center justify-between px-3 py-2 rounded text-xs font-bold transition-all group
                   ${isActive 
-                    ? 'bg-white/10 text-white shadow-xs' 
-                    : 'text-white/80 hover:text-white hover:bg-white/5 opacity-80 hover:opacity-100'}
+                    ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/20' 
+                    : 'text-indigo-100 hover:bg-white/5 hover:text-white'}
                 `}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-200'}`} />
-                  <span>{item.label}</span>
+                  <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-indigo-300 group-hover:text-white'}`} />
+                  <span className="uppercase tracking-wide">{item.label}</span>
                 </div>
 
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? 'bg-orange-500 text-white' : 'bg-red-500 text-white'
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    isActive ? 'bg-white text-[#3F51B5]' : 'bg-rose-500 text-white'
                   }`}>
                     {item.badge}
                   </span>
@@ -164,62 +160,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        {/* Footer Status Card */}
-        <div className="p-4 mx-3 mb-3 bg-[#263238] rounded-xl border border-white/10 text-white shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Multi-Tier Workflow</p>
-          </div>
-          <p className="text-[11px] text-slate-300 leading-tight">
-            Applicant → HOD → Registrar approval pipeline active.
-          </p>
+        {/* Bottom Actions */}
+        <div className="p-4 border-t border-white/10 space-y-2">
+          <button
+            onClick={() => {
+              if (onOpenChangePassword) onOpenChangePassword();
+              onCloseMobile();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-100 hover:bg-white/5 hover:text-white rounded transition-colors text-left uppercase tracking-wide cursor-pointer"
+          >
+            <KeyRound className="w-4 h-4 opacity-70" />
+            Change Password
+          </button>
+
+          <button
+            onClick={() => {
+              logout();
+              onCloseMobile();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-100 hover:bg-rose-500/20 hover:text-rose-200 rounded transition-colors text-left uppercase tracking-wide cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 opacity-70" />
+            Sign Out
+          </button>
         </div>
-
-        {/* User Card Profile at Bottom */}
-        <div className="p-4 border-t border-white/10 bg-black/10">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <img 
-                src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=1e3a8a&color=fff`} 
-                alt={currentUser?.name || 'User'} 
-                className="w-9 h-9 rounded-full object-cover border-2 border-white/20 shadow-xs shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-white truncate">{currentUser?.name || 'User'}</p>
-                <p className="text-[10px] text-indigo-200 uppercase tracking-wider font-bold truncate">
-                  {currentUser?.role} • {currentUser?.departmentId}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              {onOpenChangePassword && (
-                <button
-                  onClick={() => {
-                    onOpenChangePassword();
-                    onCloseMobile();
-                  }}
-                  className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                  title="Change Password"
-                >
-                  <KeyRound className="w-4 h-4" />
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  logout();
-                  onCloseMobile();
-                }}
-                className="p-1.5 text-rose-200 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4 text-rose-300" />
-              </button>
-            </div>
-          </div>
-        </div>
-
       </aside>
     </>
   );

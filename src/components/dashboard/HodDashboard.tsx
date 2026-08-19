@@ -83,161 +83,202 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
   return (
     <div className="space-y-6">
       
-      {/* Header Banner */}
+      {/* Welcome & Stats Banner */}
       <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
-              Department Head Portal
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white">
+              Executive View (HOD)
             </span>
-            <span className="text-xs text-indigo-100 font-medium">{currentUser.departmentName}</span>
+            <span className="text-xs text-indigo-100 font-medium">BIT Mesra • {currentUser.departmentName}</span>
           </div>
           <h2 className="text-xl font-medium tracking-tight">
-            HOD Endorsement & Team Portal • {currentUser.name}
+            Recommendation Dashboard
           </h2>
-          <p className="text-xs text-indigo-100/90 mt-1 max-w-xl leading-relaxed">
-            Endorse and forward department faculty & staff leave requests to Registrar, monitor coverage, and manage department balances.
-          </p>
+          <p className="text-xs text-indigo-100 mt-1">Review departmental leave applications and recommend them for final sanctioning.</p>
         </div>
 
-        <div className="bg-white/10 p-4 rounded-xl border border-white/20 text-center min-w-[150px]">
-          <p className="text-3xl font-light text-white">{pendingRequests.length}</p>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-100 mt-1">Pending Endorsements</p>
+        <div className="bg-white/10 px-6 py-3 rounded-lg border border-white/20 text-center min-w-[120px]">
+          <p className="text-2xl font-light">{pendingRequests.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Awaiting Action</p>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-        <button
+      {/* Stats Quick Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div 
           onClick={() => setActiveTab('pending')}
-          className={`px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'pending'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'pending' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
         >
-          <CheckSquare className="w-4 h-4" />
-          Pending Endorsements Queue ({pendingRequests.length})
-        </button>
+          <div className={`p-2 rounded-lg ${activeTab === 'pending' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
+            <CheckSquare className="w-5 h-5" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'pending' ? 'text-indigo-100' : 'text-slate-400'}`}>Pending Review</p>
+            <p className="text-xl font-medium">{pendingRequests.length} Applications</p>
+          </div>
+        </div>
 
-        <button
+        <div 
           onClick={() => setActiveTab('department_team')}
-          className={`px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'department_team'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'department_team' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
         >
-          <Users className="w-4 h-4" />
-          Department Members & Balances ({deptMembers.length})
-        </button>
+          <div className={`p-2 rounded-lg ${activeTab === 'department_team' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'department_team' ? 'text-indigo-100' : 'text-slate-400'}`}>Department Team</p>
+            <p className="text-xl font-medium">{deptMembers.length} Members</p>
+          </div>
+        </div>
 
-        <button
+        <div 
           onClick={() => setActiveTab('department_leaves')}
-          className={`px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === 'department_leaves'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
-              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'department_leaves' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
         >
-          <FileText className="w-4 h-4" />
-          Department Leave Applications ({departmentRequests.length})
-        </button>
+          <div className={`p-2 rounded-lg ${activeTab === 'department_leaves' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'department_leaves' ? 'text-indigo-100' : 'text-slate-400'}`}>All Records</p>
+            <p className="text-xl font-medium">{departmentRequests.length} Total Applied</p>
+          </div>
+        </div>
       </div>
 
       {/* Tab 1: Pending Requests Queue */}
       {activeTab === 'pending' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {pendingRequests.length === 0 ? (
-            <div className="bg-white p-12 rounded-xl border border-slate-100 text-center shadow-xs">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-800">All Department Endorsements Cleared</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                There are currently no pending leave requests awaiting your recommendation.
+            <div className="bg-white p-16 rounded-3xl border border-slate-200/60 text-center shadow-sm">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Queue is Empty</h3>
+              <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
+                No departmental leave applications are currently awaiting your endorsement.
               </p>
             </div>
           ) : (
             pendingRequests.map((req) => (
               <div 
                 key={req.id}
-                className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs hover:border-slate-300 transition-all space-y-4"
+                className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm hover:border-[#800000]/20 hover:shadow-md transition-all space-y-6 group"
               >
                 {/* Applicant Info & Dates */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-[#3F51B5] mr-2">{req.id}</span>
-                    <span className="font-semibold text-sm text-slate-800">{req.applicantName}</span>
-                    <span className="text-xs text-slate-500 ml-2">({req.applicantDesignation})</span>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#f8fafc] border border-slate-200 flex items-center justify-center font-bold text-[#800000]">
+                      {req.applicantName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] font-bold text-[#800000] bg-maroon-50 px-2 py-0.5 rounded uppercase tracking-wider">{req.id}</span>
+                        <h4 className="font-bold text-lg text-slate-900">{req.applicantName}</h4>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-0.5">{req.applicantDesignation}</p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <MaterialChip label={req.leaveType} variant="leaveType" leaveType={req.leaveType} />
-                    <span className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 px-3 py-1 rounded">
-                      {req.totalDays} Day(s) • {req.startDate} to {req.endDate}
-                    </span>
+                    <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-900">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs">{req.totalDays} Days</span>
+                      <span className="text-xs text-slate-400">•</span>
+                      <span className="text-xs">{req.startDate} — {req.endDate}</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Reason & Substitute Details */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200/80 text-xs text-slate-800 space-y-2">
-                  <p><strong>Reason:</strong> "{req.reason}"</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-[#800000]" />
+                      Statement of Reason
+                    </h5>
+                    <p className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50/50 p-4 rounded-2xl border border-slate-100 italic">
+                      "{req.reason}"
+                    </p>
+                  </div>
                   
-                  {req.classHandovers && req.classHandovers.length > 0 && (
-                    <div className="border-t border-slate-200 pt-2 text-[11px] text-slate-700">
-                      <p className="font-bold text-[#3F51B5] mb-1 uppercase tracking-wide text-[10px]">Arranged Substitute Lectures ({req.classHandovers.length}):</p>
-                      <ul className="list-disc pl-4 space-y-0.5">
+                  {req.classHandovers && req.classHandovers.length > 0 ? (
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-[#800000]" />
+                        Academic Coverage ({req.classHandovers.length})
+                      </h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                         {req.classHandovers.map((h, i) => (
-                          <li key={i}>
-                            <strong>{h.courseCode}</strong> by {h.substituteStaffName} ({h.timeSlot})
-                          </li>
+                          <div key={i} className="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group/item hover:bg-slate-50 transition-colors">
+                            <div>
+                              <span className="text-[10px] font-bold text-[#800000] uppercase tracking-wider">{h.courseCode}</span>
+                              <p className="text-xs font-bold text-slate-900">{h.substituteStaffName}</p>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">{h.timeSlot}</span>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <h5 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <div className="w-1 h-1 rounded-full bg-[#800000]" />
+                        Academic Coverage
+                      </h5>
+                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-slate-500 font-medium italic">
+                        No substitute lecture arrangements recorded for this period.
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Multi-tier timeline preview */}
-                <TimelineStepper request={req} />
+                <div className="pt-2">
+                  <TimelineStepper request={req} />
+                </div>
 
                 {/* Quick HOD Action Panel */}
-                <div className="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100 space-y-3">
-                  <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
-                    <MessageSquare className="w-4 h-4 text-[#3F51B5]" />
-                    HOD Endorsement Remarks:
+                <div className="bg-[#f8fafc] p-6 rounded-3xl border border-slate-200/60 space-y-4">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-[0.1em]">
+                    <MessageSquare className="w-4 h-4 text-[#800000]" />
+                    Endorsement Remarks
                   </div>
 
                   <textarea
-                    rows={2}
-                    placeholder="Enter endorsement remarks (e.g., 'Recommended. Alternate lectures covered effectively.')"
+                    rows={3}
+                    placeholder="Enter formal endorsement remarks for institutional records..."
                     value={selectedRequest?.id === req.id ? remarks : ''}
                     onChange={(e) => {
                       setSelectedRequest(req);
                       setRemarks(e.target.value);
                     }}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded text-xs font-normal text-slate-900 focus:ring-2 focus:ring-[#3F51B5]"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 focus:outline-hidden focus:ring-4 focus:ring-[#800000]/5 focus:border-[#800000] transition-all placeholder:text-slate-400"
                   />
 
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
                     <button
                       onClick={() => onSelectLeaveRequest(req.id)}
-                      className="text-xs text-[#3F51B5] font-semibold hover:underline"
+                      className="text-xs text-slate-500 font-bold hover:text-[#800000] uppercase tracking-widest transition-colors flex items-center gap-2"
                     >
-                      View Complete Application Details →
+                      View Detailed Dossier <ChevronRight className="w-4 h-4" />
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                       <button
                         onClick={() => handleReject(req)}
-                        className="px-4 py-2 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded transition-colors flex items-center gap-1 uppercase tracking-wide cursor-pointer"
+                        className="flex-1 sm:flex-none px-6 py-3 text-[10px] font-bold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-xl transition-all uppercase tracking-widest cursor-pointer active:scale-95"
                       >
-                        <XCircle className="w-3.5 h-3.5" /> Reject
+                        Decline
                       </button>
 
                       <button
                         onClick={() => handleRecommend(req)}
-                        className="px-5 py-2 text-xs font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded shadow-sm transition-all active:scale-95 flex items-center gap-1 uppercase tracking-wide cursor-pointer"
+                        className="flex-1 sm:flex-none px-8 py-3 text-[10px] font-bold text-white bg-[#800000] hover:bg-[#a00000] rounded-xl shadow-lg shadow-maroon-900/10 transition-all uppercase tracking-widest cursor-pointer active:scale-95"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Recommend to Registrar
+                        Endorse & Forward
                       </button>
                     </div>
                   </div>

@@ -82,170 +82,163 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
   return (
     <div className="space-y-6">
       
-      {/* Header Banner */}
+      {/* Welcome & Stats Banner */}
       <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
-              Registrar Executive Office
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white">
+              Institutional Authority (Registrar)
             </span>
-            <span className="text-xs text-indigo-100 font-medium">Sanction Authority</span>
+            <span className="text-xs text-indigo-100 font-medium">BIT Mesra • Institutional Administration</span>
           </div>
           <h2 className="text-xl font-medium tracking-tight">
-            Registrar Leave Sanction Portal • {currentUser.name}
+            Institutional Sanction Portal
           </h2>
-          <p className="text-xs text-indigo-100/90 mt-1 max-w-xl leading-relaxed">
-            Final approving authority for institutional leave applications recommended by departmental Head of Departments (HODs).
-          </p>
+          <p className="text-xs text-indigo-100 mt-1">Review HOD-endorsed applications and issue official institutional sanction orders.</p>
         </div>
 
-        <div className="bg-white/10 p-4 rounded-xl border border-white/20 text-center min-w-[150px]">
-          <p className="text-3xl font-light text-white">{pendingRequests.length}</p>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-100 mt-1">Awaiting Sanction</p>
+        <div className="bg-white/10 px-6 py-3 rounded-lg border border-white/20 text-center min-w-[120px]">
+          <p className="text-2xl font-light">{pendingRequests.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Awaiting Order</p>
         </div>
       </div>
 
-      {/* Navigation Tabs & Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 border-b md:border-b-0 border-slate-100 pb-2 md:pb-0">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'pending'
-                ? 'bg-[#3F51B5] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Pending Sanction Queue ({pendingRequests.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('all_institutional')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === 'all_institutional'
-                ? 'bg-[#3F51B5] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            Institutional Register ({leaveRequests.length})
-          </button>
+      {/* Stats Quick Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div 
+          onClick={() => setActiveTab('pending')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'pending' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
+        >
+          <div className={`p-2 rounded-lg ${activeTab === 'pending' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'pending' ? 'text-indigo-100' : 'text-slate-400'}`}>Sanction Queue</p>
+            <p className="text-xl font-medium">{pendingRequests.length} Applications</p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {activeTab === 'all_institutional' && (
-            <input
-              type="text"
-              placeholder="Search by ID, name, email, department..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#3F51B5]"
-            />
-          )}
-
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-500">Dept:</span>
-            <select
-              value={selectedDeptFilter}
-              onChange={(e) => setSelectedDeptFilter(e.target.value)}
-              className="font-bold text-slate-800 bg-transparent focus:outline-none"
-            >
-              <option value="ALL">All Departments</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-              ))}
-            </select>
+        <div 
+          onClick={() => setActiveTab('all_institutional')}
+          className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center gap-4 ${activeTab === 'all_institutional' ? 'bg-[#3F51B5] border-[#3F51B5] text-white shadow-md' : 'bg-white border-slate-100 text-slate-700 hover:border-slate-200 shadow-xs'}`}
+        >
+          <div className={`p-2 rounded-lg ${activeTab === 'all_institutional' ? 'bg-white/20' : 'bg-indigo-50 text-[#3F51B5]'}`}>
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeTab === 'all_institutional' ? 'text-indigo-100' : 'text-slate-400'}`}>Institutional Register</p>
+            <p className="text-xl font-medium">{leaveRequests.length} Total Records</p>
           </div>
         </div>
       </div>
 
       {/* Requests List */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         {activeTab === 'pending' ? (
           pendingRequests.length === 0 ? (
-            <div className="bg-white p-12 rounded-xl border border-slate-100 text-center shadow-xs">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-800">Sanction Queue Cleared</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                There are no pending HOD-endorsed applications awaiting Registrar sanction.
+            <div className="bg-white p-16 rounded-3xl border border-slate-200/60 text-center shadow-sm">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Queue is Clear</h3>
+              <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
+                All departmental recommendations have been processed for final sanctioning.
               </p>
             </div>
           ) : (
             pendingRequests.map((req) => (
               <div 
                 key={req.id}
-                className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs hover:border-slate-300 transition-all space-y-4"
+                className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm hover:border-[#800000]/20 hover:shadow-md transition-all space-y-6 group"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-[#3F51B5] mr-2">{req.id}</span>
-                    <span className="font-semibold text-sm text-slate-800">{req.applicantName}</span>
-                    <span className="text-xs text-slate-500 ml-2">({req.applicantDesignation} • {req.departmentName})</span>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#f8fafc] border border-slate-200 flex items-center justify-center font-bold text-[#800000]">
+                      {req.applicantName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] font-bold text-[#800000] bg-maroon-50 px-2 py-0.5 rounded uppercase tracking-wider">{req.id}</span>
+                        <h4 className="font-bold text-lg text-slate-900">{req.applicantName}</h4>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-0.5">{req.applicantDesignation} • {req.departmentName}</p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <MaterialChip label={req.leaveType} variant="leaveType" leaveType={req.leaveType} />
-                    <span className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 px-3 py-1 rounded">
-                      {req.totalDays} Day(s) • {req.startDate} to {req.endDate}
-                    </span>
+                    <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+                    <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 font-bold text-slate-900">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs">{req.totalDays} Days</span>
+                      <span className="text-xs text-slate-400">•</span>
+                      <span className="text-xs">{req.startDate} — {req.endDate}</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* HOD Endorsement Note */}
                 {req.hodApproval && (
-                  <div className="bg-amber-50/80 p-3 rounded-lg border border-amber-200 text-xs text-amber-900 space-y-1">
-                    <p className="font-bold text-amber-950 flex items-center gap-1.5 uppercase tracking-wide text-[10px]">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
-                      HOD Endorsement ({req.hodApproval.actionByName}):
-                    </p>
-                    <p className="italic text-slate-700">"{req.hodApproval.comments}"</p>
-                    <p className="text-[10px] text-amber-700 font-mono">{req.hodApproval.actionDate}</p>
+                  <div className="bg-amber-50/60 p-5 rounded-2xl border border-amber-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-900 font-bold text-[10px] uppercase tracking-widest">
+                        <CheckCircle2 className="w-4 h-4 text-amber-600" />
+                        Departmental Recommendation
+                      </div>
+                      <span className="text-[10px] font-mono text-amber-700 font-bold opacity-60">{req.hodApproval.actionDate}</span>
+                    </div>
+                    <div className="flex items-start gap-4">
+                      <div className="h-full w-1 bg-amber-200 rounded-full shrink-0"></div>
+                      <p className="italic text-sm text-slate-700 font-medium leading-relaxed">"{req.hodApproval.comments}"</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-amber-800 uppercase tracking-widest ml-5">— {req.hodApproval.actionByName} (HOD)</p>
                   </div>
                 )}
 
                 {/* Timeline */}
-                <TimelineStepper request={req} />
+                <div className="pt-2">
+                  <TimelineStepper request={req} />
+                </div>
 
                 {/* Action Form */}
-                <div className="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100 space-y-3">
-                  <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wide">
-                    <MessageSquare className="w-4 h-4 text-[#3F51B5]" />
-                    Registrar Sanction Order & Remarks:
+                <div className="bg-[#f8fafc] p-8 rounded-3xl border border-slate-200/60 space-y-6">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-[0.1em]">
+                    <MessageSquare className="w-4 h-4 text-[#800000]" />
+                    Official Sanction Remarks
                   </div>
 
                   <textarea
-                    rows={2}
-                    placeholder="Official remarks (e.g., 'Sanctioned under Clause 14-B. Deduct from Earned Leave balance.')"
+                    rows={3}
+                    placeholder="Provide official administrative remarks for this sanction order..."
                     value={selectedRequest?.id === req.id ? remarks : ''}
                     onChange={(e) => {
                       setSelectedRequest(req);
                       setRemarks(e.target.value);
                     }}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded text-xs font-normal text-slate-900 focus:ring-2 focus:ring-[#3F51B5]"
+                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 focus:outline-hidden focus:ring-4 focus:ring-[#800000]/5 focus:border-[#800000] transition-all placeholder:text-slate-400"
                   />
 
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
                     <button
                       onClick={() => onSelectLeaveRequest(req.id)}
-                      className="text-xs text-[#3F51B5] font-semibold hover:underline"
+                      className="text-xs text-slate-500 font-bold hover:text-[#800000] uppercase tracking-widest transition-colors flex items-center gap-2"
                     >
-                      View Application Dossier →
+                      Inspect Full Dossier <Printer className="w-4 h-4" />
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                       <button
                         onClick={() => handleReject(req)}
-                        className="px-4 py-2 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded transition-colors flex items-center gap-1 uppercase tracking-wide cursor-pointer"
+                        className="flex-1 sm:flex-none px-8 py-3.5 text-[10px] font-bold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-xl transition-all uppercase tracking-widest cursor-pointer active:scale-95 shadow-sm"
                       >
-                        <XCircle className="w-3.5 h-3.5" /> Reject Sanction
+                        Decline Sanction
                       </button>
 
                       <button
                         onClick={() => handleApprove(req)}
-                        className="px-5 py-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm transition-all active:scale-95 flex items-center gap-1 uppercase tracking-wide cursor-pointer"
+                        className="flex-1 sm:flex-none px-10 py-3.5 text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-lg shadow-emerald-900/20 transition-all uppercase tracking-widest cursor-pointer active:scale-95"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Issue Final Sanction
+                        Approve & Issue Sanction
                       </button>
                     </div>
                   </div>
