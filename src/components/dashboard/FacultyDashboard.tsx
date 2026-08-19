@@ -52,7 +52,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     <div className="space-y-6">
       
       {/* Welcome Banner */}
-      <div className="bg-[#3F51B5] rounded-xl p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-primary rounded-xl p-8 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex flex-col gap-4 relative z-10">
           <div className="flex items-center gap-3">
             <span className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest bg-white/10 border border-white/20 text-white">
@@ -72,7 +72,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
         <button
           onClick={onOpenApplyModal}
-          className="px-8 py-3 bg-white text-[#3F51B5] font-bold text-[10px] rounded-lg shadow-sm hover:bg-indigo-50 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-[0.15em] cursor-pointer shrink-0 relative z-10"
+          className="px-8 py-3 bg-white text-primary font-bold text-[10px] rounded-lg shadow-sm hover:bg-indigo-50 transition-all active:scale-95 flex items-center gap-2 uppercase tracking-[0.15em] cursor-pointer shrink-0 relative z-10"
         >
           <Plus className="w-3.5 h-3.5" /> Apply for Leave
         </button>
@@ -160,7 +160,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 pb-4 mb-4">
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-xs text-[#3F51B5] bg-indigo-50 px-2 py-1 rounded">{req.id}</span>
+                    <span className="font-bold text-xs text-primary bg-indigo-50 px-2 py-1 rounded">{req.id}</span>
                     <MaterialChip label={req.leaveType} variant="leaveType" leaveType={req.leaveType} />
                     <MaterialChip label={req.status} variant="status" status={req.status} />
                   </div>
@@ -173,7 +173,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-4 mt-4 border-t border-slate-50">
                   <span className="truncate max-w-md font-medium italic">"{req.reason}"</span>
-                  <span className="text-[#3F51B5] font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 group-hover:gap-2 transition-all">
+                  <span className="text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 group-hover:gap-2 transition-all">
                     View Details <ChevronRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
@@ -214,7 +214,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                     onClick={() => onSelectLeaveRequest(r.id)}
                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"
                   >
-                    <td className="px-8 py-4 font-bold text-[#3F51B5]">{r.id}</td>
+                    <td className="px-8 py-4 font-bold text-primary">{r.id}</td>
                     <td className="px-8 py-4">
                       <MaterialChip label={r.leaveType} variant="leaveType" leaveType={r.leaveType} />
                     </td>
@@ -231,12 +231,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             e.stopPropagation();
                             onSelectLeaveRequest(r.id, true);
                           }}
-                          className="text-slate-400 hover:text-[#3F51B5] transition-colors"
+                          className="text-slate-400 hover:text-primary transition-colors"
                           title="Print Form"
                         >
                           <Printer className="w-4 h-4" />
                         </button>
-                        <button type="button" className="text-[#3F51B5] font-bold hover:underline">
+                        <button type="button" className="text-primary font-bold hover:underline">
                           Details
                         </button>
                       </div>

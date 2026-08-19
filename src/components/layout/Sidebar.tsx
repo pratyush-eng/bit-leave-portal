@@ -87,12 +87,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* Navigation Drawer Container */}
-      <aside className={`
-        fixed lg:static top-0 bottom-0 left-0 z-40
-        w-64 bg-[#3F51B5] text-white flex flex-col shrink-0
-        transition-transform duration-200 ease-in-out shadow-xl lg:shadow-none
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      <aside 
+        className={`
+          fixed lg:static top-0 bottom-0 left-0 z-40
+          w-64 flex flex-col shrink-0
+          transition-transform duration-200 ease-in-out shadow-xl lg:shadow-none
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+        style={{ 
+          backgroundColor: 'var(--sidebar-bg-color, #3F51B5)', 
+          color: 'var(--sidebar-text-color, #ffffff)' 
+        }}
+      >
         {/* Sidebar Header */}
         <div className="p-6 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-3">
@@ -139,19 +145,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`
                   w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all group
                   ${isActive 
-                    ? 'bg-white/20 text-white shadow-sm' 
-                    : 'text-indigo-100 hover:bg-white/5 hover:text-white'}
+                    ? 'bg-white/20 shadow-sm' 
+                    : 'opacity-70 hover:bg-white/5 hover:opacity-100'}
                 `}
+                style={{ color: 'inherit' }}
               >
                 <div className="flex items-center gap-4">
-                  <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-indigo-200 group-hover:text-white'}`} />
+                  <Icon className={`w-4 h-4 transition-colors ${isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`} />
                   <span className="font-medium tracking-tight text-[13px]">{item.label}</span>
                 </div>
 
                 {item.badge !== undefined && item.badge > 0 && (
                   <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold ${
-                    isActive ? 'bg-white text-[#3F51B5]' : 'bg-rose-500 text-white'
-                  }`}>
+                    isActive ? 'bg-white' : 'bg-rose-500 text-white'
+                  }`}
+                  style={{ color: isActive ? 'var(--sidebar-bg-color)' : 'inherit' }}
+                  >
                     {item.badge}
                   </span>
                 )}

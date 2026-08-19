@@ -104,7 +104,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     sendTestEmail
   } = useLeave();
 
-  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'departments' | 'leave_policies' | 'pending' | 'settings' | 'email' | 'database' | 'audit_logs' | 'applied_leaves'>('permissions');
+  const [activeTab, setActiveTab] = useState<'permissions' | 'user_creation' | 'departments' | 'leave_policies' | 'pending' | 'settings' | 'themes' | 'email' | 'database' | 'audit_logs' | 'applied_leaves'>('permissions');
   const [selectedUserId, setSelectedUserId] = useState<string>(() => allUsers[3]?.id || allUsers[0]?.id || 'usr_1');
 
   useEffect(() => {
@@ -771,7 +771,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-primary rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
@@ -817,7 +817,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('permissions')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'permissions'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -829,7 +829,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('user_creation')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'user_creation'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -841,7 +841,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('departments')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'departments'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -853,7 +853,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('leave_policies')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'leave_policies'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -865,7 +865,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('applied_leaves')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'applied_leaves'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -877,7 +877,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('pending')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer relative ${
             activeTab === 'pending'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -894,7 +894,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'settings'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -903,10 +903,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         </button>
 
         <button
+          onClick={() => setActiveTab('themes')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'themes'
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          Themes & Personalization
+        </button>
+
+        <button
           onClick={() => setActiveTab('email')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer relative ${
             activeTab === 'email'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -926,7 +938,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           }}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'database'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -938,7 +950,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           onClick={() => setActiveTab('audit_logs')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === 'audit_logs'
-              ? 'bg-[#3F51B5] text-white shadow-sm'
+              ? 'bg-primary text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -1057,7 +1069,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs max-w-3xl mx-auto space-y-6">
           <div className="border-b border-slate-200 pb-4">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-[#3F51B5]" />
+              <UserPlus className="w-4 h-4 text-primary" />
               Super Admin Multi-Role Account Creation
             </h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -1090,7 +1102,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     else if (r === 'STAFF') setNewDesignation('Senior Technical Officer');
                     else setNewDesignation('Assistant Professor');
                   }}
-                  className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   <option value="FACULTY">FACULTY (Teaching Faculty)</option>
                   <option value="STAFF">STAFF (Technical / Admin Staff)</option>
@@ -1108,7 +1120,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <select
                   value={newDeptId}
                   onChange={(e) => setNewDeptId(e.target.value)}
-                  className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
                 >
                   {departments.map((d, idx) => (
                     <option key={`create-usr-dept-${d.id}-${idx}`} value={d.id}>{d.name} ({d.code})</option>
@@ -1128,7 +1140,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   placeholder="e.g. Dr. Ramesh Gupta"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -1142,7 +1154,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   placeholder="e.g. ramesh.gupta@institution.edu"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -1157,7 +1169,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -1169,7 +1181,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   type="text"
                   value={newDesignation}
                   onChange={(e) => setNewDesignation(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -1184,7 +1196,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   placeholder="e.g. FAC-2026-991"
                   value={newEmpCode}
                   onChange={(e) => setNewEmpCode(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
 
@@ -1197,7 +1209,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   placeholder="+91 98888 11111"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+                  className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -1205,7 +1217,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             <div className="pt-3">
               <button
                 type="submit"
-                className="w-full py-3 px-6 bg-[#3F51B5] hover:bg-[#303F9F] text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 px-6 bg-primary hover:bg-[#303F9F] text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 Create {newRole} Account & Store in DB
@@ -1221,7 +1233,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-indigo-100 text-[#3F51B5] font-bold text-[10px] uppercase">Super Admin Exclusive</span>
+                <span className="px-2 py-0.5 rounded bg-indigo-100 text-primary font-bold text-[10px] uppercase">Super Admin Exclusive</span>
                 <h3 className="text-sm font-bold text-slate-900">Institutional Departments Management</h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
@@ -1236,7 +1248,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 setDeptHodId('');
                 setShowAddDeptModal(true);
               }}
-              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-wide shrink-0"
+              className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white font-medium text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-wide shrink-0"
             >
               <Building2 className="w-4 h-4" /> Create Department
             </button>
@@ -1249,7 +1261,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <div key={`dept-card-${dept.id}-${idx}`} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 relative">
                   <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                     <div>
-                      <span className="px-2 py-0.5 bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded font-mono text-[10px] font-bold">
+                      <span className="px-2 py-0.5 bg-indigo-50 text-primary border border-indigo-200 rounded font-mono text-[10px] font-bold">
                         {dept.code}
                       </span>
                       <h4 className="text-sm font-bold text-slate-900 mt-1.5">{dept.name}</h4>
@@ -1275,7 +1287,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         setDeptName(dept.name);
                         setDeptHodId(dept.hodId || '');
                       }}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-primary text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" /> Edit Department
                     </button>
@@ -1293,7 +1305,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-indigo-100 text-[#3F51B5] font-bold text-[10px] uppercase">Super Admin Exclusive</span>
+                <span className="px-2 py-0.5 rounded bg-indigo-100 text-primary font-bold text-[10px] uppercase">Super Admin Exclusive</span>
                 <h3 className="text-sm font-bold text-slate-900">Institutional Leave Types & Policy Configuration</h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
@@ -1312,7 +1324,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 setPolicyDesc('');
                 setShowAddPolicyModal(true);
               }}
-              className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-wide shrink-0"
+              className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white font-medium text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-wide shrink-0"
             >
               <Plus className="w-4 h-4" /> Create Leave Type
             </button>
@@ -1349,7 +1361,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   <div className="flex justify-end pt-1">
                     <button
                       onClick={() => setEditingPolicy(pol)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-primary text-slate-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" /> Modify Policy Rules
                     </button>
@@ -1778,7 +1790,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <button
                   type="button"
                   onClick={handleCopyDb}
-                  className="px-3 py-1.5 rounded-lg bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-primary hover:bg-[#303F9F] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {copiedDb ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {copiedDb ? 'Copied JSON!' : 'Copy DB JSON'}
@@ -1801,7 +1813,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               value={dbJsonString}
               onChange={(e) => setDbJsonString(e.target.value)}
               placeholder="Click 'Generate Snapshot' to view current institutional database JSON, or paste an exported DB JSON string here to restore..."
-              className="w-full font-mono text-[11px] p-4 bg-slate-900 text-indigo-200 rounded-xl border border-slate-700 focus:outline-hidden focus:ring-2 focus:ring-[#3F51B5]"
+              className="w-full font-mono text-[11px] p-4 bg-slate-900 text-indigo-200 rounded-xl border border-slate-700 focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -2043,7 +2055,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-[#3F51B5]" />
+                <Sliders className="w-5 h-5 text-primary" />
                 Institutional System Controls & Feature Privileges
               </h3>
               <p className="text-xs text-slate-500 mt-1">
@@ -2212,7 +2224,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-5 hover:border-indigo-200 transition-colors">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#3F51B5] flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-primary flex items-center justify-center font-bold">
                   <Palette className="w-5 h-5" />
                 </div>
                 <div>
@@ -2281,7 +2293,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">Live Portal Branding Preview</p>
                   
                   {/* Login Header Mockup */}
-                  <div className="bg-[#3F51B5] text-white p-4 rounded-xl flex items-center gap-3">
+                  <div className="bg-primary text-white p-4 rounded-xl flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white p-0.5 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-white/30 shadow-xs">
                       {logoUrlInput ? (
                         <img 
@@ -2314,7 +2326,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   <button
                     type="button"
                     onClick={handleSaveBranding}
-                    className="px-4 py-2 bg-[#3F51B5] hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 bg-primary hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Save Branding
                   </button>
@@ -2325,7 +2337,347 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
         </div>
       )}
 
-      {/* Tab: Email Gateway & Automated Workflow Settings */}
+      {/* Tab: Theme Settings & Personalization */}
+      {activeTab === 'themes' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Theme Configuration Form */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-8">
+            <div className="border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Palette className="w-5 h-5 text-primary" />
+                Institutional Theme & Branding
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Customize the portal's visual identity, navigation colors, and typography globally.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Primary Branding */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                    Primary Brand Color
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="color" 
+                      value={systemSettings.themeSettings?.primaryColor || '#3F51B5'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, primaryColor: e.target.value } 
+                      })}
+                      className="w-12 h-12 rounded-lg border-2 border-slate-200 p-1 cursor-pointer"
+                    />
+                    <input 
+                      type="text" 
+                      value={systemSettings.themeSettings?.primaryColor || '#3F51B5'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, primaryColor: e.target.value } 
+                      })}
+                      className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                    Global Border Radius
+                  </label>
+                  <select
+                    value={systemSettings.themeSettings?.borderRadius || 'xl'}
+                    onChange={(e) => updateSystemSettings({ 
+                      themeSettings: { ...systemSettings.themeSettings!, borderRadius: e.target.value as any } 
+                    })}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="none">Sharp (0px)</option>
+                    <option value="sm">Small (2px)</option>
+                    <option value="md">Medium (6px)</option>
+                    <option value="lg">Large (8px)</option>
+                    <option value="xl">X-Large (12px)</option>
+                    <option value="2xl">2X-Large (16px)</option>
+                    <option value="full">Round (Full)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Navigation Bar Theme */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Portal Navigation (Header)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Background Color</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.navBgColor || '#ffffff'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, navBgColor: e.target.value } 
+                        })}
+                        className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                      <input 
+                        type="text" 
+                        value={systemSettings.themeSettings?.navBgColor || '#ffffff'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, navBgColor: e.target.value } 
+                        })}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Text & Icon Color</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.navTextColor || '#1e293b'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, navTextColor: e.target.value } 
+                        })}
+                        className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                      <input 
+                        type="text" 
+                        value={systemSettings.themeSettings?.navTextColor || '#1e293b'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, navTextColor: e.target.value } 
+                        })}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar Theme */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Side Navigation Panel</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Sidebar Background</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.sidebarBgColor || '#3F51B5'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, sidebarBgColor: e.target.value } 
+                        })}
+                        className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                      <input 
+                        type="text" 
+                        value={systemSettings.themeSettings?.sidebarBgColor || '#3F51B5'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, sidebarBgColor: e.target.value } 
+                        })}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Sidebar Text Color</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.sidebarTextColor || '#ffffff'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, sidebarTextColor: e.target.value } 
+                        })}
+                        className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                      <input 
+                        type="text" 
+                        value={systemSettings.themeSettings?.sidebarTextColor || '#ffffff'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { ...systemSettings.themeSettings!, sidebarTextColor: e.target.value } 
+                        })}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Typography */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Typography & Spacing</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Primary Font Family</label>
+                    <select
+                      value={systemSettings.themeSettings?.fontFamily || 'Inter'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, fontFamily: e.target.value } 
+                      })}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    >
+                      <option value="Inter, system-ui, sans-serif">Inter (Modern Sans)</option>
+                      <option value="'Plus Jakarta Sans', sans-serif">Plus Jakarta Sans (Premium)</option>
+                      <option value="'Outfit', sans-serif">Outfit (Round & Clean)</option>
+                      <option value="system-ui, sans-serif">System Default</option>
+                      <option value="'JetBrains Mono', monospace">JetBrains Mono (Developer)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Header Height</label>
+                    <select
+                      value={systemSettings.themeSettings?.headerHeight || '64px'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, headerHeight: e.target.value } 
+                      })}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    >
+                      <option value="56px">Compact (56px)</option>
+                      <option value="64px">Standard (64px)</option>
+                      <option value="72px">Comfortable (72px)</option>
+                      <option value="80px">Spacious (80px)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => updateSystemSettings({
+                  themeSettings: {
+                    navBgColor: '#ffffff',
+                    navTextColor: '#1e293b',
+                    sidebarBgColor: '#3F51B5',
+                    sidebarTextColor: '#ffffff',
+                    primaryColor: '#3F51B5',
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                    borderRadius: 'xl',
+                    headerHeight: '64px'
+                  }
+                })}
+                className="px-6 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset Theme Defaults
+              </button>
+
+              <button
+                onClick={() => {
+                  alert('Theme settings updated successfully!');
+                }}
+                className="px-8 py-3 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                Apply Theme Changes
+              </button>
+            </div>
+          </div>
+
+          {/* Theme Preview Card */}
+          <div className="space-y-6">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-2">Theme Live Preview (Simulated)</h4>
+            
+            {/* Main Preview */}
+            <div 
+              className="bg-slate-100 rounded-3xl p-8 border border-slate-200 min-h-[500px] flex gap-4 overflow-hidden"
+              style={{ fontFamily: systemSettings.themeSettings?.fontFamily }}
+            >
+              {/* Sidebar Preview */}
+              <div 
+                className="w-48 rounded-2xl shadow-xl flex flex-col"
+                style={{ 
+                  backgroundColor: systemSettings.themeSettings?.sidebarBgColor,
+                  color: systemSettings.themeSettings?.sidebarTextColor,
+                  borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
+                                systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
+                }}
+              >
+                <div className="p-4 border-b border-white/10 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
+                    <BitLogo className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-tight">BIT Mesra</span>
+                </div>
+                <div className="p-3 space-y-2 flex-1">
+                  <div className="h-8 rounded-lg bg-white/20 flex items-center px-3 gap-2">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span className="text-[10px] font-medium">Dashboard</span>
+                  </div>
+                  <div className="h-8 rounded-lg bg-transparent flex items-center px-3 gap-2 opacity-70">
+                    <Plus className="w-3 h-3" />
+                    <span className="text-[10px] font-medium">Apply Leave</span>
+                  </div>
+                </div>
+                <div className="p-4 bg-black/10 rounded-b-2xl border-t border-white/5 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/30" />
+                  <div className="flex-1">
+                    <div className="h-1.5 w-12 bg-white/40 rounded-full mb-1" />
+                    <div className="h-1 w-8 bg-white/20 rounded-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Preview */}
+              <div className="flex-1 flex flex-col gap-4">
+                {/* Header Preview */}
+                <div 
+                  className="h-12 rounded-2xl shadow-sm flex items-center justify-between px-6 border border-slate-200"
+                  style={{ 
+                    backgroundColor: systemSettings.themeSettings?.navBgColor,
+                    color: systemSettings.themeSettings?.navTextColor,
+                    height: parseInt(systemSettings.themeSettings?.headerHeight || '64px') * 0.75 + 'px',
+                    borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '999px' : 
+                                  systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                  systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                  systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                  systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                  systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Leave Portal</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full border border-slate-200" />
+                  </div>
+                </div>
+
+                {/* Dashboard Card Preview */}
+                <div className="flex-1 bg-white p-6 border border-slate-200 shadow-2xs space-y-4" style={{
+                  borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '32px' : 
+                                systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
+                }}>
+                  <div className="h-20 rounded-2xl p-4 flex flex-col justify-between" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor, color: '#fff' }}>
+                    <div className="h-2 w-16 bg-white/30 rounded-full" />
+                    <div className="h-4 w-32 bg-white/80 rounded-full" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
+                      <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center">
+                        <CheckCircle2 className="w-3 h-3 text-primary" style={{ color: systemSettings.themeSettings?.primaryColor }} />
+                      </div>
+                      <div className="h-2 w-12 bg-slate-200 rounded-full" />
+                    </div>
+                    <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
+                      <div className="w-6 h-6 rounded bg-amber-50 flex items-center justify-center">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                      </div>
+                      <div className="h-2 w-12 bg-slate-200 rounded-full" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'email' && (
         <div className="space-y-6">
           
@@ -2391,7 +2743,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Server className="w-5 h-5 text-[#3F51B5]" />
+                    <Server className="w-5 h-5 text-primary" />
                     Institutional SMTP Email Gateway Settings
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -2561,7 +2913,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 <button
                   type="button"
                   onClick={handleSaveEmailSettings}
-                  className="px-5 py-2.5 bg-[#3F51B5] hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-2"
+                  className="px-5 py-2.5 bg-primary hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" /> Save Email Settings
                 </button>
@@ -2658,7 +3010,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-[#3F51B5]" />
+                  <Mail className="w-4 h-4 text-primary" />
                   System Email Delivery Audit Trail ({emailLogs.length})
                 </h3>
                 <p className="text-xs text-slate-500">Live record of all email notifications generated by staff leave requests</p>
@@ -2761,7 +3113,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {selectedEmailLog && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Dispatched Email HTML Inspector • {selectedEmailLog.id}</h3>
@@ -2813,7 +3165,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {showAddDeptModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Create New Department (Super Admin)</h3>
@@ -2878,7 +3230,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Create Department
                 </button>
@@ -2892,7 +3244,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {editingDept && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Edit Department • {editingDept.code}</h3>
@@ -2955,7 +3307,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Save Department Changes
                 </button>
@@ -2969,7 +3321,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {showAddPolicyModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Create New Leave Type & Policy (Super Admin)</h3>
@@ -3080,7 +3432,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Create Leave Type
                 </button>
@@ -3094,7 +3446,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
       {editingPolicy && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Modify Policy Rules • {editingPolicy.label}</h3>
@@ -3191,7 +3543,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Save Policy Modifications
                 </button>
@@ -3222,7 +3574,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   placeholder="Search applicant, Ref ID..."
                   value={leaveSearchQuery}
                   onChange={(e) => setLeaveSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] focus:outline-none"
+                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
 
@@ -3287,7 +3639,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id)}
                     >
-                      <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{r.id}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-primary">{r.id}</td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900">{r.applicantName}</div>
                         <div className="text-[10px] text-slate-500">{r.applicantDesignation} ({r.applicantEmployeeCode || 'N/A'})</div>
@@ -3306,7 +3658,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                           <button
                             type="button"
                             onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, true)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-[#3F51B5] bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-primary bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Printer className="w-3 h-3" />
                             Print
@@ -3314,7 +3666,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                           <button
                             type="button"
                             onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, false)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
+                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-primary hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
                           >
                             View Dossier
                           </button>

@@ -289,7 +289,7 @@ export const LoginPage: React.FC = () => {
       email: 'webmaster@bitmesra.ac.in',
       dept: 'IT & Systems Admin',
       color: 'bg-indigo-50 border-indigo-300 text-indigo-900 hover:border-indigo-500',
-      badgeBg: 'bg-[#3F51B5] text-white',
+      badgeBg: 'bg-primary text-white',
       customPassword: 'password123'
     },
   ];
@@ -299,7 +299,7 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white shadow-2xl sm:rounded-3xl overflow-hidden border border-slate-100">
           {/* Header Section from Image 1 */}
-          <div className="bg-[#3F51B5] px-8 py-7 flex items-center gap-4">
+          <div className="bg-primary px-8 py-7 flex items-center gap-4">
             <div className="w-14 h-14 flex items-center justify-center shrink-0 drop-shadow-sm">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
@@ -341,7 +341,7 @@ export const LoginPage: React.FC = () => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail className="h-4 w-4 text-slate-400 group-focus-within:text-[#3F51B5] transition-colors" />
+                      <Mail className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                     </div>
                     <input
                       ref={emailInputRef}
@@ -351,7 +351,7 @@ export const LoginPage: React.FC = () => {
                       placeholder="webmaster@bitmesra.ac.in"
                       required
                       autoFocus
-                      className="block w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#3F51B5] focus:border-[#3F51B5] transition-all"
+                      className="block w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                     />
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export const LoginPage: React.FC = () => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="h-4 w-4 text-slate-400 group-focus-within:text-[#3F51B5] transition-colors" />
+                      <Lock className="h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                     </div>
                     <input
                       type="password"
@@ -370,7 +370,7 @@ export const LoginPage: React.FC = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="block w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#3F51B5] focus:border-[#3F51B5] transition-all"
+                      className="block w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                     />
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isLoggingIn}
-                    className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-200/50 text-xs font-bold uppercase tracking-widest text-white bg-[#3F51B5] hover:bg-[#303F9F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3F51B5] transition-all cursor-pointer active:scale-98 disabled:opacity-70"
+                    className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-200/50 text-xs font-bold uppercase tracking-widest text-white bg-primary hover:bg-[#303F9F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all cursor-pointer active:scale-98 disabled:opacity-70"
                   >
                     {isLoggingIn ? (
                       <>
@@ -439,7 +439,7 @@ export const LoginPage: React.FC = () => {
             {activeTab === 'login' && (
               <div className="mt-8 bg-slate-50 border border-slate-100 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-[#3F51B5] font-bold text-xs uppercase tracking-tight">
+                  <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-tight">
                     <KeyRound className="w-4 h-4" />
                     Forgot Your Portal Password?
                   </div>
@@ -456,7 +456,7 @@ export const LoginPage: React.FC = () => {
                     setForgotErrorMsg(null);
                     setForgotSuccessMsg(null);
                   }}
-                  className="px-4 py-2.5 bg-white hover:bg-slate-50 text-[#3F51B5] border border-indigo-100 rounded-xl text-[11px] font-bold shadow-sm transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
+                  className="px-4 py-2.5 bg-white hover:bg-slate-50 text-primary border border-indigo-100 rounded-xl text-[11px] font-bold shadow-sm transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
                 >
                   <KeyRound className="w-3.5 h-3.5" />
                   Forgot Password
@@ -469,7 +469,7 @@ export const LoginPage: React.FC = () => {
               <div className="animate-in fade-in duration-300">
                 <button 
                   onClick={() => setActiveTab('login')}
-                  className="flex items-center gap-1 text-xs font-bold text-[#3F51B5] mb-4 hover:underline"
+                  className="flex items-center gap-1 text-xs font-bold text-primary mb-4 hover:underline"
                 >
                   <ArrowLeft className="w-3 h-3" /> Back to Login
                 </button>
@@ -483,7 +483,7 @@ export const LoginPage: React.FC = () => {
                       placeholder="Full Name *"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      className="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] outline-none"
+                      className="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
                     />
                     <input
                       type="email"
@@ -491,11 +491,11 @@ export const LoginPage: React.FC = () => {
                       placeholder="Institutional Email *"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      className="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] outline-none"
+                      className="block w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
                     />
                     <button
                       type="submit"
-                      className="w-full py-3 bg-[#3F51B5] text-white rounded-xl text-xs font-bold uppercase tracking-widest"
+                      className="w-full py-3 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest"
                     >
                       Register Account
                     </button>
@@ -510,7 +510,7 @@ export const LoginPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <button 
                     onClick={() => setActiveTab('login')}
-                    className="flex items-center gap-1 text-xs font-bold text-[#3F51B5] hover:underline"
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                   >
                     <ArrowLeft className="w-3 h-3" /> Back to Login
                   </button>
@@ -546,12 +546,12 @@ export const LoginPage: React.FC = () => {
                           placeholder="Institutional Email"
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
-                          className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#3F51B5]"
+                          className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary"
                         />
                         <button
                           type="submit"
                           disabled={isSendingCode}
-                          className="w-full py-3.5 bg-[#3F51B5] text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                          className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50"
                         >
                           {isSendingCode ? 'Sending Code...' : 'Request Reset Code'}
                         </button>
@@ -573,11 +573,11 @@ export const LoginPage: React.FC = () => {
                           placeholder="New Password"
                           value={forgotNewPassword}
                           onChange={(e) => setForgotNewPassword(e.target.value)}
-                          className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#3F51B5]"
+                          className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary"
                         />
                         <button
                           type="submit"
-                          className="w-full py-3.5 bg-[#3F51B5] text-white rounded-xl text-xs font-bold uppercase tracking-widest"
+                          className="w-full py-3.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest"
                         >
                           Reset Password
                         </button>
@@ -597,7 +597,7 @@ export const LoginPage: React.FC = () => {
               Don't have an institutional account? {' '}
               <button 
                 onClick={() => setActiveTab('register')}
-                className="text-[#3F51B5] font-bold hover:underline"
+                className="text-primary font-bold hover:underline"
               >
                 Register here
               </button>

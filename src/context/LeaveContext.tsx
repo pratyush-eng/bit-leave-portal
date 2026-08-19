@@ -248,6 +248,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       institutionName: 'BIT Leave Portal',
       institutionLogoUrl: 'https://bitmesra.ac.in/SiteLogo/bit-newlogo.png',
       emailSettings: DEFAULT_EMAIL_SETTINGS,
+      themeSettings: {
+        navBgColor: '#ffffff',
+        navTextColor: '#1e293b',
+        sidebarBgColor: '#3F51B5',
+        sidebarTextColor: '#ffffff',
+        primaryColor: '#3F51B5',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        borderRadius: 'xl',
+        headerHeight: '64px'
+      }
     };
   });
 
@@ -986,6 +996,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
           institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
           emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
+          themeSettings: sys.themeSettings || {
+            navBgColor: '#ffffff',
+            navTextColor: '#1e293b',
+            sidebarBgColor: '#3F51B5',
+            sidebarTextColor: '#ffffff',
+            primaryColor: '#3F51B5',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            borderRadius: 'xl',
+            headerHeight: '64px'
+          }
         };
         setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
       }

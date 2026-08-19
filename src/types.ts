@@ -197,6 +197,17 @@ export interface EmailLog {
   triggerEvent: 'LEAVE_SUBMITTED' | 'HOD_RECOMMENDED' | 'HOD_REJECTED' | 'REGISTRAR_SANCTIONED' | 'REGISTRAR_REJECTED' | 'TEST_EMAIL';
 }
 
+export interface ThemeSettings {
+  navBgColor: string;
+  navTextColor: string;
+  sidebarBgColor: string;
+  sidebarTextColor: string;
+  primaryColor: string;
+  fontFamily: string;
+  borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
+  headerHeight: string;
+}
+
 export interface SystemSettings {
   enableDemoAccounts: boolean;
   enableRoleSwitcher: boolean;
@@ -204,4 +215,5 @@ export interface SystemSettings {
   institutionName?: string;
   institutionLogoUrl?: string;
   emailSettings?: EmailSettings;
+  themeSettings?: ThemeSettings;
 }

@@ -84,7 +84,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
     <div className="space-y-6">
       
       {/* Welcome & Stats Banner */}
-      <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-primary rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white">
@@ -109,24 +109,24 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
         <div className="flex items-center gap-6 border-b border-slate-200">
           <button 
             onClick={() => setActiveTab('pending')}
-            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
           >
             Pending Review ({pendingRequests.length})
-            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
           </button>
           <button 
             onClick={() => setActiveTab('department_team')}
-            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_team' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_team' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
           >
             Department Team ({deptMembers.length})
-            {activeTab === 'department_team' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+            {activeTab === 'department_team' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
           </button>
           <button 
             onClick={() => setActiveTab('department_leaves')}
-            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_leaves' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'department_leaves' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
           >
             All Records ({departmentRequests.length})
-            {activeTab === 'department_leaves' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+            {activeTab === 'department_leaves' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
           </button>
         </div>
 
@@ -336,7 +336,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#3F51B5]" />
+                <FileText className="w-4 h-4 text-primary" />
                 All Department Leave Applications ({currentUser.departmentName || currentUser.departmentId})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -351,7 +351,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
                 placeholder="Filter applicant name, ID, type..."
                 value={deptLeaveSearch}
                 onChange={(e) => setDeptLeaveSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] focus:outline-none"
+                className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
           </div>
@@ -392,7 +392,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
                         className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         onClick={() => onSelectLeaveRequest(r.id)}
                       >
-                        <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{r.id}</td>
+                        <td className="px-4 py-3 font-mono font-bold text-primary">{r.id}</td>
                         <td className="px-4 py-3">
                           <div className="font-semibold text-slate-900">{r.applicantName}</div>
                           <div className="text-[10px] text-slate-500">{r.applicantDesignation}</div>
@@ -410,7 +410,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
                             <button
                               type="button"
                               onClick={() => onSelectLeaveRequest(r.id, true)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-[#3F51B5] bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-primary bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <Printer className="w-3 h-3" />
                               Print
@@ -418,7 +418,7 @@ export const HodDashboard: React.FC<HodDashboardProps> = ({ onSelectLeaveRequest
                             <button
                               type="button"
                               onClick={() => onSelectLeaveRequest(r.id, false)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
+                              className="px-2.5 py-1 text-[11px] font-bold text-white bg-primary hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
                             >
                               View Dossier
                             </button>

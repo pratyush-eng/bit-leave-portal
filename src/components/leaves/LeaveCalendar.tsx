@@ -148,7 +148,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
             onClick={() => setActiveTab('calendar')}
             className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'calendar'
-                ? 'bg-[#3F51B5] text-white shadow-xs'
+                ? 'bg-primary text-white shadow-xs'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -160,7 +160,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
             onClick={() => setActiveTab('my_history')}
             className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'my_history'
-                ? 'bg-[#3F51B5] text-white shadow-xs'
+                ? 'bg-primary text-white shadow-xs'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -168,7 +168,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
             My Personal Leave History
             {myRequests.length > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                activeTab === 'my_history' ? 'bg-white text-[#3F51B5]' : 'bg-indigo-100 text-indigo-900'
+                activeTab === 'my_history' ? 'bg-white text-primary' : 'bg-indigo-100 text-indigo-900'
               }`}>
                 {myRequests.length}
               </span>
@@ -356,7 +356,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
               </h3>
               <button
                 onClick={() => setActiveTab('my_history')}
-                className="text-xs font-bold text-[#3F51B5] hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
               >
                 View Complete Leave History ({myRequests.length}) &rarr;
               </button>
@@ -413,7 +413,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
 
               <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
                 <span>Total Applications:</span>
-                <span className="text-sm font-extrabold text-[#3F51B5]">{myRequests.length}</span>
+                <span className="text-sm font-extrabold text-primary">{myRequests.length}</span>
               </div>
             </div>
 
@@ -536,7 +536,7 @@ export const LeaveCalendar: React.FC<{ onSelectLeaveRequest?: (id: string, print
                           e.stopPropagation();
                           if (onSelectLeaveRequest) onSelectLeaveRequest(r.id, true);
                         }}
-                        className="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-[#3F51B5] rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-primary rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors cursor-pointer"
                         title="Print official application sheet"
                       >
                         <Printer className="w-3.5 h-3.5" />

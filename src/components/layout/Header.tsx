@@ -88,7 +88,14 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="h-14 bg-white border-b border-slate-100 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shrink-0">
+    <header 
+      className="bg-white border-b border-slate-100 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shrink-0 transition-all duration-300"
+      style={{ 
+        height: 'var(--header-height, 56px)', 
+        backgroundColor: 'var(--nav-bg-color, #ffffff)', 
+        color: 'var(--nav-text-color, #1e293b)'
+      }}
+    >
       <div className="flex items-center justify-between w-full min-w-0 gap-4">
         
         {/* Left Side: Mobile Menu Button & Portal Title */}
@@ -102,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden drop-shadow-md">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
                   src={systemSettings.institutionLogoUrl} 
@@ -176,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Sign Out Button */}
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-[#3F51B5] transition-all cursor-pointer active:scale-95 shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-primary transition-all cursor-pointer active:scale-95 shrink-0"
             title="Log out of session"
           >
             <LogOut className="w-4 h-4" />

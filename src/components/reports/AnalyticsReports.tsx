@@ -432,7 +432,7 @@ export const AnalyticsReports: React.FC = () => {
 
             {/* Staff / Faculty Wise Filter */}
             {isFacultyOrStaff ? (
-              <div className="flex items-center gap-1.5 bg-[#3F51B5]/10 border border-[#3F51B5]/20 px-3 py-1.5 rounded-xl text-xs text-[#3F51B5] font-bold">
+              <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-xl text-xs text-primary font-bold">
                 <UserCheck className="w-3.5 h-3.5" />
                 <span>Scope: {currentUser.name} ({currentUser.employeeCode || 'Faculty/Staff'})</span>
               </div>

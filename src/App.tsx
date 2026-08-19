@@ -33,6 +33,41 @@ const AppContent: React.FC = () => {
   const { currentUser, leaveRequests, isAuthenticated, systemSettings } = useLeave();
 
   useEffect(() => {
+    const theme = systemSettings?.themeSettings;
+    if (theme) {
+      const root = document.documentElement;
+      
+      // Primary Colors
+      root.style.setProperty('--primary-color', theme.primaryColor || '#3F51B5');
+      
+      // Navigation Header
+      root.style.setProperty('--nav-bg-color', theme.navBgColor || '#ffffff');
+      root.style.setProperty('--nav-text-color', theme.navTextColor || '#1e293b');
+      root.style.setProperty('--header-height', theme.headerHeight || '64px');
+      
+      // Sidebar
+      root.style.setProperty('--sidebar-bg-color', theme.sidebarBgColor || '#3F51B5');
+      root.style.setProperty('--sidebar-text-color', theme.sidebarTextColor || '#ffffff');
+      
+      // Typography
+      root.style.setProperty('--font-family', theme.fontFamily || 'Inter, system-ui, sans-serif');
+      document.body.style.fontFamily = theme.fontFamily || 'Inter, system-ui, sans-serif';
+      
+      // Border Radius
+      const radiusMap: Record<string, string> = {
+        'none': '0',
+        'sm': '2px',
+        'md': '6px',
+        'lg': '8px',
+        'xl': '12px',
+        '2xl': '16px',
+        'full': '9999px'
+      };
+      root.style.setProperty('--border-radius', radiusMap[theme.borderRadius || 'xl'] || '12px');
+    }
+  }, [systemSettings?.themeSettings]);
+
+  useEffect(() => {
     const faviconUrl = systemSettings?.institutionLogoUrl || '/favicon.svg';
     const existingIcon = document.querySelector<HTMLLinkElement>("link[rel='icon']") || document.querySelector<HTMLLinkElement>("link[rel='shortcut icon']");
     if (existingIcon) {
@@ -109,7 +144,7 @@ const AppContent: React.FC = () => {
 
               <button
                 onClick={() => setIsApplyModalOpen(true)}
-                className="px-5 py-2.5 bg-[#3F51B5] hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2"
+                className="px-5 py-2.5 bg-primary hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" /> Open Leave Application Form
               </button>
@@ -138,7 +173,7 @@ const AppContent: React.FC = () => {
 
               <button
                 onClick={() => setIsApplyModalOpen(true)}
-                className="px-4 py-2 bg-[#3F51B5] hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5"
+                className="px-4 py-2 bg-primary hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" /> Apply Leave
               </button>
@@ -170,7 +205,7 @@ const AppContent: React.FC = () => {
                             e.stopPropagation();
                             handleSelectLeaveRequest(r.id, true);
                           }}
-                          className="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-[#3F51B5] rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-primary rounded-lg border border-indigo-200 flex items-center gap-1 transition-colors cursor-pointer"
                           title="Print official application sheet"
                         >
                           <Printer className="w-3.5 h-3.5" />

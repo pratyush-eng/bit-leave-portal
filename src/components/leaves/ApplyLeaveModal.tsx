@@ -181,7 +181,7 @@ export const ApplyLeaveModal: React.FC<ApplyLeaveModalProps> = ({ isOpen, onClos
           {/* Applicant Profile & Employee Code Header */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#3F51B5]/10 text-[#3F51B5] flex items-center justify-center font-bold text-sm shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
                 {currentUser?.name?.charAt(0) || 'U'}
               </div>
               <div>

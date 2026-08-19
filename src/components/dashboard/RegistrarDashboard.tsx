@@ -83,7 +83,7 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
     <div className="space-y-6">
       
       {/* Welcome & Stats Banner */}
-      <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-primary rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white">
@@ -108,17 +108,17 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
         <div className="flex items-center gap-6 border-b border-slate-200">
           <button 
             onClick={() => setActiveTab('pending')}
-            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'pending' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
           >
             Sanction Queue ({pendingRequests.length})
-            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
           </button>
           <button 
             onClick={() => setActiveTab('all_institutional')}
-            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all_institutional' ? 'text-[#3F51B5]' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`pb-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all_institutional' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}
           >
             Institutional Register ({leaveRequests.length})
-            {activeTab === 'all_institutional' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3F51B5] rounded-full" />}
+            {activeTab === 'all_institutional' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />}
           </button>
         </div>
 
@@ -262,7 +262,7 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
                   <tbody className="divide-y divide-slate-100">
                     {filteredAllRequests.map(req => (
                       <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{req.id}</td>
+                        <td className="px-4 py-3 font-mono font-bold text-primary">{req.id}</td>
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-800">{req.applicantName}</p>
                           <p className="text-[10px] text-slate-400">{req.applicantEmail}</p>
@@ -280,7 +280,7 @@ export const RegistrarDashboard: React.FC<RegistrarDashboardProps> = ({ onSelect
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => onSelectLeaveRequest(req.id)}
-                            className="px-3 py-1 bg-indigo-50 text-[#3F51B5] rounded font-semibold hover:bg-indigo-100 text-[11px] cursor-pointer"
+                            className="px-3 py-1 bg-indigo-50 text-primary rounded font-semibold hover:bg-indigo-100 text-[11px] cursor-pointer"
                           >
                             View
                           </button>

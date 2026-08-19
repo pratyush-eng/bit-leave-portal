@@ -391,7 +391,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
     <div className="space-y-6 font-sans">
       
       {/* Header Banner */}
-      <div className="bg-[#3F51B5] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-primary rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-white/20 text-white border border-white/20">
@@ -444,9 +444,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
           <button
             onClick={openAddUserModal}
-            className="px-4 py-2 bg-white text-[#3F51B5] hover:bg-slate-50 rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-white text-primary hover:bg-slate-50 rounded font-medium text-xs uppercase tracking-wide shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            <UserPlus className="w-3.5 h-3.5 text-[#3F51B5]" />
+            <UserPlus className="w-3.5 h-3.5 text-primary" />
             New User
           </button>
           
@@ -478,7 +478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('users')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'users'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -490,7 +490,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('departments')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'departments'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -502,7 +502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('policies')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'policies'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -514,7 +514,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('balances')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer ${
             activeTab === 'balances'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -526,7 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('pending')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer relative ${
             activeTab === 'pending'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -543,7 +543,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer relative ${
             activeTab === 'leaves'
-              ? 'bg-[#3F51B5] text-white shadow-xs'
+              ? 'bg-primary text-white shadow-xs'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
           }`}
         >
@@ -619,7 +619,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
 
               <button
                 onClick={openAddUserModal}
-                className="px-3 py-1.5 bg-[#3F51B5] hover:bg-indigo-700 text-white text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                className="px-3 py-1.5 bg-primary hover:bg-indigo-700 text-white text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Add User
               </button>
@@ -768,7 +768,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
             {(canManageUsers || canConfigPolicies) && (
               <button
                 onClick={() => setShowAddDeptModal(true)}
-                className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
               >
                 <Building2 className="w-4 h-4" /> Create Department
               </button>
@@ -780,7 +780,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
               <div key={`dept-card-${dept.id}-${idx}`} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-3">
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                   <div>
-                    <span className="px-2 py-0.5 bg-indigo-50 text-[#3F51B5] border border-indigo-200 rounded font-mono text-[10px] font-bold">
+                    <span className="px-2 py-0.5 bg-indigo-50 text-primary border border-indigo-200 rounded font-mono text-[10px] font-bold">
                       {dept.code}
                     </span>
                     <h4 className="text-sm font-bold text-slate-900 mt-1">{dept.name}</h4>
@@ -807,7 +807,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                         setDeptName(dept.name);
                         setDeptHodId(dept.hodId || '');
                       }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-primary text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 className="w-3 h-3" /> Edit Department
                     </button>
@@ -842,7 +842,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
             {canConfigPolicies && (
               <button
                 onClick={() => setShowAddPolicyModal(true)}
-                className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white font-medium text-xs rounded uppercase tracking-wide flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Create Leave Type
               </button>
@@ -880,7 +880,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   <div className="pl-2 pt-2 flex justify-end">
                     <button
                       onClick={() => setEditingPolicy(pol)}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-[#3F51B5] text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-primary text-slate-700 rounded text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Edit3 className="w-3 h-3" /> Edit Policy
                     </button>
@@ -1098,7 +1098,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                               setEditTotalQuota(bal.total);
                               setEditUsedDays(bal.used);
                             }}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-[#3F51B5] bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
+                            className="px-2.5 py-1 text-[11px] font-semibold text-primary bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
                           >
                             Adjust Balance
                           </button>
@@ -1197,7 +1197,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#3F51B5]" />
+                <FileText className="w-4 h-4 text-primary" />
                 {isDeptAdmin ? `Department Leave Applications (${currentUser?.departmentName || userDeptId})` : 'All Institutional Leave Applications'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1213,7 +1213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   placeholder="Search applicant, Ref ID, Code..."
                   value={leaveSearchQuery}
                   onChange={(e) => setLeaveSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#3F51B5] focus:outline-none"
+                  className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
 
@@ -1258,7 +1258,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id)}
                     >
-                      <td className="px-4 py-3 font-mono font-bold text-[#3F51B5]">{r.id}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-primary">{r.id}</td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-900">{r.applicantName}</div>
                         <div className="text-[10px] text-slate-500">{r.applicantDesignation} ({r.applicantEmployeeCode || 'N/A'})</div>
@@ -1277,7 +1277,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                           <button
                             type="button"
                             onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, true)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-[#3F51B5] bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:text-primary bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Printer className="w-3 h-3" />
                             Print
@@ -1285,7 +1285,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                           <button
                             type="button"
                             onClick={() => onSelectLeaveRequest && onSelectLeaveRequest(r.id, false)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
+                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-primary hover:bg-[#303F9F] rounded-lg transition-colors cursor-pointer shadow-xs"
                           >
                             View Dossier
                           </button>
@@ -1306,7 +1306,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-[#3F51B5]" />
+                <UserPlus className="w-4 h-4 text-primary" />
                 Add New User Profile
               </h3>
               <button onClick={() => setShowAddUserModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -1317,7 +1317,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
             <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
               {isDeptAdmin && (
                 <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5">
-                  <ShieldAlert className="w-4 h-4 text-[#3F51B5] shrink-0 mt-0.5" />
+                  <ShieldAlert className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">Department Scope Active</p>
                     <p className="text-[11px] text-indigo-800 leading-tight">
@@ -1409,7 +1409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                  className="px-5 py-2 font-medium text-white bg-primary hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
                 >
                   Create User
                 </button>
@@ -1425,7 +1425,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#3F51B5]" />
+                <Building2 className="w-4 h-4 text-primary" />
                 Create New Department
               </h3>
               <button onClick={() => setShowAddDeptModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -1482,7 +1482,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                  className="px-5 py-2 font-medium text-white bg-primary hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
                 >
                   Create Department
                 </button>
@@ -1498,7 +1498,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-200">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-[#3F51B5]" />
+                <FileSpreadsheet className="w-4 h-4 text-primary" />
                 Define Custom Leave Type
               </h3>
               <button onClick={() => setShowAddPolicyModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -1562,7 +1562,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                   id="reqDoc"
                   checked={policyReqDoc}
                   onChange={(e) => setPolicyReqDoc(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#3F51B5]"
+                  className="w-4 h-4 rounded text-primary"
                 />
                 <label htmlFor="reqDoc" className="text-xs font-semibold text-slate-700">
                   Mandatory Document / Certificate Upload Required
@@ -1590,7 +1590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-medium text-white bg-[#3F51B5] hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
+                  className="px-5 py-2 font-medium text-white bg-primary hover:bg-[#303F9F] rounded-lg shadow-xs cursor-pointer uppercase tracking-wider"
                 >
                   Save Leave Type
                 </button>
@@ -1612,7 +1612,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {editingPolicy && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Modify Policy Rules • {editingPolicy.label}</h3>
@@ -1709,7 +1709,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Save Policy Modifications
                 </button>
@@ -1723,7 +1723,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
       {editingDept && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
-            <div className="bg-[#3F51B5] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Edit Department • {editingDept.code}</h3>
@@ -1786,7 +1786,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSelectLeaveReq
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#3F51B5] hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2 bg-primary hover:bg-[#303F9F] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Save Department Changes
                 </button>

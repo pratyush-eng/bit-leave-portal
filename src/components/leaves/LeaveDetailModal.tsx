@@ -419,7 +419,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
 
               {/* Section 1: Applicant Particulars */}
               <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-[#3F51B5]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-primary">
                   1. Applicant Particulars
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5 text-xs text-slate-800 px-2 pt-1">
@@ -448,13 +448,13 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
 
               {/* Section 2: Leave Details */}
               <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-[#3F51B5]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-primary">
                   2. Leave Particulars
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5 text-xs text-slate-800 px-2 pt-1">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Type of Leave</span>
-                    <span className="font-bold text-[#3F51B5]">{request.leaveType}</span>
+                    <span className="font-bold text-primary">{request.leaveType}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Duration</span>
@@ -481,7 +481,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
 
               {/* Section 3: Academic / Administrative Load Handover */}
               <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-[#3F51B5]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded-sm border-l-4 border-primary">
                   3. Academic & Administrative Load Handover
                 </h3>
                 <div className="px-2 pt-1 text-xs text-slate-800">
@@ -568,7 +568,7 @@ export const LeaveDetailModal: React.FC<LeaveDetailModalProps> = ({ request, onC
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-5 py-2 text-xs font-bold bg-[#3F51B5] hover:bg-[#303F9F] text-white rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-98 cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold bg-primary hover:bg-[#303F9F] text-white rounded-xl shadow-md flex items-center gap-2 transition-all active:scale-98 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" /> Print Application Sheet
                 </button>

@@ -70,21 +70,21 @@ export const BitLogo: React.FC<BitLogoProps> = ({
         {/* Outer Gold Accent Ring */}
         <circle cx="100" cy="100" r="88" fill="none" stroke="#fef08a" strokeWidth="1.5" strokeDasharray="3 2" />
 
-        {/* White Inscription Ring */}
-        <circle cx="100" cy="100" r="76" fill="#ffffff" stroke="#d97706" strokeWidth="2" />
+        {/* Transparent Inscription Ring (Removed White) */}
+        <circle cx="100" cy="100" r="76" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="2 1" />
 
         {/* Curvature Text Paths */}
         <path id="textPathTop" d="M 32 100 A 68 68 0 0 1 168 100" fill="none" />
         <path id="textPathBottom" d="M 168 100 A 68 68 0 0 1 32 100" fill="none" />
 
-        {/* Inscribed Institution Name */}
-        <text fill="#7f1d1d" fontSize="11" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="900" letterSpacing="1.2">
+        {/* Inscribed Institution Name (Changed to White for visibility) */}
+        <text fill="#ffffff" fontSize="11" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="900" letterSpacing="1.2">
           <textPath href="#textPathTop" startOffset="50%" textAnchor="middle">
             BIRLA INSTITUTE OF TECHNOLOGY
           </textPath>
         </text>
 
-        <text fill="#7f1d1d" fontSize="9" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="800" letterSpacing="1">
+        <text fill="#ffffff" fontSize="9" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontWeight="800" letterSpacing="1">
           <textPath href="#textPathBottom" startOffset="50%" textAnchor="middle">
             MESRA • RANCHI • 1955
           </textPath>

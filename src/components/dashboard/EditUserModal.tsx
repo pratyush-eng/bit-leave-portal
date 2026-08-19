@@ -367,7 +367,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
                   <button
                     type="submit"
                     disabled={isProtectedSuperAdmin}
-                    className="px-5 py-2 text-xs font-bold text-white bg-[#3F51B5] hover:bg-indigo-700 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2 text-xs font-bold text-white bg-primary hover:bg-indigo-700 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" />
                     Save Changes
