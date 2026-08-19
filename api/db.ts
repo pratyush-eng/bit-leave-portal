@@ -8,29 +8,13 @@ try {
 import mongoose from "mongoose";
 
 // MongoDB URI normalization and resolution
-export function normalizeMongoUri(uri: string): string {
-  if (!uri) return uri;
-  let trimmed = uri.trim();
-  if (trimmed.includes("4S8i3u01aMvC8Xtt") || trimmed.includes("sxSWSteu1V1VF9Xu")) {
-    trimmed = trimmed.replace("4S8i3u01aMvC8Xtt", "wRlmn19FXsBSByBq").replace("sxSWSteu1V1VF9Xu", "wRlmn19FXsBSByBq");
-  }
-  if (trimmed.includes(".mongodb.net/?")) {
-    trimmed = trimmed.replace(".mongodb.net/?", ".mongodb.net/bit_leave_portal?");
-  } else if (trimmed.endsWith(".mongodb.net/")) {
-    trimmed = trimmed + "bit_leave_portal";
-  } else if (trimmed.endsWith(".mongodb.net")) {
-    trimmed = trimmed + "/bit_leave_portal";
-  }
-  return trimmed;
-}
-
 const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:wRlmn19FXsBSByBq@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
 let customMongoUriOverride: string | null = null;
 
 export function setCustomMongoUri(uri: string) {
   if (uri && uri.trim()) {
-    customMongoUriOverride = normalizeMongoUri(uri.trim());
+    customMongoUriOverride = uri.trim();
     cachedConnection = null;
     connectionPromise = null;
   }
@@ -40,8 +24,8 @@ export function getMongoUri(): string {
   if (customMongoUriOverride) {
     return customMongoUriOverride;
   }
-  const envUri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || process.env.MONGODB_URL || DEFAULT_ATLAS_URI;
-  return normalizeMongoUri(envUri ? envUri.trim() : DEFAULT_ATLAS_URI);
+  const envUri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || DEFAULT_ATLAS_URI;
+  return envUri ? envUri.trim() : DEFAULT_ATLAS_URI;
 }
 
 // Schemas
