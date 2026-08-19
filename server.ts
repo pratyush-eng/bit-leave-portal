@@ -5,7 +5,7 @@ import express from "express";
 import path from "path";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
-import { createServer as createViteServer } from "vite";
+
 import { 
   MOCK_USERS, 
   INITIAL_DEPARTMENTS, 
@@ -133,8 +133,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Pre-initialize MongoDB connection
-initMongo();
+// Pre-initialize MongoDB connection handled lazily by routes
+// initMongo();
 
 // Status handler function for both MongoDB and legacy Neon endpoints
 const handleStatus = async (req: express.Request, res: express.Response) => {
@@ -1393,6 +1393,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
   // Vite middleware for development vs static serve for production
   async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa"
