@@ -1,10 +1,3 @@
-try {
-  // Safe optional dotenv loading
-  if (typeof process !== "undefined" && (!process.env.MONGODB_URI && !process.env.MONGO_URI)) {
-    import("dotenv").then(d => d.config?.()).catch(() => {});
-  }
-} catch {}
-
 import mongoose from "mongoose";
 
 // MongoDB URI normalization and resolution

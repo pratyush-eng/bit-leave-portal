@@ -1,18 +1,7 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import express from "express";
 import path from "path";
 import nodemailer from "nodemailer";
 import mongoose from "mongoose";
-
-import { 
-  MOCK_USERS, 
-  INITIAL_DEPARTMENTS, 
-  INITIAL_LEAVE_POLICIES, 
-  INITIAL_LEAVE_REQUESTS, 
-  INITIAL_AUDIT_LOGS 
-} from "./src/data/mockData";
 
 import { 
   connectToDatabase, 
@@ -30,7 +19,6 @@ import {
   setCustomMongoUri
 } from "./api/db";
 
-import fs from "fs";
 
 // Fallback URI for direct initialization if env is missing
 const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:wRlmn19FXsBSByBq@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
@@ -116,6 +104,11 @@ async function seedAndMigrateToMongo() {
 
 const app = express();
 const PORT = 3000;
+
+// Simple health check for Vercel - DEFINED FIRST
+app.get("/api/ping", (req, res) => {
+  res.json({ status: "alive", time: new Date().toISOString(), vercel: !!process.env.VERCEL });
+});
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -1202,10 +1195,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     }
   });
 
-  // Simple health check for Vercel
-  app.get("/api/ping", (req, res) => {
-    res.json({ status: "alive", time: new Date().toISOString() });
-  });
+// Simple health check for Vercel - already moved to top
 
   // Safe Diagnostics Endpoint for Vercel & MongoDB Atlas (Section 17)
   app.get(["/api/mongo/diagnostics", "/api/diagnostics", "/diagnostics"], async (req: express.Request, res: express.Response) => {
