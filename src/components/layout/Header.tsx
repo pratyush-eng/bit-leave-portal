@@ -93,7 +93,8 @@ export const Header: React.FC<HeaderProps> = ({
       style={{ 
         height: 'var(--header-height, 56px)', 
         backgroundColor: 'var(--nav-bg-color, #ffffff)', 
-        color: 'var(--nav-text-color, #1e293b)'
+        color: 'var(--nav-text-color, #1e293b)',
+        boxShadow: 'var(--nav-shadow)'
       }}
     >
       <div className="flex items-center justify-between w-full min-w-0 gap-4">

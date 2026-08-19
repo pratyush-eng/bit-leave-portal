@@ -65,7 +65,7 @@ interface LeaveContextType {
   toasts: ToastNotification[];
   systemSettings: SystemSettings;
 
-  updateSystemSettings: (newSettings: Partial<SystemSettings>) => void;
+  updateSystemSettings: (newSettings: Partial<SystemSettings>, persist?: boolean) => void;
   sendTestEmail: (recipientEmail: string, recipientName: string) => Promise<{ success: boolean; message: string }>;
   addToast: (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => void;
   removeToast: (id: string) => void;
@@ -256,7 +256,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         primaryColor: '#3F51B5',
         fontFamily: 'Inter, system-ui, sans-serif',
         borderRadius: 'xl',
-        headerHeight: '64px'
+        headerHeight: '64px',
+        navShadow: 'sm',
+        sidebarShadow: 'none',
+        cardShadow: 'sm'
       }
     };
   });
@@ -706,29 +709,34 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(systemSettings));
   }, [systemSettings]);
 
-  const updateSystemSettings = (newSettings: Partial<SystemSettings>) => {
-    let fullUpdated: SystemSettings = { ...systemSettings, ...newSettings };
+  const updateSystemSettings = (newSettings: Partial<SystemSettings>, persist: boolean = true) => {
     setSystemSettings(prev => {
-      fullUpdated = { ...prev, ...newSettings };
+      const fullUpdated = { ...prev, ...newSettings };
+      
       try {
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(fullUpdated));
       } catch (_e) {}
+
+      if (persist) {
+        // We call these directly from the updater. While side-effects in updaters are generally 
+        // avoided in pure React, in this context it ensures we use the exact state being committed.
+        saveDocToMongo('system_privileges', 'global', fullUpdated);
+        saveDocToMongo('settings', 'global', fullUpdated);
+        syncDataToMongo({ systemSettings: fullUpdated });
+
+        addAuditLog(
+          currentUser, 
+          'SETTINGS_UPDATED', 
+          `Updated system configuration: Branding/Theme or privileges changed.`
+        );
+        addToast({
+          title: 'System Settings Saved ⚙️',
+          message: 'Your preferences have been successfully updated and persisted to the database.',
+          type: 'SUCCESS'
+        });
+      }
+      
       return fullUpdated;
-    });
-
-    saveDocToMongo('system_privileges', 'global', fullUpdated);
-    saveDocToMongo('settings', 'global', fullUpdated);
-    syncDataToMongo({ systemSettings: fullUpdated });
-
-    addAuditLog(
-      currentUser, 
-      'SETTINGS_UPDATED', 
-      `Updated system configuration: Demo Accounts=${fullUpdated.enableDemoAccounts ? 'ENABLED' : 'DISABLED'}, Role Switcher=${fullUpdated.enableRoleSwitcher ? 'ENABLED' : 'DISABLED'}, Self Registration=${fullUpdated.enableSelfRegistration !== false ? 'ENABLED' : 'DISABLED'}.`
-    );
-    addToast({
-      title: 'System Privileges Saved ⚙️',
-      message: 'System privileges and toggles updated in database (system_privileges).',
-      type: 'SUCCESS'
     });
   };
 
@@ -1004,7 +1012,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             primaryColor: '#3F51B5',
             fontFamily: 'Inter, system-ui, sans-serif',
             borderRadius: 'xl',
-            headerHeight: '64px'
+            headerHeight: '64px',
+            navShadow: 'sm',
+            sidebarShadow: 'none',
+            cardShadow: 'sm'
           }
         };
         setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);

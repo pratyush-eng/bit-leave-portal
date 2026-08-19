@@ -206,6 +206,9 @@ export interface ThemeSettings {
   fontFamily: string;
   borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
   headerHeight: string;
+  navShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  sidebarShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  cardShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
 export interface SystemSettings {

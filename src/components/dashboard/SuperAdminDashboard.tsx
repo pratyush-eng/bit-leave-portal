@@ -2366,7 +2366,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       value={systemSettings.themeSettings?.primaryColor || '#3F51B5'}
                       onChange={(e) => updateSystemSettings({ 
                         themeSettings: { ...systemSettings.themeSettings!, primaryColor: e.target.value } 
-                      })}
+                      }, false)}
                       className="w-12 h-12 rounded-lg border-2 border-slate-200 p-1 cursor-pointer"
                     />
                     <input 
@@ -2374,7 +2374,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       value={systemSettings.themeSettings?.primaryColor || '#3F51B5'}
                       onChange={(e) => updateSystemSettings({ 
                         themeSettings: { ...systemSettings.themeSettings!, primaryColor: e.target.value } 
-                      })}
+                      }, false)}
                       className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
                     />
                   </div>
@@ -2388,7 +2388,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     value={systemSettings.themeSettings?.borderRadius || 'xl'}
                     onChange={(e) => updateSystemSettings({ 
                       themeSettings: { ...systemSettings.themeSettings!, borderRadius: e.target.value as any } 
-                    })}
+                    }, false)}
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                   >
                     <option value="none">Sharp (0px)</option>
@@ -2414,7 +2414,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.navBgColor || '#ffffff'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, navBgColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                       />
                       <input 
@@ -2422,7 +2422,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.navBgColor || '#ffffff'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, navBgColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                       />
                     </div>
@@ -2435,7 +2435,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.navTextColor || '#1e293b'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, navTextColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                       />
                       <input 
@@ -2443,7 +2443,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.navTextColor || '#1e293b'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, navTextColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                       />
                     </div>
@@ -2463,7 +2463,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.sidebarBgColor || '#3F51B5'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, sidebarBgColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                       />
                       <input 
@@ -2471,7 +2471,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.sidebarBgColor || '#3F51B5'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, sidebarBgColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                       />
                     </div>
@@ -2484,7 +2484,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.sidebarTextColor || '#ffffff'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, sidebarTextColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="w-10 h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                       />
                       <input 
@@ -2492,7 +2492,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                         value={systemSettings.themeSettings?.sidebarTextColor || '#ffffff'}
                         onChange={(e) => updateSystemSettings({ 
                           themeSettings: { ...systemSettings.themeSettings!, sidebarTextColor: e.target.value } 
-                        })}
+                        }, false)}
                         className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                       />
                     </div>
@@ -2510,7 +2510,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       value={systemSettings.themeSettings?.fontFamily || 'Inter'}
                       onChange={(e) => updateSystemSettings({ 
                         themeSettings: { ...systemSettings.themeSettings!, fontFamily: e.target.value } 
-                      })}
+                      }, false)}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                     >
                       <option value="Inter, system-ui, sans-serif">Inter (Modern Sans)</option>
@@ -2526,13 +2526,71 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       value={systemSettings.themeSettings?.headerHeight || '64px'}
                       onChange={(e) => updateSystemSettings({ 
                         themeSettings: { ...systemSettings.themeSettings!, headerHeight: e.target.value } 
-                      })}
+                      }, false)}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                     >
                       <option value="56px">Compact (56px)</option>
                       <option value="64px">Standard (64px)</option>
                       <option value="72px">Comfortable (72px)</option>
                       <option value="80px">Spacious (80px)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Elevation & Shadows */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Elevation & Depth (Shadows)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Navbar Shadow</label>
+                    <select
+                      value={systemSettings.themeSettings?.navShadow || 'none'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, navShadow: e.target.value as any } 
+                      }, false)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    >
+                      <option value="none">None</option>
+                      <option value="sm">Small</option>
+                      <option value="md">Medium</option>
+                      <option value="lg">Large</option>
+                      <option value="xl">X-Large</option>
+                      <option value="2xl">2X-Large</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Sidebar Shadow</label>
+                    <select
+                      value={systemSettings.themeSettings?.sidebarShadow || 'none'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, sidebarShadow: e.target.value as any } 
+                      }, false)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    >
+                      <option value="none">None</option>
+                      <option value="sm">Small</option>
+                      <option value="md">Medium</option>
+                      <option value="lg">Large</option>
+                      <option value="xl">X-Large</option>
+                      <option value="2xl">2X-Large</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Shadow</label>
+                    <select
+                      value={systemSettings.themeSettings?.cardShadow || 'sm'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { ...systemSettings.themeSettings!, cardShadow: e.target.value as any } 
+                      }, false)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                    >
+                      <option value="none">None</option>
+                      <option value="sm">Small</option>
+                      <option value="md">Medium</option>
+                      <option value="lg">Large</option>
+                      <option value="xl">X-Large</option>
+                      <option value="2xl">2X-Large</option>
                     </select>
                   </div>
                 </div>
@@ -2550,9 +2608,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     primaryColor: '#3F51B5',
                     fontFamily: 'Inter, system-ui, sans-serif',
                     borderRadius: 'xl',
-                    headerHeight: '64px'
+                    headerHeight: '64px',
+                    navShadow: 'sm',
+                    sidebarShadow: 'none',
+                    cardShadow: 'sm'
                   }
-                })}
+                }, false)}
                 className="px-6 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -2561,7 +2622,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
               <button
                 onClick={() => {
-                  alert('Theme settings updated successfully!');
+                  updateSystemSettings({}, true);
                 }}
                 className="px-8 py-3 bg-primary text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 flex items-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"
               >
@@ -2582,10 +2643,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
             >
               {/* Sidebar Preview */}
               <div 
-                className="w-48 rounded-2xl shadow-xl flex flex-col"
+                className="w-48 rounded-2xl flex flex-col transition-all duration-300"
                 style={{ 
                   backgroundColor: systemSettings.themeSettings?.sidebarBgColor,
                   color: systemSettings.themeSettings?.sidebarTextColor,
+                  boxShadow: {
+                    'none': 'none',
+                    'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                    'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                    'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                    'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                  }[systemSettings.themeSettings?.sidebarShadow || 'none'],
                   borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
                                 systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
                                 systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
@@ -2623,10 +2692,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               <div className="flex-1 flex flex-col gap-4">
                 {/* Header Preview */}
                 <div 
-                  className="h-12 rounded-2xl shadow-sm flex items-center justify-between px-6 border border-slate-200"
+                  className="h-12 rounded-2xl flex items-center justify-between px-6 border border-slate-200 transition-all duration-300"
                   style={{ 
                     backgroundColor: systemSettings.themeSettings?.navBgColor,
                     color: systemSettings.themeSettings?.navTextColor,
+                    boxShadow: {
+                      'none': 'none',
+                      'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                      'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                      'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                      'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                      '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                    }[systemSettings.themeSettings?.navShadow || 'none'],
                     height: parseInt(systemSettings.themeSettings?.headerHeight || '64px') * 0.75 + 'px',
                     borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '999px' : 
                                   systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
@@ -2646,7 +2723,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </div>
 
                 {/* Dashboard Card Preview */}
-                <div className="flex-1 bg-white p-6 border border-slate-200 shadow-2xs space-y-4" style={{
+                <div className="flex-1 bg-white p-6 border border-slate-200 transition-all duration-300 space-y-4" style={{
+                  boxShadow: {
+                    'none': 'none',
+                    'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                    'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                    'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                    'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                  }[systemSettings.themeSettings?.cardShadow || 'sm'],
                   borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '32px' : 
                                 systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
                                 systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :

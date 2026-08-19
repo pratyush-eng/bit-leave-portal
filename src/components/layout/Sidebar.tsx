@@ -91,12 +91,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={`
           fixed lg:static top-0 bottom-0 left-0 z-40
           w-64 flex flex-col shrink-0
-          transition-transform duration-200 ease-in-out shadow-xl lg:shadow-none
+          transition-transform duration-200 ease-in-out
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
         style={{ 
           backgroundColor: 'var(--sidebar-bg-color, #3F51B5)', 
-          color: 'var(--sidebar-text-color, #ffffff)' 
+          color: 'var(--sidebar-text-color, #ffffff)',
+          boxShadow: 'var(--sidebar-shadow)'
         }}
       >
         {/* Sidebar Header */}
