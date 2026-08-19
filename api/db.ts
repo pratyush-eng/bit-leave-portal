@@ -148,14 +148,14 @@ export const SystemPrivilegeSchema = new mongoose.Schema({
   updatedBy: { type: String, default: "SUPER_ADMIN" },
 }, { timestamps: true });
 
-export const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema);
-export const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema);
-export const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
-export const LeavePolicyModel: any = mongoose.models.LeavePolicy || mongoose.model("LeavePolicy", LeavePolicySchema);
-export const AuditLogModel: any = mongoose.models.AuditLog || mongoose.model("AuditLog", AuditLogSchema);
-export const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("LeaveBalance", LeaveBalanceSchema);
-export const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema);
-export const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
+export const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema, "users");
+export const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema, "leave_requests");
+export const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema, "departments");
+export const LeavePolicyModel: any = mongoose.models.LeavePolicy || mongoose.model("LeavePolicy", LeavePolicySchema, "leave_policies");
+export const AuditLogModel: any = mongoose.models.AuditLog || mongoose.model("AuditLog", AuditLogSchema, "audit_logs");
+export const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("LeaveBalance", LeaveBalanceSchema, "leave_balances");
+export const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema, "permission_matrix");
+export const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema, "system_settings");
 export const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mongoose.model("SystemPrivilege", SystemPrivilegeSchema, "system_privileges");
 
 let cachedConnection: typeof mongoose | null = null;

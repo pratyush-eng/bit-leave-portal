@@ -14,11 +14,28 @@ import {
   INITIAL_AUDIT_LOGS 
 } from "./src/data/mockData";
 
+import { 
+  connectToDatabase, 
+  UserModel, 
+  LeaveRequestModel, 
+  DepartmentModel, 
+  LeavePolicyModel, 
+  AuditLogModel, 
+  LeaveBalanceModel, 
+  PermissionMatrixModel, 
+  SystemSettingsModel, 
+  SystemPrivilegeModel,
+  getMongoUri,
+  getMaskedUri,
+  setCustomMongoUri
+} from "./api/db";
+
 import fs from "fs";
 
+// Fallback URI for direct initialization if env is missing
 const DEFAULT_ATLAS_URI = "mongodb+srv://Vercel-Admin-bit-leave-portal:wRlmn19FXsBSByBq@bit-leave-portal.rqoqqmo.mongodb.net/bit_leave_portal?appName=bit-leave-portal";
 
-function getMongoUri(): { uri: string; source: string } {
+function resolveMongoUri(): { uri: string; source: string } {
   const envUri = process.env.MONGODB_URI || process.env.MONGO_URI || process.env.DATABASE_URL || DEFAULT_ATLAS_URI;
   return {
     uri: envUri ? envUri.trim() : DEFAULT_ATLAS_URI,
@@ -26,27 +43,12 @@ function getMongoUri(): { uri: string; source: string } {
   };
 }
 
-function getUriUsername(uri: string): string {
-  try {
-    const match = uri.match(/\/\/([^:]+):/);
-    if (match && match[1]) return decodeURIComponent(match[1]);
-  } catch (_e) {}
-  return "database user";
-}
-
-const initialUriObj = getMongoUri();
+const initialUriObj = resolveMongoUri();
 let activeMongoUri = initialUriObj.uri;
 let activeMongoSource = initialUriObj.source;
-
-let isMongoConnected = false;
 let mongoConnectError = "";
-let lastConnectAttempt = 0;
 
-// Disable Mongoose query buffering globally to prevent buffering timeouts when connection is offline
-mongoose.set("bufferCommands", false);
-mongoose.set("strictQuery", false);
-
-// In-Memory fallback store to ensure zero downtime and instant response if Atlas SRV DNS or network fails
+// In-Memory fallback store
 const deletedUserIdsSet = new Set<string>();
 const deletedUserEmailsSet = new Set<string>();
 
@@ -90,249 +92,21 @@ let inMemoryStore: {
   }
 };
 
-function getMaskedUri(uri: string) {
-  try {
-    return uri.replace(/\/\/(.+)@/, (_match, p1) => {
-      const parts = p1.split(':');
-      const user = parts[0] || 'user';
-      return `//${user}:****@`;
-    });
-  } catch {
-    return "MongoDB Atlas Cluster";
-  }
-}
-
-let mongoConnectPromise: Promise<boolean> | null = null;
-
-mongoose.connection.on("connected", () => {
-  isMongoConnected = true;
-  mongoConnectError = "";
-});
-
-mongoose.connection.on("disconnected", () => {
-  isMongoConnected = false;
-});
-
-mongoose.connection.on("error", (err: any) => {
-  isMongoConnected = false;
-  mongoConnectError = err?.message || String(err);
-});
-
 async function initMongo(customUri?: string): Promise<boolean> {
-  if (customUri && customUri.trim()) {
-    activeMongoUri = customUri.trim();
-    activeMongoSource = "custom_input";
-    isMongoConnected = false;
-    mongoConnectPromise = null;
-    try {
-      await mongoose.disconnect();
-    } catch (_e) {}
-  } else if (!activeMongoUri) {
-    const envObj = getMongoUri();
-    activeMongoUri = envObj.uri;
-    activeMongoSource = envObj.source;
-  }
-
-  if (mongoose.connection.readyState === 1) {
-    isMongoConnected = true;
+  try {
+    const uri = customUri || getMongoUri();
+    if (customUri) {
+      setCustomMongoUri(customUri);
+    }
+    await connectToDatabase(uri);
+    activeMongoUri = uri;
+    activeMongoSource = customUri ? "custom_input" : "env";
     return true;
-  }
-
-  if (mongoose.connection.readyState === 2 && mongoConnectPromise) {
-    return mongoConnectPromise;
-  }
-
-  if (!activeMongoUri) {
-    isMongoConnected = false;
+  } catch (err: any) {
+    mongoConnectError = err?.message || String(err);
     return false;
   }
-
-  const connectTask = async (): Promise<boolean> => {
-    try {
-      if (mongoose.connection.readyState === 1) {
-        isMongoConnected = true;
-        return true;
-      }
-
-      await mongoose.connect(activeMongoUri, {
-        dbName: "bit_leave_portal",
-        serverSelectionTimeoutMS: 6000,
-        connectTimeoutMS: 6000,
-      });
-
-      isMongoConnected = true;
-      mongoConnectError = "";
-      console.log(`[MongoDB Atlas] Connected successfully using ${activeMongoSource}: ${getMaskedUri(activeMongoUri)}`);
-      
-      // Immediately load system privileges from MongoDB Atlas into inMemoryStore
-      try {
-        const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
-                        (await SystemSettingsModel.findOne({ id: "default" }).lean());
-        if (privDoc) {
-          inMemoryStore.systemSettings = {
-            enableDemoAccounts: typeof privDoc.enableDemoAccounts === 'boolean' ? privDoc.enableDemoAccounts : false,
-            enableRoleSwitcher: typeof privDoc.enableRoleSwitcher === 'boolean' ? privDoc.enableRoleSwitcher : false,
-            enableSelfRegistration: typeof privDoc.enableSelfRegistration === 'boolean' ? privDoc.enableSelfRegistration : false,
-            institutionName: privDoc.institutionName || "BIT Leave Portal",
-            institutionLogoUrl: privDoc.institutionLogoUrl || "",
-            emailSettings: privDoc.emailSettings || {},
-            customToggles: privDoc.customToggles || {},
-          };
-        }
-      } catch (_loadErr) {}
-
-      await seedAndMigrateToMongo();
-      return true;
-    } catch (err: any) {
-      isMongoConnected = false;
-      const rawMsg = err?.message || String(err);
-      const dbUser = getUriUsername(activeMongoUri);
-      if (rawMsg.includes("bad auth") || rawMsg.includes("Authentication failed")) {
-        mongoConnectError = `Authentication failed for user '${dbUser}'. Please verify in MongoDB Atlas Console -> Security -> Database Access that user '${dbUser}' exists, password is correct, and user has 'Read and write to any database' privilege.`;
-      } else if (rawMsg.includes("ENOTFOUND") || rawMsg.includes("querySrv")) {
-        mongoConnectError = `Atlas Domain Resolution Error (${rawMsg}). Please check your cluster hostname in MongoDB Atlas connection string.`;
-      } else {
-        mongoConnectError = rawMsg;
-      }
-      return false;
-    } finally {
-      mongoConnectPromise = null;
-    }
-  };
-
-  mongoConnectPromise = connectTask();
-  return mongoConnectPromise;
 }
-
-// Define Mongoose Schemas for MongoDB Collections
-const UserSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  name: { type: String, default: "" },
-  email: { type: String, required: true, unique: true },
-  role: { type: String, default: "FACULTY" },
-  designation: { type: String, default: "" },
-  departmentId: { type: String, default: "" },
-  departmentName: { type: String, default: "" },
-  employeeCode: { type: String, default: "" },
-  joiningDate: { type: String, default: "" },
-  phone: { type: String, default: "" },
-  avatarUrl: { type: String, default: "" },
-  accountStatus: { type: String, default: "ACTIVE" },
-  password: { type: String, default: "password123" },
-  leaveBalances: { type: mongoose.Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
-
-const LeaveRequestSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  applicantId: { type: String, default: "" },
-  applicantName: { type: String, default: "" },
-  applicantEmail: { type: String, default: "" },
-  applicantDesignation: { type: String, default: "" },
-  applicantEmployeeCode: { type: String, default: "" },
-  departmentId: { type: String, default: "" },
-  departmentName: { type: String, default: "" },
-  leaveType: { type: String, default: "CASUAL" },
-  startDate: { type: String, default: "" },
-  endDate: { type: String, default: "" },
-  totalDays: { type: Number, default: 1 },
-  reason: { type: String, default: "" },
-  contactAddress: { type: String, default: "" },
-  contactPhone: { type: String, default: "" },
-  documentUrl: { type: String, default: "" },
-  status: { type: String, default: "PENDING_HOD" },
-  appliedOn: { type: String, default: "" },
-  hodApproval: { type: mongoose.Schema.Types.Mixed, default: null },
-  registrarApproval: { type: mongoose.Schema.Types.Mixed, default: null },
-  classHandovers: { type: mongoose.Schema.Types.Mixed, default: null },
-}, { timestamps: true });
-
-const DepartmentSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  code: { type: String, default: "" },
-  name: { type: String, default: "" },
-  hodId: { type: String, default: null },
-  hodName: { type: String, default: null },
-  totalFaculty: { type: Number, default: 0 },
-}, { timestamps: true });
-
-const LeavePolicySchema = new mongoose.Schema({
-  type: { type: String, required: true, unique: true },
-  label: { type: String, default: "" },
-  annualQuota: { type: Number, default: 12 },
-  minDaysNotice: { type: Number, default: 0 },
-  requiresDocument: { type: Boolean, default: false },
-  color: { type: String, default: "#2563eb" },
-  description: { type: String, default: "" },
-}, { timestamps: true });
-
-const AuditLogSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  timestamp: { type: String, default: "" },
-  actorId: { type: String, default: "sys" },
-  actorName: { type: String, default: "System" },
-  actorRole: { type: String, default: "SUPER_ADMIN" },
-  action: { type: String, default: "ACTION" },
-  details: { type: String, default: "" },
-  ipAddress: { type: String, default: null },
-}, { timestamps: true });
-
-const LeaveBalanceSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  userId: { type: String, required: true },
-  leaveType: { type: String, required: true },
-  totalQuota: { type: Number, default: 0 },
-  usedDays: { type: Number, default: 0 },
-  pendingDays: { type: Number, default: 0 },
-  updatedAt: { type: String, default: "" },
-}, { timestamps: true });
-
-const PermissionMatrixSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  userId: { type: String, required: true, unique: true },
-  userName: { type: String, default: "" },
-  userEmail: { type: String, default: "" },
-  role: { type: String, default: "" },
-  departmentId: { type: String, default: "" },
-  permissions: { type: mongoose.Schema.Types.Mixed, default: [] },
-  updatedAt: { type: String, default: "" },
-  updatedBy: { type: String, default: "SUPER_ADMIN" },
-}, { timestamps: true });
-
-const SystemSettingsSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true, default: "default" },
-  enableDemoAccounts: { type: Boolean, default: false },
-  enableRoleSwitcher: { type: Boolean, default: false },
-  enableSelfRegistration: { type: Boolean, default: false },
-  institutionName: { type: String, default: "BIT Leave Portal" },
-  institutionLogoUrl: { type: String, default: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png" },
-  emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
-  updatedAt: { type: String, default: "" },
-  updatedBy: { type: String, default: "SUPER_ADMIN" },
-}, { timestamps: true });
-
-const SystemPrivilegeSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true, default: "default" },
-  privilegeName: { type: String, default: "System Privileges & Feature Toggles" },
-  enableDemoAccounts: { type: Boolean, default: false },
-  enableRoleSwitcher: { type: Boolean, default: false },
-  enableSelfRegistration: { type: Boolean, default: false },
-  institutionName: { type: String, default: "BIT Leave Portal" },
-  institutionLogoUrl: { type: String, default: "https://bitmesra.ac.in/SiteLogo/bit-newlogo.png" },
-  emailSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
-  customToggles: { type: mongoose.Schema.Types.Mixed, default: {} },
-  updatedAt: { type: String, default: "" },
-  updatedBy: { type: String, default: "SUPER_ADMIN" },
-}, { timestamps: true });
-
-const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema);
-const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema);
-const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
-const LeavePolicyModel: any = mongoose.models.LeavePolicy || mongoose.model("LeavePolicy", LeavePolicySchema);
-const AuditLogModel: any = mongoose.models.AuditLog || mongoose.model("AuditLog", AuditLogSchema);
-const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.model("LeaveBalance", LeaveBalanceSchema);
-const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema);
-const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
-const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mongoose.model("SystemPrivilege", SystemPrivilegeSchema, "system_privileges");
 
 async function seedAndMigrateToMongo() {
   // User directive: No default inserts in the database using any JS file.
@@ -1093,7 +867,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     const rawTable = (req.query.table as string) || (req.body?.table as string) || "users";
     const tableName = rawTable.toLowerCase().trim();
     let rows: any[] = [];
-    const isDbReady = isMongoConnected && mongoose.connection.readyState === 1;
+    const isDbReady = mongoose.connection.readyState === 1;
 
     try {
       if (isDbReady) {
@@ -1199,7 +973,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
   // Permission Matrix endpoint
   app.get("/api/permission-matrix", async (req, res) => {
     try {
-      if (isMongoConnected && mongoose.connection.readyState === 1) {
+      if (mongoose.connection.readyState === 1) {
         const permissionMatrix = await PermissionMatrixModel.find().lean().maxTimeMS(3000);
         if (permissionMatrix && permissionMatrix.length > 0) {
           inMemoryStore.permissionMatrix = permissionMatrix;
@@ -1235,7 +1009,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     }
 
     try {
-      if (isMongoConnected && mongoose.connection.readyState === 1) {
+      if (mongoose.connection.readyState === 1) {
         for (const item of matrixList) {
           if (!item || (!item.userId && !item.id)) continue;
           const userId = item.userId || item.id;
@@ -1263,7 +1037,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
   // System Privileges & Settings endpoints
   app.all(["/api/system-privileges", "/api/system-settings"], async (req, res) => {
     try {
-      if (isMongoConnected && mongoose.connection.readyState === 1) {
+      if (mongoose.connection.readyState === 1) {
         const privDoc = (await SystemPrivilegeModel.findOne({ id: "default" }).lean().maxTimeMS(3000)) ||
                         (await SystemSettingsModel.findOne({ id: "default" }).lean().maxTimeMS(3000));
         if (privDoc) {
@@ -1292,7 +1066,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     try {
       const body = req.body || {};
       let existing: any = null;
-      if (isMongoConnected && mongoose.connection.readyState === 1) {
+      if (mongoose.connection.readyState === 1) {
         existing = (await SystemPrivilegeModel.findOne({ id: "default" }).lean()) ||
                    (await SystemSettingsModel.findOne({ id: "default" }).lean());
       }
@@ -1332,7 +1106,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
         customToggles: payload.customToggles,
       };
 
-      if (isMongoConnected && mongoose.connection.readyState === 1) {
+      if (mongoose.connection.readyState === 1) {
         await Promise.all([
           SystemSettingsModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
           SystemPrivilegeModel.findOneAndUpdate({ id: "default" }, payload, { upsert: true, new: true }),
