@@ -1,21 +1,20 @@
 {
-  "version": 2,
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/status",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/data",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/diagnostics",
-      "destination": "/api/index.ts"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/).*)",

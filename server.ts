@@ -120,7 +120,7 @@ mongoose.connection.on("error", (err: any) => {
 
 async function initMongo(customUri?: string): Promise<boolean> {
   if (customUri && customUri.trim()) {
-    activeMongoUri = normalizeMongoUri(customUri.trim());
+    activeMongoUri = customUri.trim();
     activeMongoSource = "custom_input";
     isMongoConnected = false;
     mongoConnectPromise = null;
@@ -362,10 +362,8 @@ app.use((req, res, next) => {
 // Pre-initialize MongoDB connection
 initMongo();
 
-async function startServer() {
-
-  // Status handler function for both MongoDB and legacy Neon endpoints
-  const handleStatus = async (req: express.Request, res: express.Response) => {
+// Status handler function for both MongoDB and legacy Neon endpoints
+const handleStatus = async (req: express.Request, res: express.Response) => {
     const connected = await initMongo();
     const maskedUri = getMaskedUri(activeMongoUri);
     const collectionList = ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"];
@@ -1619,6 +1617,7 @@ async function startServer() {
   });
 
   // Vite middleware for development vs static serve for production
+  async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
