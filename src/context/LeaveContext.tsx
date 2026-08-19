@@ -48,6 +48,30 @@ import {
   GRANULAR_PERMISSIONS
 } from '../data/mockData';
 
+const DEFAULT_THEME_SETTINGS: any = {
+  navBgColor: '#ffffff',
+  navTextColor: '#1e293b',
+  sidebarBgColor: '#3F51B5',
+  sidebarTextColor: '#ffffff',
+  primaryColor: '#3F51B5',
+  fontFamily: 'Inter, system-ui, sans-serif',
+  borderRadius: 'xl',
+  headerHeight: '64px',
+  navShadow: 'sm',
+  sidebarShadow: 'none',
+  cardShadow: 'sm'
+};
+
+const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+  enableDemoAccounts: false,
+  enableRoleSwitcher: false,
+  enableSelfRegistration: false,
+  institutionName: 'BIT Leave Portal',
+  institutionLogoUrl: 'https://bitmesra.ac.in/SiteLogo/bit-newlogo.png',
+  emailSettings: DEFAULT_EMAIL_SETTINGS,
+  themeSettings: DEFAULT_THEME_SETTINGS
+};
+
 interface LeaveContextType {
   currentUser: User;
   allUsers: User[];
@@ -238,31 +262,21 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...parsed,
+          themeSettings: {
+            ...DEFAULT_THEME_SETTINGS,
+            ...(parsed.themeSettings || {})
+          }
+        };
       }
     } catch (_e) {}
-    return {
-      enableDemoAccounts: false,
-      enableRoleSwitcher: false,
-      enableSelfRegistration: false,
-      institutionName: 'BIT Leave Portal',
-      institutionLogoUrl: 'https://bitmesra.ac.in/SiteLogo/bit-newlogo.png',
-      emailSettings: DEFAULT_EMAIL_SETTINGS,
-      themeSettings: {
-        navBgColor: '#ffffff',
-        navTextColor: '#1e293b',
-        sidebarBgColor: '#3F51B5',
-        sidebarTextColor: '#ffffff',
-        primaryColor: '#3F51B5',
-        fontFamily: 'Inter, system-ui, sans-serif',
-        borderRadius: 'xl',
-        headerHeight: '64px',
-        navShadow: 'sm',
-        sidebarShadow: 'none',
-        cardShadow: 'sm'
-      }
-    };
+    return DEFAULT_SYSTEM_SETTINGS;
   });
+
+  const [hasUnsavedSettings, setHasUnsavedSettings] = useState<boolean>(false);
 
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     try {
@@ -710,6 +724,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [systemSettings]);
 
   const updateSystemSettings = (newSettings: Partial<SystemSettings>, persist: boolean = true) => {
+    if (!persist) {
+      setHasUnsavedSettings(true);
+    } else {
+      setHasUnsavedSettings(false);
+    }
+    
     setSystemSettings(prev => {
       const fullUpdated = { ...prev, ...newSettings };
       
@@ -996,26 +1016,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
       }
       if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
+        // Prevent overwriting local "preview" settings with server data if user is currently editing
+        if (hasUnsavedSettings) {
+          return;
+        }
+
         const sys = mongoData.systemSettings;
         const updatedSys: SystemSettings = {
-          enableDemoAccounts: typeof sys.enableDemoAccounts === 'boolean' ? sys.enableDemoAccounts : false,
-          enableRoleSwitcher: typeof sys.enableRoleSwitcher === 'boolean' ? sys.enableRoleSwitcher : false,
-          enableSelfRegistration: typeof sys.enableSelfRegistration === 'boolean' ? sys.enableSelfRegistration : false,
-          institutionName: sys.institutionName !== undefined && sys.institutionName !== null ? sys.institutionName : 'BIT Leave Portal',
-          institutionLogoUrl: sys.institutionLogoUrl !== undefined && sys.institutionLogoUrl !== null ? sys.institutionLogoUrl : '',
-          emailSettings: sys.emailSettings || DEFAULT_EMAIL_SETTINGS,
-          themeSettings: sys.themeSettings || {
-            navBgColor: '#ffffff',
-            navTextColor: '#1e293b',
-            sidebarBgColor: '#3F51B5',
-            sidebarTextColor: '#ffffff',
-            primaryColor: '#3F51B5',
-            fontFamily: 'Inter, system-ui, sans-serif',
-            borderRadius: 'xl',
-            headerHeight: '64px',
-            navShadow: 'sm',
-            sidebarShadow: 'none',
-            cardShadow: 'sm'
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...sys,
+          themeSettings: {
+            ...DEFAULT_THEME_SETTINGS,
+            ...(sys.themeSettings || {})
           }
         };
         setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
@@ -1023,7 +1035,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (_err) {
       // Soft fallback when offline
     }
-  }, []);
+  }, [hasUnsavedSettings]);
 
   triggerSyncRef.current = syncWithMongo;
 
