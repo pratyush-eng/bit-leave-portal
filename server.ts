@@ -17,7 +17,7 @@ import {
   getMongoUri,
   getMaskedUri,
   setCustomMongoUri
-} from "./api/db";
+} from "./api/db.js";
 
 
 // Fallback URI for direct initialization if env is missing
