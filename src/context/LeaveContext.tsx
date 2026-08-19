@@ -372,7 +372,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
-  const addToast = (toastData: Omit<ToastNotification, 'id' | 'timestamp'>) => {
+  const addToast = useCallback((toastData: Omit<ToastNotification, 'id' | 'timestamp'>) => {
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const formatStr = (v: any): string => {
       if (!v && v !== 0) return '';
@@ -392,9 +392,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setToasts(prev => [newToast, ...prev].slice(0, 5));
-  };
+  }, []);
 
-  const dispatchEmailLog = (logData: Omit<EmailLog, 'id' | 'timestamp'>) => {
+  const dispatchEmailLog = useCallback((logData: Omit<EmailLog, 'id' | 'timestamp'>) => {
     const newLog: EmailLog = {
       ...logData,
       id: `ML-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
@@ -465,15 +465,33 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return newLog;
-  };
+  }, [systemSettings.emailSettings, addToast]);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
 
-  const clearToasts = () => {
+  const clearToasts = useCallback(() => {
     setToasts([]);
-  };
+  }, []);
+
+  const addAuditLog = useCallback((actor: any, action: string, details: string) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      actorId: actor?.id || 'sys',
+      actorName: actor?.name || 'System',
+      actorRole: actor?.role || 'SUPER_ADMIN',
+      action,
+      details,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      ipAddress: '172.16.' + Math.floor(Math.random() * 50 + 1) + '.' + Math.floor(Math.random() * 200 + 1)
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveDocToMongo('auditLogs', newLog.id, newLog);
+
+    // Sync log to MongoDB Atlas in real-time
+    sendAuditLogToMongo(newLog).catch(err => console.warn('[MongoDB Audit Log Sync Warning]', err));
+  }, []);
 
   // Dynamically reconcile leave balances and permission matrix entries for all users
   const effectiveAllUsers = useMemo(() => {
@@ -594,19 +612,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       found = allUsers.find(u => u && u.id === currentUserId);
     }
 
-    // 4. If found, return found user
-    if (found) {
-      return found;
-    }
+    if (found) return found;
 
-    // 5. If authenticated and no user found in DB, return first available user in DB or Webmaster
     if (isAuthenticated && (cleanEmail || currentUserId)) {
       const isWebmaster = cleanEmail === 'webmaster@bitmesra.ac.in';
       const isHod = cleanEmail.includes('sunita') || cleanEmail.includes('hod');
       const isAdmin = cleanEmail.includes('meera') || cleanEmail.includes('admin');
       const role = isWebmaster ? 'SUPER_ADMIN' : isHod ? 'HOD' : isAdmin ? 'ADMIN' : 'FACULTY';
 
-      const fallbackSessionUser: User = {
+      // We return a static-ish fallback here. Since it's inside useMemo, 
+      // it only changes when dependencies change.
+      return {
         id: currentUserId || 'usr_5',
         name: isWebmaster ? 'Webmaster BIT Mesra' : 'Portal User',
         email: cleanEmail || 'webmaster@bitmesra.ac.in',
@@ -627,13 +643,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           SPECIAL_CASUAL: { total: 7, used: 0, pending: 0 },
         }
       };
-      return fallbackSessionUser;
     }
 
     return effectiveAllUsers[0] || allUsers[0] || MOCK_USERS[0] || null;
   }, [effectiveAllUsers, allUsers, currentUserId, currentUserEmail, isAuthenticated]);
 
-  const hasPermission = (permissionId: string, userIdToCheck?: string): boolean => {
+  const hasPermission = useCallback((permissionId: string, userIdToCheck?: string): boolean => {
     const user = userIdToCheck
       ? effectiveAllUsers.find(u => u.id === userIdToCheck)
       : currentUser;
@@ -655,7 +670,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     return activePermissions.includes(permissionId);
-  };
+  }, [effectiveAllUsers, currentUser, permissionMatrix]);
 
   // Track status transitions for active user leave applications
   const prevStatusesRef = React.useRef<Record<string, string>>({});
@@ -703,18 +718,6 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_EMAIL, currentUserEmail);
   }, [currentUserEmail]);
 
-  // Keep active session user ID and email in sync with resolved currentUser
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      if (currentUser.id && currentUser.id !== currentUserId) {
-        setCurrentUserId(currentUser.id);
-      }
-      if (currentUser.email && currentUser.email.trim().toLowerCase() !== currentUserEmail.trim().toLowerCase()) {
-        setCurrentUserEmail(currentUser.email);
-      }
-    }
-  }, [isAuthenticated, currentUser, currentUserId, currentUserEmail]);
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(isAuthenticated));
   }, [isAuthenticated]);
@@ -723,42 +726,53 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(systemSettings));
   }, [systemSettings]);
 
-  const updateSystemSettings = (newSettings: Partial<SystemSettings>, persist: boolean = true) => {
+  const updateSystemSettings = useCallback((newSettings: Partial<SystemSettings>, persist: boolean = true) => {
     if (!persist) {
       setHasUnsavedSettings(true);
     } else {
       setHasUnsavedSettings(false);
     }
     
+    // Calculate the next state outside of the setter to ensure side effects are pure and stable
     setSystemSettings(prev => {
-      const fullUpdated = { ...prev, ...newSettings };
+      const updatedTheme = newSettings.themeSettings 
+        ? { ...prev.themeSettings, ...newSettings.themeSettings }
+        : prev.themeSettings;
+
+      const fullUpdated = { 
+        ...prev, 
+        ...newSettings, 
+        themeSettings: updatedTheme 
+      };
       
       try {
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(fullUpdated));
       } catch (_e) {}
 
+      // Side effects MUST be deferred or handled outside the render-phase updater
       if (persist) {
-        // We call these directly from the updater. While side-effects in updaters are generally 
-        // avoided in pure React, in this context it ensures we use the exact state being committed.
         saveDocToMongo('system_privileges', 'global', fullUpdated);
         saveDocToMongo('settings', 'global', fullUpdated);
         syncDataToMongo({ systemSettings: fullUpdated });
 
-        addAuditLog(
-          currentUser, 
-          'SETTINGS_UPDATED', 
-          `Updated system configuration: Branding/Theme or privileges changed.`
-        );
-        addToast({
-          title: 'System Settings Saved ⚙️',
-          message: 'Your preferences have been successfully updated and persisted to the database.',
-          type: 'SUCCESS'
-        });
+        // Defer side effects to ensure they don't trigger during an active render cycle
+        setTimeout(() => {
+          addAuditLog(
+            currentUser, 
+            'SETTINGS_UPDATED', 
+            `Updated system configuration: Branding/Theme or privileges changed.`
+          );
+          addToast({
+            title: 'System Settings Saved ⚙️',
+            message: 'Your preferences have been successfully updated and persisted to the database.',
+            type: 'SUCCESS'
+          });
+        }, 0);
       }
       
       return fullUpdated;
     });
-  };
+  }, [currentUser, addAuditLog, addToast]);
 
   // Canonical Normalization Helper for Leave Requests to fix camelCase / snake_case sync & missing applicant fields
   const normalizeLeaveRequest = (raw: any, usersList: User[] = allUsers, deptsList: Department[] = departments): LeaveRequest => {
@@ -1037,7 +1051,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [hasUnsavedSettings]);
 
-  triggerSyncRef.current = syncWithMongo;
+  useEffect(() => {
+    triggerSyncRef.current = syncWithMongo;
+  }, [syncWithMongo]);
 
   // Subscribe to real-time MongoDB Atlas data changes across all global devices
   useEffect(() => {
@@ -1083,7 +1099,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [syncWithMongo]);
 
-  const login = async (email: string, password?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = useCallback(async (email: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const cleanPassword = String(password || '').trim();
 
@@ -1184,18 +1200,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     addAuditLog(matched, 'USER_LOGIN', `User ${matched.name} (${matched.role}) logged in successfully.`);
     return { success: true };
-  };
+  }, [allUsers, deletedUserIds, deletedUserEmails, addAuditLog]);
 
-  const logout = () => {
-    addAuditLog(currentUser, 'USER_LOGOUT', `User ${currentUser.name} logged out.`);
+  const logout = useCallback(() => {
+    addAuditLog(currentUser, 'USER_LOGOUT', `User ${currentUser?.name || 'Unknown'} logged out.`);
     setIsAuthenticated(false);
     try {
       localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(false));
     } catch (_e) {}
-  };
+  }, [currentUser, addAuditLog]);
 
-  const switchUser = (userId: string) => {
-    const target = allUsers.find(u => u.id === userId || u.email.trim().toLowerCase() === userId.trim().toLowerCase());
+  const switchUser = useCallback((userId: string) => {
+    const target = allUsers.find(u => u.id === userId || (u.email && u.email.trim().toLowerCase() === userId.trim().toLowerCase()));
     if (target) {
       setCurrentUserId(target.id);
       setCurrentUserEmail(target.email);
@@ -1205,14 +1221,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (_e) {}
       addAuditLog(target, 'USER_SWITCH', `Switched session view to user ${target.name} (${target.role})`);
     }
-  };
+  }, [allUsers, addAuditLog]);
 
-  const registerUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
+  const registerUser = useCallback((userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
     if (systemSettings.enableSelfRegistration === false) {
       return { success: false, message: 'Self-registration for faculty and staff is currently disabled by administrative policy. Please contact your Department Administrator or Super Admin.' };
     }
     const cleanEmail = userData.email.trim().toLowerCase();
-    const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
+    const emailExists = allUsers.some(u => u && u.email && u.email.trim().toLowerCase() === cleanEmail);
     if (emailExists) {
       return { success: false, message: `An account with email address "${cleanEmail}" already exists. Each administrator and user must have a unique email address.` };
     }
@@ -1238,7 +1254,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveDocToMongo('users', newId, newUser);
 
     // Notify institutional admins
-    const admins = allUsers.filter(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN');
+    const admins = allUsers.filter(u => u && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN'));
     const newNotifs: Notification[] = admins.map(adm => ({
       id: `notif_reg_${Date.now()}_${adm.id}`,
       userId: adm.id,
@@ -1266,9 +1282,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 'USER_SELF_REGISTRATION', `Submitted self-registration for ${newUser.role} (${newUser.email}). Status: PENDING_APPROVAL.`);
 
     return { success: true, message: 'Self-registration submitted! Your account will be active once validated by an institutional Admin.' };
-  };
+  }, [systemSettings.enableSelfRegistration, allUsers, addAuditLog]);
 
-  const updateUserStatus = (userId: string, status: 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED') => {
+  const updateUserStatus = useCallback((userId: string, status: 'ACTIVE' | 'PENDING_APPROVAL' | 'REJECTED') => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return;
     const updatedUser: User = { ...target, accountStatus: status };
@@ -1287,9 +1303,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       setNotifications(prev => [notif, ...prev]);
     }
-  };
+  }, [allUsers, currentUser, addAuditLog]);
 
-  const updateUser = (userId: string, updatedData: Partial<User>): { success: boolean; message: string } => {
+  const updateUser = useCallback((userId: string, updatedData: Partial<User>): { success: boolean; message: string } => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return { success: false, message: 'User not found.' };
 
@@ -1320,7 +1336,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const cleanEmail = updatedData.email ? updatedData.email.trim().toLowerCase() : target.email;
     if (updatedData.email) {
-      const emailExists = allUsers.some(u => u.id !== userId && u.email.trim().toLowerCase() === cleanEmail);
+      const emailExists = allUsers.some(u => u.id !== userId && u.email && u.email.trim().toLowerCase() === cleanEmail);
       if (emailExists) {
         return {
           success: false,
@@ -1341,9 +1357,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addAuditLog(currentUser, 'USER_UPDATED', `Updated user details for ${updatedUser.name} (${updatedUser.email}).`);
 
     return { success: true, message: `Successfully updated ${updatedUser.name}.` };
-  };
+  }, [allUsers, currentUser, addAuditLog]);
 
-  const changePassword = (oldPassword: string, newPassword: string): { success: boolean; message: string } => {
+  const changePassword = useCallback((oldPassword: string, newPassword: string): { success: boolean; message: string } => {
     const activeUser = allUsers.find(u => u.id === currentUserId);
     if (!activeUser) return { success: false, message: 'User session invalid.' };
 
@@ -1377,9 +1393,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: 'Password updated successfully.' };
-  };
+  }, [allUsers, currentUserId, addAuditLog, addToast]);
 
-  const adminResetPassword = (userId: string, newPassword: string): { success: boolean; message: string } => {
+  const adminResetPassword = useCallback((userId: string, newPassword: string): { success: boolean; message: string } => {
     const target = allUsers.find(u => u.id === userId);
     if (!target) return { success: false, message: 'Target user account not found.' };
 
@@ -1404,9 +1420,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: `Successfully reset password for ${target.name}.` };
-  };
+  }, [allUsers, currentUser, addAuditLog, addToast]);
 
-  const requestPasswordResetCode = (email: string, empCodeOrPhone?: string): { success: boolean; message: string; securityCode?: string; userEmail?: string; userName?: string } => {
+  const requestPasswordResetCode = useCallback((email: string, empCodeOrPhone?: string): { success: boolean; message: string; securityCode?: string; userEmail?: string; userName?: string } => {
     try {
       const cleanEmail = String(email || '').trim().toLowerCase();
       const cleanVal = empCodeOrPhone ? String(empCodeOrPhone).trim().toLowerCase() : '';
@@ -1528,9 +1544,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         message: 'An unexpected system error occurred while generating the code. Please try again.'
       };
     }
-  };
+  }, [allUsers, dispatchEmailLog, addToast]);
 
-  const validateAndResetPassword = (
+  const validateAndResetPassword = useCallback((
     email: string,
     empCodeOrPhone: string,
     newPassword: string,
@@ -1593,9 +1609,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error('Error in validateAndResetPassword:', err);
       return { success: false, message: 'An unexpected system error occurred while updating password.' };
     }
-  };
+  }, [allUsers, addAuditLog, addToast]);
 
-  const deleteUser = (userId: string): { success: boolean; message: string } => {
+  const deleteUser = useCallback((userId: string): { success: boolean; message: string } => {
     if (userId === currentUserId) {
       return { success: false, message: 'Cannot delete your own currently active account.' };
     }
@@ -1637,9 +1653,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: `Successfully deleted account for ${target.name} (${target.email}).` };
-  };
+  }, [currentUserId, allUsers, currentUser, deletedUserIds, deletedUserEmails, addAuditLog, addToast]);
 
-  const exportDbJson = (): string => {
+  const exportDbJson = useCallback((): string => {
     const dbSnapshot = {
       version: '1.0',
       timestamp: new Date().toISOString(),
@@ -1651,9 +1667,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       auditLogs
     };
     return JSON.stringify(dbSnapshot, null, 2);
-  };
+  }, [allUsers, departments, leavePolicies, leaveRequests, notifications, auditLogs]);
 
-  const importDbJson = (jsonString: string): boolean => {
+  const importDbJson = useCallback((jsonString: string): boolean => {
     try {
       const parsed = JSON.parse(jsonString);
       if (parsed.users && Array.isArray(parsed.users)) {
@@ -1670,27 +1686,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {
       return false;
     }
-  };
+  }, [currentUser, addAuditLog]);
 
-  const addAuditLog = (actor: User, action: string, details: string) => {
-    const newLog: AuditLog = {
-      id: `log_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      actorId: actor?.id || 'sys',
-      actorName: actor?.name || 'System',
-      actorRole: actor?.role || 'SUPER_ADMIN',
-      action,
-      details,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      ipAddress: '172.16.' + Math.floor(Math.random() * 50 + 1) + '.' + Math.floor(Math.random() * 200 + 1)
-    };
-    setAuditLogs(prev => [newLog, ...prev]);
-    saveDocToMongo('auditLogs', newLog.id, newLog);
-
-    // Sync log to MongoDB Atlas in real-time
-    sendAuditLogToMongo(newLog).catch(err => console.warn('[MongoDB Audit Log Sync Warning]', err));
-  };
-
-  const addNotification = (userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {
+  const addNotification = useCallback((userId: string, title: string, message: string, type: Notification['type'], relatedLeaveId?: string) => {
     const newNotification: Notification = {
       id: `ntf_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       userId,
@@ -1703,9 +1701,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setNotifications(prev => [newNotification, ...prev]);
     saveDocToMongo('notifications', newNotification.id, newNotification);
-  };
+  }, []);
 
-  const applyForLeave = (data: {
+  const applyForLeave = useCallback((data: {
     leaveType: LeaveType;
     startDate: string;
     endDate: string;
@@ -1721,14 +1719,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newId = `LV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
     const rawRequest: LeaveRequest = {
       id: newId,
-      applicantId: currentUser.id,
-      applicantName: currentUser.name,
-      applicantEmail: currentUser.email,
-      applicantEmployeeCode: currentUser.employeeCode,
-      applicantDesignation: currentUser.designation,
-      applicantRole: currentUser.role,
-      departmentId: currentUser.departmentId || 'CSE',
-      departmentName: currentUser.departmentName || 'Computer Science & Engineering',
+      applicantId: currentUser?.id || 'usr_5',
+      applicantName: currentUser?.name || 'Portal User',
+      applicantEmail: currentUser?.email || 'webmaster@bitmesra.ac.in',
+      applicantEmployeeCode: currentUser?.employeeCode,
+      applicantDesignation: currentUser?.designation,
+      applicantRole: currentUser?.role || 'FACULTY',
+      departmentId: currentUser?.departmentId || 'CSE',
+      departmentName: currentUser?.departmentName || 'Computer Science & Engineering',
       leaveType: data.leaveType,
       startDate: data.startDate,
       endDate: data.endDate,
@@ -1749,73 +1747,75 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeaveRequests(prev => [newRequest, ...prev]);
 
     // Update pending count in user's leave balances
-    const targetAppUser = allUsers.find(u => u.id === currentUser.id);
-    if (targetAppUser) {
-      const typeKey = data.leaveType;
-      const currentBal = targetAppUser.leaveBalances?.[typeKey] || { total: 0, used: 0, pending: 0 };
-      const updatedAppUser: User = {
-        ...targetAppUser,
-        leaveBalances: {
-          ...(targetAppUser.leaveBalances || {}),
-          [typeKey]: {
-            ...currentBal,
-            pending: currentBal.pending + data.totalDays
-          }
-        } as any
-      };
-      setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
-      saveDocToMongo('users', currentUser.id, updatedAppUser);
-      syncDataToMongo({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
-    }
-
-    // Find Department HOD
-    const deptInfo = departments.find(d => d.id === currentUser.departmentId);
-    const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === currentUser.departmentId && u.role === 'HOD'));
-
-    if (hodUser) {
-      addNotification(
-        hodUser.id,
-        'New Leave Application',
-        `${currentUser.name} (${currentUser.designation}) applied for ${data.totalDays} day(s) ${data.leaveType} leave (${data.startDate} to ${data.endDate}).`,
-        'LEAVE_SUBMITTED',
-        newId
-      );
-
-      if (hodUser.email) {
-        const mailData = buildLeaveSubmittedEmail(
-          newRequest,
-          hodUser.name,
-          systemSettings.institutionName || 'BIT Leave Portal'
-        );
-        dispatchEmailLog({
-          recipientEmail: hodUser.email,
-          recipientName: hodUser.name,
-          recipientRole: 'HOD',
-          subject: mailData.subject,
-          bodyHtml: mailData.bodyHtml,
-          bodyText: mailData.bodyText,
-          status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
-          leaveRequestId: newId,
-          triggerEvent: 'LEAVE_SUBMITTED'
-        });
+    if (currentUser) {
+      const targetAppUser = allUsers.find(u => u.id === currentUser.id);
+      if (targetAppUser) {
+        const typeKey = data.leaveType;
+        const currentBal = targetAppUser.leaveBalances?.[typeKey] || { total: 0, used: 0, pending: 0 };
+        const updatedAppUser: User = {
+          ...targetAppUser,
+          leaveBalances: {
+            ...(targetAppUser.leaveBalances || {}),
+            [typeKey]: {
+              ...currentBal,
+              pending: currentBal.pending + data.totalDays
+            }
+          } as any
+        };
+        setAllUsers(prev => prev.map(u => u.id === currentUser.id ? updatedAppUser : u));
+        saveDocToMongo('users', currentUser.id, updatedAppUser);
+        syncDataToMongo({ users: [updatedAppUser], leaveRequests: [newRequest] }).catch(() => {});
       }
+
+      // Find Department HOD
+      const deptInfo = departments.find(d => d.id === currentUser.departmentId);
+      const hodUser = allUsers.find(u => u.id === deptInfo?.hodId || (u.departmentId === currentUser.departmentId && u.role === 'HOD'));
+
+      if (hodUser) {
+        addNotification(
+          hodUser.id,
+          'New Leave Application',
+          `${currentUser.name} (${currentUser.designation}) applied for ${data.totalDays} day(s) ${data.leaveType} leave (${data.startDate} to ${data.endDate}).`,
+          'LEAVE_SUBMITTED',
+          newId
+        );
+
+        if (hodUser.email) {
+          const mailData = buildLeaveSubmittedEmail(
+            newRequest,
+            hodUser.name,
+            systemSettings.institutionName || 'BIT Leave Portal'
+          );
+          dispatchEmailLog({
+            recipientEmail: hodUser.email,
+            recipientName: hodUser.name,
+            recipientRole: 'HOD',
+            subject: mailData.subject,
+            bodyHtml: mailData.bodyHtml,
+            bodyText: mailData.bodyText,
+            status: systemSettings.emailSettings?.enabled !== false ? 'SENT' : 'SIMULATED',
+            leaveRequestId: newId,
+            triggerEvent: 'LEAVE_SUBMITTED'
+          });
+        }
+      }
+
+      addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
+      saveDocToMongo('leaveRequests', newId, newRequest);
+
+      addToast({
+        title: 'Leave Application Submitted 📨',
+        message: `Application #${newId} submitted. Notification email sent to ${hodUser?.name || 'Department HoD'} (${hodUser?.email || 'HoD Email'}).`,
+        type: 'INFO',
+        leaveId: newId,
+        status: 'PENDING_HOD'
+      });
     }
-
-    addAuditLog(currentUser, 'LEAVE_APPLIED', `Submitted ${data.leaveType} leave request ${newId} for ${data.totalDays} day(s).`);
-    saveDocToMongo('leaveRequests', newId, newRequest);
-
-    addToast({
-      title: 'Leave Application Submitted 📨',
-      message: `Application #${newId} submitted. Notification email sent to ${hodUser?.name || 'Department HoD'} (${hodUser?.email || 'HoD Email'}).`,
-      type: 'INFO',
-      leaveId: newId,
-      status: 'PENDING_HOD'
-    });
 
     return newRequest;
-  };
+  }, [currentUser, allUsers, departments, addNotification, systemSettings.institutionName, systemSettings.emailSettings, dispatchEmailLog, addAuditLog, addToast]);
 
-  const hodAction = (leaveId: string, action: 'RECOMMENDED' | 'REJECTED', comments: string) => {
+  const hodAction = useCallback((leaveId: string, action: 'RECOMMENDED' | 'REJECTED', comments: string) => {
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId) {
         const isRec = action === 'RECOMMENDED';
@@ -1825,7 +1825,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addNotification(
           req.applicantId,
           isRec ? 'Leave Endorsed by HOD' : 'Leave Rejected by HOD',
-          `Your leave application ${req.id} was ${isRec ? 'recommended and forwarded to Registrar' : 'rejected'} by HOD ${currentUser.name}. Comments: "${comments}"`,
+          `Your leave application ${req.id} was ${isRec ? 'recommended and forwarded to Registrar' : 'rejected'} by HOD ${currentUser?.name || 'HOD'}. Comments: "${comments}"`,
           isRec ? 'HOD_ENDORSED' : 'REJECTED',
           req.id
         );
@@ -1843,12 +1843,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // If recommended, notify Registrar(s) via notification + Email
         if (isRec) {
-          const registrars = allUsers.filter(u => u.role === 'REGISTRAR' || u.role === 'SUPER_ADMIN');
+          const registrars = allUsers.filter(u => u && (u.role === 'REGISTRAR' || u.role === 'SUPER_ADMIN'));
           registrars.forEach(reg => {
             addNotification(
               reg.id,
               'Leave Approval Required',
-              `HOD ${currentUser.name} endorsed leave ${req.id} for ${req.applicantName} (${req.departmentName}). Pending Registrar sanction.`,
+              `HOD ${currentUser?.name || 'HOD'} endorsed leave ${req.id} for ${req.applicantName} (${req.departmentName}). Pending Registrar sanction.`,
               'HOD_ENDORSED',
               req.id
             );
@@ -1922,8 +1922,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...req,
           status: updatedStatus,
           hodApproval: {
-            actionBy: currentUser.id,
-            actionByName: `${currentUser.name} (${currentUser.departmentName} HOD)`,
+            actionBy: currentUser?.id || 'sys',
+            actionByName: `${currentUser?.name || 'HOD'} (${currentUser?.departmentName || 'Dept'} HOD)`,
             actionDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
             status: action,
             comments
@@ -1934,9 +1934,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return req;
     }));
-  };
+  }, [currentUser, allUsers, addNotification, addToast, systemSettings.institutionName, systemSettings.emailSettings, dispatchEmailLog, addAuditLog]);
 
-  const registrarAction = (leaveId: string, action: 'APPROVED' | 'REJECTED', comments: string) => {
+  const registrarAction = useCallback((leaveId: string, action: 'APPROVED' | 'REJECTED', comments: string) => {
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId) {
         const isApproved = action === 'APPROVED';
@@ -1946,7 +1946,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addNotification(
           req.applicantId,
           isApproved ? 'Leave Application Sanctioned 🎉' : 'Leave Application Rejected',
-          `Your leave application ${req.id} has been ${isApproved ? 'officially approved' : 'rejected'} by Registrar ${currentUser.name}. Comments: "${comments}"`,
+          `Your leave application ${req.id} has been ${isApproved ? 'officially approved' : 'rejected'} by Registrar ${currentUser?.name || 'Registrar'}. Comments: "${comments}"`,
           isApproved ? 'REGISTRAR_APPROVED' : 'REJECTED',
           req.id
         );
@@ -2019,8 +2019,8 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...req,
           status: updatedStatus,
           registrarApproval: {
-            actionBy: currentUser.id,
-            actionByName: `${currentUser.name} (Registrar)`,
+            actionBy: currentUser?.id || 'sys',
+            actionByName: `${currentUser?.name || 'Registrar'} (Registrar)`,
             actionDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
             status: action,
             comments
@@ -2031,9 +2031,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return req;
     }));
-  };
+  }, [currentUser, allUsers, departments, addNotification, addToast, systemSettings.institutionName, systemSettings.emailSettings, dispatchEmailLog, addAuditLog]);
 
-  const sendTestEmail = async (recipientEmail: string, recipientName: string) => {
+  const sendTestEmail = useCallback(async (recipientEmail: string, recipientName: string) => {
     const settings = systemSettings.emailSettings || DEFAULT_EMAIL_SETTINGS;
     const mailData = buildTestEmail(
       recipientEmail,
@@ -2124,9 +2124,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         message: `${errorMsg} (Log ID: ${log.id})`
       };
     }
-  };
+  }, [systemSettings.emailSettings, systemSettings.institutionName, dispatchEmailLog]);
 
-  const cancelLeave = (leaveId: string) => {
+  const cancelLeave = useCallback((leaveId: string) => {
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === leaveId && (req.status === 'PENDING_HOD' || req.status === 'PENDING_REGISTRAR')) {
         // Release pending balance
@@ -2165,9 +2165,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return req;
     }));
-  };
+  }, [allUsers, currentUser, addAuditLog, addToast]);
 
-  const updateUserRoleAndPermissions = (userId: string, role: Role, permissions: string[]) => {
+  const updateUserRoleAndPermissions = useCallback((userId: string, role: Role, permissions: string[]) => {
     if (currentUser && (currentUser.role as string) === 'ADMIN') {
       const target = allUsers.find(u => u.id === userId);
       if (target && target.departmentId !== currentUser.departmentId) {
@@ -2215,9 +2215,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     savePermissionMatrixToMongo(pmEntry).catch(() => {});
     syncDataToMongo({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
     addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permission matrix entry for user ${targetUser.name} (${userId}).`);
-  };
+  }, [allUsers, currentUser, addAuditLog, addToast]);
 
-  const adjustUserLeaveBalance = (userId: string, leaveType: LeaveType, total: number, used: number) => {
+  const adjustUserLeaveBalance = useCallback((userId: string, leaveType: LeaveType, total: number, used: number) => {
     const targetUser = allUsers.find(u => u.id === userId);
     if (!targetUser) return;
     const cur = targetUser.leaveBalances?.[leaveType] || { total: 0, used: 0, pending: 0 };
@@ -2248,9 +2248,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }]
     }).catch(err => console.warn('[MongoDB Direct Balance Sync Warning]', err));
     addAuditLog(currentUser, 'BALANCE_ADJUSTED', `Adjusted ${leaveType} balance for user ${targetUser.name} (Total: ${total}, Used: ${used}).`);
-  };
+  }, [allUsers, currentUser, addAuditLog]);
 
-  const createNewUser = (userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
+  const createNewUser = useCallback((userData: Omit<User, 'id' | 'leaveBalances'>): { success: boolean; message: string } => {
     // Department Admin Restriction: An admin of an individual department can only add users of their same department
     if (currentUser && (currentUser.role as string) === 'ADMIN') {
       const adminDeptId = currentUser.departmentId;
@@ -2269,7 +2269,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const cleanEmail = userData.email.trim().toLowerCase();
-    const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
+    const emailExists = allUsers.some(u => u && u.email && u.email.trim().toLowerCase() === cleanEmail);
     if (emailExists) {
       return {
         success: false,
@@ -2301,9 +2301,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       success: true,
       message: `Successfully created account for ${newUser.name} (${cleanEmail}).`
     };
-  };
+  }, [allUsers, currentUser, addAuditLog]);
 
-  const canModifyPolicies = (): boolean => {
+  const canModifyPolicies = useCallback((): boolean => {
     if (currentUser?.role === 'SUPER_ADMIN' || hasPermission('PERM_CONFIG_POLICIES')) {
       return true;
     }
@@ -2313,9 +2313,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type: 'ERROR'
     });
     return false;
-  };
+  }, [currentUser, hasPermission, addToast]);
 
-  const canModifyDepartments = (): boolean => {
+  const canModifyDepartments = useCallback((): boolean => {
     if (currentUser?.role === 'SUPER_ADMIN' || hasPermission('PERM_MANAGE_USERS') || hasPermission('PERM_CONFIG_POLICIES')) {
       return true;
     }
@@ -2325,9 +2325,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type: 'ERROR'
     });
     return false;
-  };
+  }, [currentUser, hasPermission, addToast]);
 
-  const createNewDepartment = (deptData: Omit<Department, 'totalFaculty'>) => {
+  const createNewDepartment = useCallback((deptData: Omit<Department, 'totalFaculty'>) => {
     if (!canModifyDepartments()) return;
     const newDept: Department = {
       ...deptData,
@@ -2341,9 +2341,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Department ${newDept.name} (${newDept.code}) created successfully.`,
       type: 'SUCCESS'
     });
-  };
+  }, [canModifyDepartments, currentUser, addAuditLog, addToast]);
 
-  const updateDepartment = (updatedDept: Department) => {
+  const updateDepartment = useCallback((updatedDept: Department) => {
     if (!canModifyDepartments()) return;
     setDepartments(prev => prev.map(d => d.id === updatedDept.id ? updatedDept : d));
     saveDocToMongo('departments', updatedDept.id, updatedDept);
@@ -2353,9 +2353,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Department ${updatedDept.name} updated successfully.`,
       type: 'SUCCESS'
     });
-  };
+  }, [canModifyDepartments, currentUser, addAuditLog, addToast]);
 
-  const createNewLeaveType = (policyData: LeavePolicy) => {
+  const createNewLeaveType = useCallback((policyData: LeavePolicy) => {
     if (!canModifyPolicies()) return;
     setLeavePolicies(prev => {
       const exists = prev.some(p => p.type === policyData.type);
@@ -2386,9 +2386,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Created leave policy for ${policyData.label} with ${policyData.annualQuota} days annual quota.`,
       type: 'SUCCESS'
     });
-  };
+  }, [canModifyPolicies, currentUser, addAuditLog, addToast]);
 
-  const updateLeavePolicy = (updatedPolicy: LeavePolicy) => {
+  const updateLeavePolicy = useCallback((updatedPolicy: LeavePolicy) => {
     if (!canModifyPolicies()) return;
     setLeavePolicies(prev => prev.map(p => p.type === updatedPolicy.type ? updatedPolicy : p));
     saveDocToMongo('leavePolicies', updatedPolicy.type, updatedPolicy);
@@ -2398,9 +2398,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       message: `Updated ${updatedPolicy.label} policy settings.`,
       type: 'SUCCESS'
     });
-  };
+  }, [canModifyPolicies, currentUser, addAuditLog, addToast]);
 
-  const markNotificationRead = (id: string) => {
+  const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => {
       if (n.id === id) {
         const updated = { ...n, read: true };
@@ -2409,18 +2409,18 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return n;
     }));
-  };
+  }, []);
 
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => {
       const updated = { ...n, read: true };
       saveDocToMongo('notifications', n.id, updated);
       return updated;
     }));
-  };
+  }, []);
 
-  const clearSanctionLogs = (): { success: boolean; message: string } => {
-    if (currentUser.role !== 'SUPER_ADMIN') {
+  const clearSanctionLogs = useCallback((): { success: boolean; message: string } => {
+    if (currentUser?.role !== 'SUPER_ADMIN') {
       return { success: false, message: 'Unauthorized: Only Super Admin can clear leave sanction logs.' };
     }
 
@@ -2430,7 +2430,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     deleteDocFromMongo('clearAllRequests', 'all');
 
     setLeaveRequests([]);
-    localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
+    try {
+      localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
+    } catch (_e) {}
 
     addAuditLog(currentUser, 'SANCTION_LOGS_CLEARED', 'Super Admin cleared all historical leave sanction logs.');
 
@@ -2441,9 +2443,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: 'Historical leave sanction logs cleared successfully.' };
-  };
+  }, [currentUser, leaveRequests, addAuditLog, addToast]);
 
-  const deleteLeaveRequest = (requestId: string): { success: boolean; message: string } => {
+  const deleteLeaveRequest = useCallback((requestId: string): { success: boolean; message: string } => {
     const target = leaveRequests.find(r => r.id === requestId);
     if (!target) {
       return { success: false, message: 'Leave request not found.' };
@@ -2463,9 +2465,9 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, message: `Successfully deleted leave request ${requestId}.` };
-  };
+  }, [leaveRequests, currentUser, addAuditLog, addToast]);
 
-  const purgeUnknownLeaveRequests = (): { success: boolean; count: number; message: string } => {
+  const purgeUnknownLeaveRequests = useCallback((): { success: boolean; count: number; message: string } => {
     const unknownReqs = leaveRequests.filter(r => 
       !r.applicantName || 
       r.applicantName === 'Unknown Applicant' || 
@@ -2494,19 +2496,21 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return { success: true, count: unknownReqs.length, message: `Purged ${unknownReqs.length} unknown leave requests.` };
-  };
+  }, [leaveRequests, currentUser, addAuditLog, addToast]);
 
-  const resetData = () => {
-    localStorage.removeItem(STORAGE_KEYS.USERS);
-    localStorage.removeItem(STORAGE_KEYS.REQUESTS);
-    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
-    localStorage.removeItem(STORAGE_KEYS.LOGS);
-    localStorage.removeItem(STORAGE_KEYS.POLICIES);
-    localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
-    localStorage.removeItem(STORAGE_KEYS.AUTH);
-    localStorage.removeItem(DELETED_USER_IDS_KEY);
-    localStorage.removeItem(DELETED_USER_EMAILS_KEY);
+  const resetData = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.USERS);
+      localStorage.removeItem(STORAGE_KEYS.REQUESTS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+      localStorage.removeItem(STORAGE_KEYS.LOGS);
+      localStorage.removeItem(STORAGE_KEYS.POLICIES);
+      localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+      localStorage.removeItem(STORAGE_KEYS.AUTH);
+      localStorage.removeItem(DELETED_USER_IDS_KEY);
+      localStorage.removeItem(DELETED_USER_EMAILS_KEY);
+    } catch (_e) {}
 
     setDeletedUserIds(new Set());
     setDeletedUserEmails(new Set());
@@ -2520,68 +2524,126 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLeavePolicies(INITIAL_LEAVE_POLICIES);
 
     resetMongoData().catch(err => console.warn('Error resetting MongoDB:', err));
-  };
+    window.location.reload();
+  }, []);
 
-  const userNotifications = notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || (n as any).recipientId === currentUser.id));
-  const unreadNotificationCount = userNotifications.filter(n => !n.read).length;
+  const userNotifications = useMemo(() => 
+    notifications.filter(n => currentUser?.id && (n.userId === currentUser.id || (n as any).recipientId === currentUser.id)),
+    [notifications, currentUser?.id]
+  );
+  
+  const unreadNotificationCount = useMemo(() => 
+    userNotifications.filter(n => !n.read).length,
+    [userNotifications]
+  );
+
+  const contextValue = useMemo(() => ({
+    currentUser,
+    allUsers: effectiveAllUsers,
+    departments,
+    leavePolicies,
+    leaveRequests,
+    notifications: userNotifications,
+    auditLogs,
+    emailLogs,
+    permissionMatrix,
+    granularPermissions: GRANULAR_PERMISSIONS,
+    hasPermission,
+    unreadNotificationCount,
+    isAuthenticated,
+    toasts,
+    systemSettings,
+
+    updateSystemSettings,
+    sendTestEmail,
+    addToast,
+    removeToast,
+    clearToasts,
+
+    login,
+    logout,
+    switchUser,
+    registerUser,
+    updateUserStatus,
+    updateUser,
+    changePassword,
+    adminResetPassword,
+    requestPasswordResetCode,
+    validateAndResetPassword,
+    deleteUser,
+    exportDbJson,
+    importDbJson,
+    applyForLeave,
+    hodAction,
+    registrarAction,
+    cancelLeave,
+    updateUserRoleAndPermissions,
+    adjustUserLeaveBalance,
+    createNewUser,
+    createNewDepartment,
+    updateDepartment,
+    createNewLeaveType,
+    updateLeavePolicy,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearSanctionLogs,
+    deleteLeaveRequest,
+    purgeUnknownLeaveRequests,
+    resetData
+  }), [
+    currentUser,
+    effectiveAllUsers,
+    departments,
+    leavePolicies,
+    leaveRequests,
+    userNotifications,
+    auditLogs,
+    emailLogs,
+    permissionMatrix,
+    hasPermission,
+    unreadNotificationCount,
+    isAuthenticated,
+    toasts,
+    systemSettings,
+    updateSystemSettings,
+    sendTestEmail,
+    addToast,
+    removeToast,
+    clearToasts,
+    login,
+    logout,
+    switchUser,
+    registerUser,
+    updateUserStatus,
+    updateUser,
+    changePassword,
+    adminResetPassword,
+    requestPasswordResetCode,
+    validateAndResetPassword,
+    deleteUser,
+    exportDbJson,
+    importDbJson,
+    applyForLeave,
+    hodAction,
+    registrarAction,
+    cancelLeave,
+    updateUserRoleAndPermissions,
+    adjustUserLeaveBalance,
+    createNewUser,
+    createNewDepartment,
+    updateDepartment,
+    createNewLeaveType,
+    updateLeavePolicy,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearSanctionLogs,
+    deleteLeaveRequest,
+    purgeUnknownLeaveRequests,
+    resetData
+  ]);
 
   return (
-    <LeaveContext.Provider
-      value={{
-        currentUser,
-        allUsers: effectiveAllUsers,
-        departments,
-        leavePolicies,
-        leaveRequests,
-        notifications: userNotifications,
-        auditLogs,
-        emailLogs,
-        permissionMatrix,
-        granularPermissions: GRANULAR_PERMISSIONS,
-        hasPermission,
-        unreadNotificationCount,
-        isAuthenticated,
-        toasts,
-        systemSettings,
-
-        updateSystemSettings,
-        sendTestEmail,
-        addToast,
-        removeToast,
-        clearToasts,
-
-        login,
-        logout,
-        switchUser,
-        registerUser,
-        updateUserStatus,
-        updateUser,
-        changePassword,
-        adminResetPassword,
-        requestPasswordResetCode,
-        validateAndResetPassword,
-        deleteUser,
-        exportDbJson,
-        importDbJson,
-        applyForLeave,
-        hodAction,
-        registrarAction,
-        cancelLeave,
-        updateUserRoleAndPermissions,
-        adjustUserLeaveBalance,
-        createNewUser,
-        createNewDepartment,
-        updateDepartment,
-        createNewLeaveType,
-        updateLeavePolicy,
-        markNotificationRead,
-        markAllNotificationsRead,
-        clearSanctionLogs,
-        deleteLeaveRequest,
-        purgeUnknownLeaveRequests,
-        resetData
-      }}
-    >
+    <LeaveContext.Provider value={contextValue}>
       {children}
     </LeaveContext.Provider>
   );
