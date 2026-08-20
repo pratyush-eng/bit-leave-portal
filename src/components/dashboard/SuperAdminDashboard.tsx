@@ -2500,6 +2500,106 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                 </div>
               </div>
 
+              {/* Login Page Personalization */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Login Page Personalization</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Background Color</label>
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { 
+                            ...systemSettings.themeSettings!, 
+                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, backgroundColor: e.target.value } 
+                          } 
+                        }, false)}
+                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Header Color</label>
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { 
+                            ...systemSettings.themeSettings!, 
+                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderColor: e.target.value } 
+                          } 
+                        }, false)}
+                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Text Color</label>
+                      <input 
+                        type="color" 
+                        value={systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { 
+                            ...systemSettings.themeSettings!, 
+                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTextColor: e.target.value } 
+                          } 
+                        }, false)}
+                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Title</label>
+                      <input 
+                        type="text" 
+                        value={systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
+                        onChange={(e) => updateSystemSettings({ 
+                          themeSettings: { 
+                            ...systemSettings.themeSettings!, 
+                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTitle: e.target.value } 
+                          } 
+                        }, false)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Preview */}
+                  <div className="border border-slate-200 rounded-xl bg-white p-6 shadow-sm">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-4">Live Preview</label>
+                    <div
+                      style={{
+                        backgroundColor: systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc',
+                        padding: '1.5rem',
+                        borderRadius: '0.75rem',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5',
+                          padding: '1.5rem',
+                          borderRadius: '0.5rem',
+                          color: systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff',
+                          width: '100%',
+                          maxWidth: '250px',
+                          textAlign: 'center',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        }}
+                      >
+                        <h3 className="font-bold text-sm truncate">
+                          {systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
+                        </h3>
+                        <p className="text-[10px] opacity-75 mt-1">Preview</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Typography */}
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Typography & Spacing</h4>

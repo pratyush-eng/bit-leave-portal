@@ -209,6 +209,12 @@ export interface ThemeSettings {
   navShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   sidebarShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   cardShadow: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  loginPageSettings?: {
+    backgroundColor: string;
+    cardHeaderColor: string;
+    cardTextColor: string;
+    cardTitle: string;
+  };
 }
 
 export interface SystemSettings {

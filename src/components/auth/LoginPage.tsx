@@ -77,6 +77,16 @@ export const LoginPage: React.FC = () => {
   }, [systemSettings.enableDemoAccounts]);
 
   useEffect(() => {
+    const theme = systemSettings?.themeSettings;
+    if (theme && theme.loginPageSettings) {
+      const root = document.documentElement;
+      root.style.setProperty('--login-bg-color', theme.loginPageSettings.backgroundColor || '#f8fafc');
+      root.style.setProperty('--login-header-color', theme.loginPageSettings.cardHeaderColor || '#3F51B5');
+      root.style.setProperty('--login-text-color', theme.loginPageSettings.cardTextColor || '#ffffff');
+    }
+  }, [systemSettings?.themeSettings]);
+
+  useEffect(() => {
     if (activeTab === 'login') {
       setTimeout(() => {
         emailInputRef.current?.focus();
@@ -295,11 +305,11 @@ export const LoginPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[var(--login-bg-color)] flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white shadow-2xl sm:rounded-3xl overflow-hidden border border-slate-100">
           {/* Header Section from Image 1 */}
-          <div className="bg-primary px-8 py-7 flex items-center gap-4">
+          <div className="bg-[var(--login-header-color)] px-8 py-7 flex items-center gap-4">
             <div className="w-14 h-14 flex items-center justify-center shrink-0 drop-shadow-sm">
               {systemSettings?.institutionLogoUrl ? (
                 <img 
@@ -315,10 +325,10 @@ export const LoginPage: React.FC = () => {
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-white text-2xl font-bold tracking-tight truncate">
-                {systemSettings?.institutionName || 'BIT Leave Portal'}
+              <h2 className="text-[var(--login-text-color)] text-2xl font-bold tracking-tight truncate">
+                {systemSettings.themeSettings?.loginPageSettings?.cardTitle || systemSettings?.institutionName || 'BIT Leave Portal'}
               </h2>
-              <p className="text-white/80 text-[10px] font-medium leading-tight">
+              <p className="text-[var(--login-text-color)]/80 text-[10px] font-medium leading-tight">
                 Birla Institute of Technology, Mesra • Automated Portal
               </p>
             </div>
