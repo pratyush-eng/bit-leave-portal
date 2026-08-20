@@ -83,6 +83,7 @@ export const LoginPage: React.FC = () => {
       root.style.setProperty('--login-bg-color', theme.loginPageSettings.backgroundColor || '#f8fafc');
       root.style.setProperty('--login-header-color', theme.loginPageSettings.cardHeaderColor || '#3F51B5');
       root.style.setProperty('--login-text-color', theme.loginPageSettings.cardTextColor || '#ffffff');
+      root.style.setProperty('--login-header-padding', (theme.loginPageSettings.cardHeaderPadding || '1.5') + 'rem');
     }
   }, [systemSettings?.themeSettings]);
 
@@ -309,7 +310,7 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white shadow-2xl sm:rounded-3xl overflow-hidden border border-slate-100">
           {/* Header Section from Image 1 */}
-          <div className="bg-[var(--login-header-color)] px-8 py-7 flex items-center gap-4">
+          <div style={{ padding: 'var(--login-header-padding)' }} className="bg-[var(--login-header-color)] flex items-center gap-4">
             <div className="w-14 h-14 flex items-center justify-center shrink-0 drop-shadow-sm">
               {systemSettings?.institutionLogoUrl ? (
                 <img 

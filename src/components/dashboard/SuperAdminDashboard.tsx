@@ -136,6 +136,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [logCurrentPage, setLogCurrentPage] = useState<number>(1);
   const [logRowsPerPage, setLogRowsPerPage] = useState<number>(10);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
+  const [previewMode, setPreviewMode] = useState<'dashboard' | 'login'>('dashboard');
 
   // Department state (Super Admin Exclusive)
   const [showAddDeptModal, setShowAddDeptModal] = useState<boolean>(false);
@@ -2503,99 +2504,77 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
               {/* Login Page Personalization */}
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Login Page Personalization</h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Controls */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Background Color</label>
-                      <input 
-                        type="color" 
-                        value={systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc'}
-                        onChange={(e) => updateSystemSettings({ 
-                          themeSettings: { 
-                            ...systemSettings.themeSettings!, 
-                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, backgroundColor: e.target.value } 
-                          } 
-                        }, false)}
-                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Header Color</label>
-                      <input 
-                        type="color" 
-                        value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5'}
-                        onChange={(e) => updateSystemSettings({ 
-                          themeSettings: { 
-                            ...systemSettings.themeSettings!, 
-                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderColor: e.target.value } 
-                          } 
-                        }, false)}
-                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Text Color</label>
-                      <input 
-                        type="color" 
-                        value={systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff'}
-                        onChange={(e) => updateSystemSettings({ 
-                          themeSettings: { 
-                            ...systemSettings.themeSettings!, 
-                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTextColor: e.target.value } 
-                          } 
-                        }, false)}
-                        className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Title</label>
-                      <input 
-                        type="text" 
-                        value={systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
-                        onChange={(e) => updateSystemSettings({ 
-                          themeSettings: { 
-                            ...systemSettings.themeSettings!, 
-                            loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTitle: e.target.value } 
-                          } 
-                        }, false)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Background Color</label>
+                    <input 
+                      type="color" 
+                      value={systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { 
+                          ...systemSettings.themeSettings!, 
+                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, backgroundColor: e.target.value } 
+                        } 
+                      }, false)}
+                      className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                    />
                   </div>
-                  
-                  {/* Preview */}
-                  <div className="border border-slate-200 rounded-xl bg-white p-6 shadow-sm">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-4">Live Preview</label>
-                    <div
-                      style={{
-                        backgroundColor: systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc',
-                        padding: '1.5rem',
-                        borderRadius: '0.75rem',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <div
-                        style={{
-                          backgroundColor: systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5',
-                          padding: '1.5rem',
-                          borderRadius: '0.5rem',
-                          color: systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff',
-                          width: '100%',
-                          maxWidth: '250px',
-                          textAlign: 'center',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-                        }}
-                      >
-                        <h3 className="font-bold text-sm truncate">
-                          {systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
-                        </h3>
-                        <p className="text-[10px] opacity-75 mt-1">Preview</p>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Header Color</label>
+                    <input 
+                      type="color" 
+                      value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { 
+                          ...systemSettings.themeSettings!, 
+                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderColor: e.target.value } 
+                        } 
+                      }, false)}
+                      className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Text Color</label>
+                    <input 
+                      type="color" 
+                      value={systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { 
+                          ...systemSettings.themeSettings!, 
+                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTextColor: e.target.value } 
+                        } 
+                      }, false)}
+                      className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Title</label>
+                    <input 
+                      type="text" 
+                      value={systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { 
+                          ...systemSettings.themeSettings!, 
+                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTitle: e.target.value } 
+                        } 
+                      }, false)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-2">Card Header Padding (rem)</label>
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderPadding || '1.5'}
+                      onChange={(e) => updateSystemSettings({ 
+                        themeSettings: { 
+                          ...systemSettings.themeSettings!, 
+                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderPadding: e.target.value } 
+                        } 
+                      }, false)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                    />
                   </div>
                 </div>
               </div>
@@ -2734,78 +2713,157 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
           {/* Theme Preview Card */}
           <div className="space-y-6">
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-2">Theme Live Preview (Simulated)</h4>
+            <div className="flex items-center justify-between px-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Theme Live Preview (Simulated)</h4>
+              <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
+                <button 
+                  onClick={() => setPreviewMode('dashboard')}
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${previewMode === 'dashboard' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={() => setPreviewMode('login')}
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${previewMode === 'login' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Login Page
+                </button>
+              </div>
+            </div>
             
             {/* Main Preview */}
             <div 
               className="bg-slate-100 rounded-3xl p-8 border border-slate-200 min-h-[500px] flex gap-4 overflow-hidden"
               style={{ fontFamily: systemSettings.themeSettings?.fontFamily }}
             >
-              {/* Sidebar Preview */}
-              <div 
-                className="w-48 rounded-2xl flex flex-col transition-all duration-300"
-                style={{ 
-                  backgroundColor: systemSettings.themeSettings?.sidebarBgColor,
-                  color: systemSettings.themeSettings?.sidebarTextColor,
-                  boxShadow: {
-                    'none': 'none',
-                    'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-                    'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                    'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                    'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
-                  }[systemSettings.themeSettings?.sidebarShadow || 'none'],
-                  borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
-                                systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
-                                systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
-                                systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
-                                systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
-                                systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
-                }}
-              >
-                <div className="p-4 border-b border-white/10 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
-                    <BitLogo className="w-4 h-4" />
+              {previewMode === 'dashboard' ? (
+                <>
+                  {/* Sidebar Preview */}
+                  <div 
+                    className="w-48 rounded-2xl flex flex-col transition-all duration-300 shrink-0"
+                    style={{ 
+                      backgroundColor: systemSettings.themeSettings?.sidebarBgColor,
+                      color: systemSettings.themeSettings?.sidebarTextColor,
+                      boxShadow: {
+                        'none': 'none',
+                        'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                        'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                        'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                        '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                      }[systemSettings.themeSettings?.sidebarShadow || 'none'],
+                      borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
+                                    systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                    systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                    systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                    systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                    systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
+                    }}
+                  >
+                    <div className="p-4 border-b border-white/10 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
+                        <BitLogo className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-tight">BIT Mesra</span>
+                    </div>
+                    <div className="p-3 space-y-2 flex-1">
+                      <div className="h-8 rounded-lg bg-white/20 flex items-center px-3 gap-2">
+                        <ShieldCheck className="w-3 h-3" />
+                        <span className="text-[10px] font-medium">Dashboard</span>
+                      </div>
+                      <div className="h-8 rounded-lg bg-transparent flex items-center px-3 gap-2 opacity-70">
+                        <Plus className="w-3 h-3" />
+                        <span className="text-[10px] font-medium">Apply Leave</span>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-black/10 rounded-b-2xl border-t border-white/5 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-white/30" />
+                      <div className="flex-1">
+                        <div className="h-1.5 w-12 bg-white/40 rounded-full mb-1" />
+                        <div className="h-1 w-8 bg-white/20 rounded-full" />
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-tight">BIT Mesra</span>
-                </div>
-                <div className="p-3 space-y-2 flex-1">
-                  <div className="h-8 rounded-lg bg-white/20 flex items-center px-3 gap-2">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span className="text-[10px] font-medium">Dashboard</span>
-                  </div>
-                  <div className="h-8 rounded-lg bg-transparent flex items-center px-3 gap-2 opacity-70">
-                    <Plus className="w-3 h-3" />
-                    <span className="text-[10px] font-medium">Apply Leave</span>
-                  </div>
-                </div>
-                <div className="p-4 bg-black/10 rounded-b-2xl border-t border-white/5 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-white/30" />
-                  <div className="flex-1">
-                    <div className="h-1.5 w-12 bg-white/40 rounded-full mb-1" />
-                    <div className="h-1 w-8 bg-white/20 rounded-full" />
-                  </div>
-                </div>
-              </div>
 
-              {/* Content Preview */}
-              <div className="flex-1 flex flex-col gap-4">
-                {/* Header Preview */}
+                  {/* Content Preview */}
+                  <div className="flex-1 flex flex-col gap-4">
+                    {/* Header Preview */}
+                    <div 
+                      className="h-12 rounded-2xl flex items-center justify-between px-6 border border-slate-200 transition-all duration-300"
+                      style={{ 
+                        backgroundColor: systemSettings.themeSettings?.navBgColor,
+                        color: systemSettings.themeSettings?.navTextColor,
+                        boxShadow: {
+                          'none': 'none',
+                          'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                          'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                          'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                          'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                          '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                        }[systemSettings.themeSettings?.navShadow || 'none'],
+                        height: Math.min(parseInt(systemSettings.themeSettings?.headerHeight || '64px'), 48) + 'px',
+                        borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '999px' : 
+                                      systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                      systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                      systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                      systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                      systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor }} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Leave Portal</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full border border-slate-200" />
+                      </div>
+                    </div>
+
+                    {/* Dashboard Card Preview */}
+                    <div className="flex-1 bg-white p-6 border border-slate-200 transition-all duration-300 space-y-4 overflow-hidden" style={{
+                      borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
+                                    systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
+                                    systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
+                                    systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
+                                    systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
+                                    systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px',
+                      boxShadow: {
+                        'none': 'none',
+                        'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+                        'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                        'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                        '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
+                      }[systemSettings.themeSettings?.cardShadow || 'sm']
+                    }}>
+                      <div className="h-20 rounded-2xl p-4 flex flex-col justify-between" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor, color: '#fff' }}>
+                        <div className="h-2 w-16 bg-white/30 rounded-full" />
+                        <div className="h-4 w-32 bg-white/80 rounded-full" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
+                          <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3 text-primary" style={{ color: systemSettings.themeSettings?.primaryColor }} />
+                          </div>
+                          <div className="h-2 w-12 bg-slate-200 rounded-full" />
+                        </div>
+                        <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
+                          <div className="w-6 h-6 rounded bg-amber-50 flex items-center justify-center">
+                            <Clock className="w-3 h-3 text-amber-600" />
+                          </div>
+                          <div className="h-2 w-12 bg-slate-200 rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <div 
-                  className="h-12 rounded-2xl flex items-center justify-between px-6 border border-slate-200 transition-all duration-300"
+                  className="w-full flex items-center justify-center transition-all duration-300"
                   style={{ 
-                    backgroundColor: systemSettings.themeSettings?.navBgColor,
-                    color: systemSettings.themeSettings?.navTextColor,
-                    boxShadow: {
-                      'none': 'none',
-                      'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-                      'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                      'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                      'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                      '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
-                    }[systemSettings.themeSettings?.navShadow || 'none'],
-                    height: parseInt(systemSettings.themeSettings?.headerHeight || '64px') * 0.75 + 'px',
-                    borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '999px' : 
+                    backgroundColor: systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc',
+                    borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '24px' : 
                                   systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
                                   systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
                                   systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
@@ -2813,53 +2871,46 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                                   systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
                   }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Leave Portal</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full border border-slate-200" />
-                  </div>
-                </div>
-
-                {/* Dashboard Card Preview */}
-                <div className="flex-1 bg-white p-6 border border-slate-200 transition-all duration-300 space-y-4" style={{
-                  boxShadow: {
-                    'none': 'none',
-                    'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-                    'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                    'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-                    'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)'
-                  }[systemSettings.themeSettings?.cardShadow || 'sm'],
-                  borderRadius: systemSettings.themeSettings?.borderRadius === 'full' ? '32px' : 
-                                systemSettings.themeSettings?.borderRadius === 'none' ? '0' :
-                                systemSettings.themeSettings?.borderRadius === 'sm' ? '4px' :
-                                systemSettings.themeSettings?.borderRadius === 'md' ? '8px' :
-                                systemSettings.themeSettings?.borderRadius === 'lg' ? '12px' :
-                                systemSettings.themeSettings?.borderRadius === 'xl' ? '16px' : '24px'
-                }}>
-                  <div className="h-20 rounded-2xl p-4 flex flex-col justify-between" style={{ backgroundColor: systemSettings.themeSettings?.primaryColor, color: '#fff' }}>
-                    <div className="h-2 w-16 bg-white/30 rounded-full" />
-                    <div className="h-4 w-32 bg-white/80 rounded-full" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
-                      <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center">
-                        <CheckCircle2 className="w-3 h-3 text-primary" style={{ color: systemSettings.themeSettings?.primaryColor }} />
+                  <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-[280px] overflow-hidden border border-slate-100">
+                    <div 
+                      className="transition-all duration-300"
+                      style={{ 
+                        backgroundColor: systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5',
+                        padding: (systemSettings.themeSettings?.loginPageSettings?.cardHeaderPadding || '1.5') + 'rem',
+                        color: systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff'
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center shadow-sm">
+                           <BitLogo className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="font-bold text-[11px] truncate leading-tight">
+                            {systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'BIT Leave Portal'}
+                          </h5>
+                          <p className="text-[7px] opacity-70 truncate">Birla Institute of Technology, Mesra</p>
+                        </div>
                       </div>
-                      <div className="h-2 w-12 bg-slate-200 rounded-full" />
                     </div>
-                    <div className="h-24 rounded-2xl bg-slate-50 border border-slate-100 p-3 space-y-2">
-                      <div className="w-6 h-6 rounded bg-amber-50 flex items-center justify-center">
-                        <Clock className="w-3 h-3 text-amber-600" />
+                    <div className="p-6 space-y-4">
+                      <div className="space-y-1.5">
+                        <div className="h-1.5 w-16 bg-slate-300 rounded-full" />
+                        <div className="h-8 bg-slate-50 rounded-lg border border-slate-200" />
                       </div>
-                      <div className="h-2 w-12 bg-slate-200 rounded-full" />
+                      <div className="space-y-1.5">
+                        <div className="h-1.5 w-16 bg-slate-300 rounded-full" />
+                        <div className="h-8 bg-slate-50 rounded-lg border border-slate-200" />
+                      </div>
+                      <div 
+                        className="h-10 rounded-xl shadow-lg shadow-indigo-100 flex items-center justify-center"
+                        style={{ backgroundColor: systemSettings.themeSettings?.primaryColor || '#3F51B5' }}
+                      >
+                         <div className="h-2 w-20 bg-white/30 rounded-full" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

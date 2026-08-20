@@ -214,6 +214,7 @@ export interface ThemeSettings {
     cardHeaderColor: string;
     cardTextColor: string;
     cardTitle: string;
+    cardHeaderPadding: string;
   };
 }
 
