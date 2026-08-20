@@ -273,10 +273,13 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
       const connected = await initMongo();
       if (connected && mongoose.connection.readyState === 1) {
         const themes = await ThemeModel.find({}).lean();
+        console.log("Fetched themes from DB:", themes);
         return res.json({ success: true, themes });
       }
+      console.log("DB not connected, using in-memory themes");
       return res.json({ success: true, themes: inMemoryStore.themes || [] });
     } catch (err: any) {
+      console.error("Error fetching themes:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   });
@@ -284,6 +287,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
   app.post("/api/themes", async (req, res) => {
     try {
       const themeData = req.body;
+      console.log("Saving theme:", themeData);
       if (!themeData || !themeData.id) {
         return res.status(400).json({ success: false, message: "Theme ID is required." });
       }
@@ -294,8 +298,10 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
           { ...themeData, updatedAt: new Date().toISOString() },
           { upsert: true, new: true }
         ).lean();
+        console.log("Saved theme in DB:", saved);
         return res.json({ success: true, theme: saved });
       }
+      console.log("DB not connected, using in-memory storage for theme");
       if (!inMemoryStore.themes) inMemoryStore.themes = [];
       const idx = inMemoryStore.themes.findIndex((t: any) => t.id === themeData.id);
       if (idx >= 0) {
@@ -305,6 +311,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
       }
       return res.json({ success: true, theme: themeData });
     } catch (err: any) {
+      console.error("Error saving theme:", err);
       return res.status(500).json({ success: false, message: err.message });
     }
   });

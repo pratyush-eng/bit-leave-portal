@@ -766,7 +766,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             settings: updatedTheme,
             updatedBy: currentUser?.name || 'SUPER_ADMIN'
           })
-        }).catch(() => {});
+        }).then(res => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return res.json();
+        }).then(data => {
+          console.log("Theme saved successfully:", data);
+        }).catch((err) => {
+          console.error("Error saving theme to MongoDB:", err);
+        });
 
         // Defer side effects to ensure they don't trigger during an active render cycle
         setTimeout(() => {
