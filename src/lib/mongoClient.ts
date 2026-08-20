@@ -19,12 +19,18 @@ let currentStatus: SyncStatus = {
 
 export function notifySyncListeners(status: Partial<SyncStatus>) {
   currentStatus = { ...currentStatus, ...status };
-  listeners.forEach((fn) => fn(currentStatus));
+  setTimeout(() => {
+    listeners.forEach((fn) => {
+      try {
+        fn(currentStatus);
+      } catch (_e) {}
+    });
+  }, 0);
 }
 
 export function subscribeToSyncStatus(callback: SyncListener) {
   listeners.add(callback);
-  callback(currentStatus);
+  setTimeout(() => callback(currentStatus), 0);
   return () => {
     listeners.delete(callback);
   };

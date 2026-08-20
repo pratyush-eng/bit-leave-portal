@@ -44,8 +44,16 @@ export const Header: React.FC<HeaderProps> = ({
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeToSyncStatus(setSyncStatus);
-    return () => unsub();
+    let isMounted = true;
+    const unsub = subscribeToSyncStatus((status) => {
+      if (isMounted) {
+        setSyncStatus(status);
+      }
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {

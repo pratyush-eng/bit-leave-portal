@@ -697,13 +697,15 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           type = 'WARNING';
         }
 
-        addToast({
-          title,
-          message: `Your leave application #${req.id} status changed to ${req.status.replace('_', ' ')}.`,
-          type,
-          leaveId: req.id,
-          status: req.status
-        });
+        setTimeout(() => {
+          addToast({
+            title,
+            message: `Your leave application #${req.id} status changed to ${req.status.replace('_', ' ')}.`,
+            type,
+            leaveId: req.id,
+            status: req.status
+          });
+        }, 0);
       }
       prevStatusesRef.current[req.id] = req.status;
     });
@@ -754,6 +756,17 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         saveDocToMongo('system_privileges', 'global', fullUpdated);
         saveDocToMongo('settings', 'global', fullUpdated);
         syncDataToMongo({ systemSettings: fullUpdated });
+        fetch('/api/themes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: 'global_active_theme',
+            name: 'Active Global Theme',
+            isDefault: true,
+            settings: updatedTheme,
+            updatedBy: currentUser?.name || 'SUPER_ADMIN'
+          })
+        }).catch(() => {});
 
         // Defer side effects to ensure they don't trigger during an active render cycle
         setTimeout(() => {
@@ -1029,6 +1042,14 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(mongoData.permissionMatrix) && mongoData.permissionMatrix.length > 0) {
         setPermissionMatrix((prev) => isDeepEqual(mongoData.permissionMatrix, prev) ? prev : mongoData.permissionMatrix);
       }
+      let loadedThemeSettings = DEFAULT_THEME_SETTINGS;
+      if (Array.isArray(mongoData.themes) && mongoData.themes.length > 0) {
+        const activeTheme = mongoData.themes.find((t: any) => t.id === 'global_active_theme' || t.isDefault) || mongoData.themes[0];
+        if (activeTheme && activeTheme.settings) {
+          loadedThemeSettings = { ...DEFAULT_THEME_SETTINGS, ...activeTheme.settings };
+        }
+      }
+
       if (mongoData.systemSettings && typeof mongoData.systemSettings === 'object') {
         // Prevent overwriting local "preview" settings with server data if user is currently editing
         if (hasUnsavedSettings) {
@@ -1040,11 +1061,20 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...DEFAULT_SYSTEM_SETTINGS,
           ...sys,
           themeSettings: {
-            ...DEFAULT_THEME_SETTINGS,
+            ...loadedThemeSettings,
             ...(sys.themeSettings || {})
           }
         };
         setSystemSettings((prev) => isDeepEqual(updatedSys, prev) ? prev : updatedSys);
+      } else {
+         // Fallback if systemSettings are not loaded but themes were
+         setSystemSettings((prev: SystemSettings) => {
+            if (isDeepEqual(prev.themeSettings, loadedThemeSettings)) return prev;
+            return {
+              ...prev,
+              themeSettings: loadedThemeSettings
+            };
+         });
       }
     } catch (_err) {
       // Soft fallback when offline

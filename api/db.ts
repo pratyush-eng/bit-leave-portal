@@ -141,6 +141,15 @@ export const SystemPrivilegeSchema = new mongoose.Schema({
   updatedBy: { type: String, default: "SUPER_ADMIN" },
 }, { timestamps: true });
 
+export const ThemeSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, default: "Default Theme" },
+  isDefault: { type: Boolean, default: false },
+  settings: { type: mongoose.Schema.Types.Mixed, default: {} },
+  updatedAt: { type: String, default: "" },
+  updatedBy: { type: String, default: "SUPER_ADMIN" },
+}, { timestamps: true });
+
 export const UserModel: any = mongoose.models.User || mongoose.model("User", UserSchema, "users");
 export const LeaveRequestModel: any = mongoose.models.LeaveRequest || mongoose.model("LeaveRequest", LeaveRequestSchema, "leave_requests");
 export const DepartmentModel: any = mongoose.models.Department || mongoose.model("Department", DepartmentSchema, "departments");
@@ -150,6 +159,7 @@ export const LeaveBalanceModel: any = mongoose.models.LeaveBalance || mongoose.m
 export const PermissionMatrixModel: any = mongoose.models.PermissionMatrix || mongoose.model("PermissionMatrix", PermissionMatrixSchema, "permission_matrix");
 export const SystemSettingsModel: any = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema, "system_settings");
 export const SystemPrivilegeModel: any = mongoose.models.SystemPrivilege || mongoose.model("SystemPrivilege", SystemPrivilegeSchema, "system_privileges");
+export const ThemeModel: any = mongoose.models.Theme || mongoose.model("Theme", ThemeSchema, "themes");
 
 let cachedConnection: typeof mongoose | null = null;
 let connectionPromise: Promise<typeof mongoose> | null = null;

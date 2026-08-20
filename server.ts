@@ -14,6 +14,7 @@ import {
   PermissionMatrixModel, 
   SystemSettingsModel, 
   SystemPrivilegeModel,
+  ThemeModel,
   getMongoUri,
   getMaskedUri,
   setCustomMongoUri
@@ -49,6 +50,7 @@ let inMemoryStore: {
   leaveBalances: any[];
   permissionMatrix: any[];
   systemSettings: any;
+  themes: any[];
 } = {
   users: [],
   leaveRequests: [],
@@ -56,6 +58,7 @@ let inMemoryStore: {
   leavePolicies: [],
   auditLogs: [],
   leaveBalances: [],
+  themes: [],
   permissionMatrix: [
     {
       id: "usr_5",
@@ -89,6 +92,35 @@ async function initMongo(customUri?: string): Promise<boolean> {
     await connectToDatabase(uri);
     activeMongoUri = uri;
     activeMongoSource = customUri ? "custom_input" : "env";
+
+    // Ensure themes collection is physically created in MongoDB Atlas
+    ThemeModel.updateOne(
+      { id: 'global_active_theme' },
+      { 
+        $setOnInsert: { 
+          id: 'global_active_theme', 
+          name: 'Default Active Theme', 
+          isDefault: true, 
+          settings: { 
+            navBgColor: '#ffffff', 
+            navTextColor: '#1e293b', 
+            sidebarBgColor: '#3F51B5', 
+            sidebarTextColor: '#ffffff', 
+            primaryColor: '#3F51B5', 
+            fontFamily: 'Inter, system-ui, sans-serif', 
+            borderRadius: 'xl', 
+            headerHeight: '64px', 
+            navShadow: 'sm', 
+            sidebarShadow: 'none', 
+            cardShadow: 'sm' 
+          },
+          updatedBy: 'SUPER_ADMIN',
+          updatedAt: new Date().toISOString()
+        } 
+      },
+      { upsert: true }
+    ).catch(() => {});
+
     return true;
   } catch (err: any) {
     mongoConnectError = err?.message || String(err);
@@ -108,6 +140,43 @@ const PORT = 3000;
 // Simple health check for Vercel - DEFINED FIRST
 app.get("/api/ping", (req, res) => {
   res.json({ status: "alive", time: new Date().toISOString(), vercel: !!process.env.VERCEL });
+});
+
+app.get("/api/create-theme", async (req, res) => {
+  console.log("Accessing /api/create-theme");
+  try {
+    await connectToDatabase();
+    await ThemeModel.updateOne(
+      { id: 'global_active_theme' },
+      { 
+        $setOnInsert: { 
+          id: 'global_active_theme', 
+          name: 'Default Active Theme', 
+          isDefault: true, 
+          settings: { 
+            navBgColor: '#ffffff', 
+            navTextColor: '#1e293b', 
+            sidebarBgColor: '#3F51B5', 
+            sidebarTextColor: '#ffffff', 
+            primaryColor: '#3F51B5', 
+            fontFamily: 'Inter, system-ui, sans-serif', 
+            borderRadius: 'xl', 
+            headerHeight: '64px', 
+            navShadow: 'sm', 
+            sidebarShadow: 'none', 
+            cardShadow: 'sm' 
+          },
+          updatedBy: 'SUPER_ADMIN',
+          updatedAt: new Date().toISOString()
+        } 
+      },
+      { upsert: true }
+    );
+    res.json({ success: true, message: "Theme collection created/updated successfully." });
+  } catch (err) {
+    console.error("Error creating theme:", err);
+    res.status(500).json({ success: false, message: "Failed to create theme.", error: err });
+  }
 });
 
 app.use(express.json({ limit: "10mb" }));
@@ -133,7 +202,7 @@ app.use((req, res, next) => {
 const handleStatus = async (req: express.Request, res: express.Response) => {
     const connected = await initMongo();
     const maskedUri = getMaskedUri(activeMongoUri);
-    const collectionList = ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges"];
+    const collectionList = ["users", "leave_requests", "departments", "leave_policies", "audit_logs", "permission_matrix", "system_settings", "system_privileges", "themes"];
 
     if (!connected) {
       return res.json({
@@ -197,6 +266,65 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
   };
 
   app.all(["/api/mongo/status", "/api/neon/status", "/api/db/status"], handleStatus);
+
+  // Themes Management API (MongoDB Collection: themes)
+  app.get("/api/themes", async (req, res) => {
+    try {
+      const connected = await initMongo();
+      if (connected && mongoose.connection.readyState === 1) {
+        const themes = await ThemeModel.find({}).lean();
+        return res.json({ success: true, themes });
+      }
+      return res.json({ success: true, themes: inMemoryStore.themes || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  app.post("/api/themes", async (req, res) => {
+    try {
+      const themeData = req.body;
+      if (!themeData || !themeData.id) {
+        return res.status(400).json({ success: false, message: "Theme ID is required." });
+      }
+      const connected = await initMongo();
+      if (connected && mongoose.connection.readyState === 1) {
+        const saved = await ThemeModel.findOneAndUpdate(
+          { id: themeData.id },
+          { ...themeData, updatedAt: new Date().toISOString() },
+          { upsert: true, new: true }
+        ).lean();
+        return res.json({ success: true, theme: saved });
+      }
+      if (!inMemoryStore.themes) inMemoryStore.themes = [];
+      const idx = inMemoryStore.themes.findIndex((t: any) => t.id === themeData.id);
+      if (idx >= 0) {
+        inMemoryStore.themes[idx] = { ...inMemoryStore.themes[idx], ...themeData, updatedAt: new Date().toISOString() };
+      } else {
+        inMemoryStore.themes.push({ ...themeData, updatedAt: new Date().toISOString() });
+      }
+      return res.json({ success: true, theme: themeData });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  app.delete("/api/themes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const connected = await initMongo();
+      if (connected && mongoose.connection.readyState === 1) {
+        await ThemeModel.deleteOne({ id });
+        return res.json({ success: true, message: `Theme ${id} deleted.` });
+      }
+      if (inMemoryStore.themes) {
+        inMemoryStore.themes = inMemoryStore.themes.filter((t: any) => t.id !== id);
+      }
+      return res.json({ success: true, message: `Theme ${id} deleted.` });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
 
   // Dedicated direct auth login endpoint (direct MongoDB query)
   app.post("/api/auth/login", async (req: express.Request, res: express.Response) => {
@@ -555,7 +683,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
     const connected = await initMongo();
     if (connected && mongoose.connection.readyState === 1) {
       try {
-        const [rawUsers, rawLeaveRequests, rawDepartments, rawLeavePolicies, rawAuditLogs, rawLeaveBalances, rawPermissionMatrix, sysDoc, privDoc] = await Promise.all([
+        const [rawUsers, rawLeaveRequests, rawDepartments, rawLeavePolicies, rawAuditLogs, rawLeaveBalances, rawPermissionMatrix, sysDoc, privDoc, rawThemes] = await Promise.all([
           UserModel.find().lean(),
           LeaveRequestModel.find().lean(),
           DepartmentModel.find().lean(),
@@ -565,6 +693,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
           PermissionMatrixModel.find().lean(),
           SystemSettingsModel.findOne({ id: "default" }).lean(),
           SystemPrivilegeModel.findOne({ id: "default" }).lean(),
+          ThemeModel.find().lean(),
         ]);
 
         const users = (rawUsers || []).map((u: any) => ({
@@ -643,6 +772,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
         inMemoryStore.auditLogs = auditLogs || [];
         inMemoryStore.leaveBalances = leaveBalances || [];
         inMemoryStore.permissionMatrix = permissionMatrix || [];
+        inMemoryStore.themes = rawThemes || [];
         if (systemSettings) inMemoryStore.systemSettings = systemSettings;
 
         return res.json({
@@ -656,6 +786,7 @@ const handleStatus = async (req: express.Request, res: express.Response) => {
             auditLogs: auditLogs || [],
             leaveBalances: leaveBalances || [],
             permissionMatrix: permissionMatrix || [],
+            themes: rawThemes || [],
             systemSettings,
             systemPrivileges: mergedSettings ? [mergedSettings] : [],
           }
