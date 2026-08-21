@@ -2248,8 +2248,16 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     saveDocToMongo('users', userId, updatedUser);
+    console.log("Saving permission matrix entry:", pmEntry);
     saveDocToMongo('permission_matrix', userId, pmEntry);
-    savePermissionMatrixToMongo(pmEntry).catch(() => {});
+    savePermissionMatrixToMongo(pmEntry).catch((err) => {
+      console.error("Failed to save permission matrix:", err);
+      addToast({
+        title: 'Error 🚫',
+        message: 'Failed to save permissions to database.',
+        type: 'ERROR'
+      });
+    });
     syncDataToMongo({ users: [updatedUser], permissionMatrix: [pmEntry] }).catch(() => {});
     addAuditLog(currentUser, 'ROLE_UPDATED', `Updated role to ${role} and permission matrix entry for user ${targetUser.name} (${userId}).`);
   }, [allUsers, currentUser, addAuditLog, addToast]);

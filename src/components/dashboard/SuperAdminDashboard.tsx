@@ -575,6 +575,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
 
   const handleTogglePermission = (permId: string) => {
+    console.log("Toggling permission:", permId, "for user:", targetUser?.id);
     if (!targetUser) return;
     let updated: string[];
     if (currentAssigned.includes(permId)) {
@@ -582,6 +583,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     } else {
       updated = [...currentAssigned, permId];
     }
+    console.log("New permissions:", updated);
     updateUserRoleAndPermissions(targetUser.id, targetUser.role, updated);
   };
 
