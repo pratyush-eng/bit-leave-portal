@@ -1136,6 +1136,30 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [syncWithMongo]);
 
+  // Sync session state across multiple browser tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.AUTH) {
+        const newVal = e.newValue !== null ? JSON.parse(e.newValue) : false;
+        if (newVal !== isAuthenticated) {
+          setIsAuthenticated(newVal);
+          if (newVal === false) {
+            setCurrentUserId('');
+            setCurrentUserEmail('');
+          } else {
+            const savedId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+            const savedEmail = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_EMAIL);
+            if (savedId) setCurrentUserId(savedId);
+            if (savedEmail) setCurrentUserEmail(savedEmail);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [isAuthenticated]);
+
   const login = useCallback(async (email: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const cleanPassword = String(password || '').trim();
@@ -1242,8 +1266,12 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const logout = useCallback(() => {
     addAuditLog(currentUser, 'USER_LOGOUT', `User ${currentUser?.name || 'Unknown'} logged out.`);
     setIsAuthenticated(false);
+    setCurrentUserId('');
+    setCurrentUserEmail('');
     try {
       localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(false));
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_EMAIL);
     } catch (_e) {}
   }, [currentUser, addAuditLog]);
 

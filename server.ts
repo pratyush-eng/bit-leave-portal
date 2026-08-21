@@ -52,7 +52,22 @@ let inMemoryStore: {
   systemSettings: any;
   themes: any[];
 } = {
-  users: [],
+  users: [
+    {
+      id: "usr_5",
+      name: "Webmaster BIT Mesra",
+      email: "webmaster@bitmesra.ac.in",
+      password: "password123",
+      role: "SUPER_ADMIN",
+      designation: "Systems Administrator",
+      departmentId: "ADMIN",
+      departmentName: "Administration",
+      employeeCode: "BIT_WM_001",
+      phone: "+91-1234567890",
+      accountStatus: "ACTIVE",
+      assignedPermissions: ["PERM_APPROVE_OVERRIDE", "PERM_ADJUST_BALANCE", "PERM_MANAGE_USERS", "PERM_EXPORT_REPORTS", "PERM_CONFIG_POLICIES"]
+    }
+  ],
   leaveRequests: [],
   departments: [],
   leavePolicies: [],
