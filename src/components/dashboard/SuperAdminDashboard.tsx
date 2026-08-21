@@ -137,6 +137,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [logRowsPerPage, setLogRowsPerPage] = useState<number>(10);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState<User | null>(null);
   const [previewMode, setPreviewMode] = useState<'dashboard' | 'login'>('dashboard');
+  const [pendingPermissions, setPendingPermissions] = useState<string[]>([]);
+  const [isApplying, setIsApplying] = useState(false);
 
   // Department state (Super Admin Exclusive)
   const [showAddDeptModal, setShowAddDeptModal] = useState<boolean>(false);
@@ -575,17 +577,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
 
   const handleTogglePermission = (permId: string) => {
-    console.log("Toggling permission:", permId, "for user:", targetUser?.id);
     if (!targetUser) return;
-    let updated: string[];
-    if (currentAssigned.includes(permId)) {
-      updated = currentAssigned.filter(p => p !== permId);
-    } else {
-      updated = [...currentAssigned, permId];
-    }
-    console.log("New permissions:", updated);
-    updateUserRoleAndPermissions(targetUser.id, targetUser.role, updated);
+    setPendingPermissions((prev) => 
+      prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
+    );
   };
+
+  const applyPermissions = async () => {
+    if (!targetUser) return;
+    setIsApplying(true);
+    updateUserRoleAndPermissions(targetUser.id, targetUser.role, pendingPermissions);
+    setIsApplying(false);
+  };
+
+  useEffect(() => {
+    if (targetUser) {
+      setPendingPermissions(currentAssigned);
+    }
+  }, [targetUser, currentAssigned]);
 
   const handleCreateUserBySuperAdmin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1036,6 +1045,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
               {targetUser && (
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={applyPermissions}
+                    disabled={isApplying || JSON.stringify(pendingPermissions.sort()) === JSON.stringify(currentAssigned.sort())}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-lg cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isApplying ? 'Applying...' : 'Apply Permissions'}
+                  </button>
                   <MaterialChip label={targetUser.role} variant="role" role={targetUser.role} />
                   <button
                     type="button"
@@ -1051,7 +1067,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
             <div className="space-y-3">
               {granularPermissions.map((perm, idx) => {
-                const isGranted = currentAssigned.includes(perm.id);
+                const isGranted = pendingPermissions.includes(perm.id);
                 return (
                   <div
                     key={`perm-${perm.id}-${idx}`}
