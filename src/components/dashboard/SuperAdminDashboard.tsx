@@ -586,7 +586,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const applyPermissions = async () => {
     if (!targetUser) return;
     setIsApplying(true);
-    updateUserRoleAndPermissions(targetUser.id, targetUser.role, pendingPermissions);
+    await updateUserRoleAndPermissions(targetUser.id, targetUser.role, pendingPermissions);
     setIsApplying(false);
   };
 

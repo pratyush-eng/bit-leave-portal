@@ -2204,7 +2204,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   }, [allUsers, currentUser, addAuditLog, addToast]);
 
-  const updateUserRoleAndPermissions = useCallback((userId: string, role: Role, permissions: string[]) => {
+  const updateUserRoleAndPermissions = useCallback(async (userId: string, role: Role, permissions: string[]) => {
     if (currentUser && (currentUser.role as string) === 'ADMIN') {
       const target = allUsers.find(u => u.id === userId);
       if (target && target.departmentId !== currentUser.departmentId) {
@@ -2252,10 +2252,10 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     console.log("Updating permissions for user:", userId, "New permissions:", permissions);
-    saveDocToMongo('users', userId, updatedUser);
+    await saveDocToMongo('users', userId, updatedUser);
     console.log("Saving permission matrix entry:", pmEntry);
-    saveDocToMongo('permission_matrix', userId, pmEntry);
-    savePermissionMatrixToMongo(pmEntry).catch((err) => {
+    await saveDocToMongo('permission_matrix', userId, pmEntry);
+    await savePermissionMatrixToMongo(pmEntry).catch((err) => {
       console.error("Failed to save permission matrix:", err);
       addToast({
         title: 'Error 🚫',
