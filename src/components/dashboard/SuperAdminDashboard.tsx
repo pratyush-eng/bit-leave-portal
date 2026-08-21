@@ -577,7 +577,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const pendingUsers = allUsers.filter(u => u.accountStatus === 'PENDING_APPROVAL');
 
   const handleTogglePermission = (permId: string) => {
-    if (!targetUser) return;
+    if (!targetUser || isApplying) return;
     setPendingPermissions((prev) => 
       prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
     );
@@ -1072,10 +1072,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                   <div
                     key={`perm-${perm.id}-${idx}`}
                     onClick={() => handleTogglePermission(perm.id)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start justify-between ${
+                    className={`p-4 rounded-xl border transition-all flex items-start justify-between ${
+                      isApplying ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-slate-100'
+                    } ${
                       isGranted 
                         ? 'bg-emerald-50/80 border-emerald-300' 
-                        : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100'
+                        : 'bg-slate-50/60 border-slate-200'
                     }`}
                   >
                     <div className="pr-4">
@@ -1092,8 +1094,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       <input
                         type="checkbox"
                         checked={isGranted}
+                        disabled={isApplying}
                         onChange={() => {}} // handled by parent onClick
-                        className="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                        className={`w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 ${
+                          isApplying ? 'cursor-not-allowed' : 'cursor-pointer'
+                        }`}
                       />
                     </div>
                   </div>
