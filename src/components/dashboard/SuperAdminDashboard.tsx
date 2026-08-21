@@ -592,7 +592,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
 
   useEffect(() => {
     if (targetUser) {
-      setPendingPermissions(currentAssigned);
+      if (JSON.stringify(pendingPermissions.sort()) !== JSON.stringify(currentAssigned.sort())) {
+        setPendingPermissions(currentAssigned);
+      }
     }
   }, [targetUser]);
 
