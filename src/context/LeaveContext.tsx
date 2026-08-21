@@ -2226,7 +2226,11 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const targetUser = allUsers.find(u => u.id === userId);
     if (!targetUser) return;
-    const updatedUser: User = { ...targetUser, role, assignedPermissions: permissions };
+    
+    // Ensure permissions is an array even if empty
+    const sanitizedPermissions = Array.isArray(permissions) ? permissions : [];
+    
+    const updatedUser: User = { ...targetUser, role, assignedPermissions: sanitizedPermissions };
     setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
 
     const pmEntry: PermissionMatrixEntry = {
@@ -2236,7 +2240,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       userEmail: targetUser.email,
       role,
       departmentId: targetUser.departmentId || '',
-      permissions,
+      permissions: sanitizedPermissions,
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser?.name || 'SUPER_ADMIN'
     };
