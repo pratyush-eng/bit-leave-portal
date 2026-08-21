@@ -2247,6 +2247,7 @@ export const LeaveProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [...prev, pmEntry];
     });
 
+    console.log("Updating permissions for user:", userId, "New permissions:", permissions);
     saveDocToMongo('users', userId, updatedUser);
     console.log("Saving permission matrix entry:", pmEntry);
     saveDocToMongo('permission_matrix', userId, pmEntry);

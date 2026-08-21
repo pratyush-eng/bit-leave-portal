@@ -594,7 +594,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
     if (targetUser) {
       setPendingPermissions(currentAssigned);
     }
-  }, [targetUser, currentAssigned]);
+  }, [targetUser]);
 
   const handleCreateUserBySuperAdmin = (e: React.FormEvent) => {
     e.preventDefault();
