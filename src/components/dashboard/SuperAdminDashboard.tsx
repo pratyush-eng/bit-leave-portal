@@ -177,6 +177,26 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
   const [institutionNameInput, setInstitutionNameInput] = useState<string>(systemSettings.institutionName || 'BIT Leave Portal');
   const [brandingSaveMsg, setBrandingSaveMsg] = useState<string | null>(null);
 
+  const DEFAULT_LOGIN_PAGE_SETTINGS = {
+    backgroundColor: '#f8fafc',
+    cardHeaderColor: '#3F51B5',
+    cardTextColor: '#ffffff',
+    cardTitle: 'Welcome to Portal',
+    cardHeaderPadding: '1.5'
+  };
+
+  const updateLoginPageSettings = (key: string, value: string) => {
+    updateSystemSettings({ 
+      themeSettings: { 
+        ...systemSettings.themeSettings!, 
+        loginPageSettings: { 
+          ...(systemSettings.themeSettings?.loginPageSettings || DEFAULT_LOGIN_PAGE_SETTINGS),
+          [key]: value 
+        } 
+      } 
+    }, false);
+  };
+
   // Email Configuration state
   const initialEmailConfig = systemSettings.emailSettings || DEFAULT_EMAIL_SETTINGS;
   const [emailEnabled, setEmailEnabled] = useState<boolean>(initialEmailConfig.enabled);
@@ -2510,12 +2530,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <input 
                       type="color" 
                       value={systemSettings.themeSettings?.loginPageSettings?.backgroundColor || '#f8fafc'}
-                      onChange={(e) => updateSystemSettings({ 
-                        themeSettings: { 
-                          ...systemSettings.themeSettings!, 
-                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, backgroundColor: e.target.value } 
-                        } 
-                      }, false)}
+                      onChange={(e) => updateLoginPageSettings('backgroundColor', e.target.value)}
                       className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                     />
                   </div>
@@ -2524,12 +2539,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <input 
                       type="color" 
                       value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderColor || '#3F51B5'}
-                      onChange={(e) => updateSystemSettings({ 
-                        themeSettings: { 
-                          ...systemSettings.themeSettings!, 
-                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderColor: e.target.value } 
-                        } 
-                      }, false)}
+                      onChange={(e) => updateLoginPageSettings('cardHeaderColor', e.target.value)}
                       className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                     />
                   </div>
@@ -2538,12 +2548,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <input 
                       type="color" 
                       value={systemSettings.themeSettings?.loginPageSettings?.cardTextColor || '#ffffff'}
-                      onChange={(e) => updateSystemSettings({ 
-                        themeSettings: { 
-                          ...systemSettings.themeSettings!, 
-                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTextColor: e.target.value } 
-                        } 
-                      }, false)}
+                      onChange={(e) => updateLoginPageSettings('cardTextColor', e.target.value)}
                       className="w-full h-10 rounded-lg border border-slate-200 p-1 cursor-pointer"
                     />
                   </div>
@@ -2552,12 +2557,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                     <input 
                       type="text" 
                       value={systemSettings.themeSettings?.loginPageSettings?.cardTitle || 'Welcome to Portal'}
-                      onChange={(e) => updateSystemSettings({ 
-                        themeSettings: { 
-                          ...systemSettings.themeSettings!, 
-                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardTitle: e.target.value } 
-                        } 
-                      }, false)}
+                      onChange={(e) => updateLoginPageSettings('cardTitle', e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                     />
                   </div>
@@ -2567,12 +2567,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onSele
                       type="number" 
                       step="0.1"
                       value={systemSettings.themeSettings?.loginPageSettings?.cardHeaderPadding || '1.5'}
-                      onChange={(e) => updateSystemSettings({ 
-                        themeSettings: { 
-                          ...systemSettings.themeSettings!, 
-                          loginPageSettings: { ...systemSettings.themeSettings?.loginPageSettings, cardHeaderPadding: e.target.value } 
-                        } 
-                      }, false)}
+                      onChange={(e) => updateLoginPageSettings('cardHeaderPadding', e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                     />
                   </div>
